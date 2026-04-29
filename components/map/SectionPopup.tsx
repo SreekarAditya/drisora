@@ -1,0 +1,50 @@
+import type { RoadSectionProperties } from "@/types";
+
+interface SectionPopupProps {
+  properties: RoadSectionProperties;
+}
+
+export function SectionPopup({ properties }: SectionPopupProps) {
+  const crackTypes = properties.crack_types.length > 0 ? properties.crack_types : ["None recorded"];
+
+  return (
+    <div className="min-w-52 space-y-3 text-sm text-neutral-100">
+      <div>
+        <div className="text-xs uppercase tracking-wide text-neutral-400">PCI score</div>
+        <div className="text-2xl font-semibold text-white">
+          {properties.pci_score == null ? "N/A" : Math.round(properties.pci_score)}
+        </div>
+      </div>
+
+      <div className="space-y-1">
+        <div className="flex justify-between gap-4">
+          <span className="text-neutral-400">Condition</span>
+          <span className="font-medium capitalize text-white">
+            {properties.condition_category?.replace("_", " ") ?? "Unknown"}
+          </span>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="text-neutral-400">Intervention</span>
+          <span className="max-w-40 text-right font-medium text-white">
+            {properties.recommended_intervention ?? "Not assigned"}
+          </span>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="text-neutral-400">Cracks</span>
+          <span className="font-medium text-white">{properties.crack_count}</span>
+        </div>
+      </div>
+
+      <div>
+        <div className="mb-1 text-xs uppercase tracking-wide text-neutral-400">Types</div>
+        <div className="flex flex-wrap gap-1">
+          {crackTypes.map((type) => (
+            <span key={type} className="rounded-full bg-neutral-800 px-2 py-0.5 text-xs text-neutral-200">
+              {type}
+            </span>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

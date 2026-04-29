@@ -1,0 +1,10 @@
+runpod
+torch
+torchvision
+ultralytics
+opencv-python-headless
+numpy
+scipy
+boto3
+supabase
+requests
