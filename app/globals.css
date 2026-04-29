@@ -1,5 +1,80 @@
 @import "tailwindcss";
 
+/* ── Font theme ───────────────────────────────────────────────────── */
+@theme {
+  --font-heading: var(--heading-font);
+  --font-sans:    var(--sans-font);
+  --font-mono:    var(--mono-font);
+}
+
+/* ── Keyframes ────────────────────────────────────────────────────── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes scan-down {
+  0%   { transform: translateY(0px);    opacity: 0; }
+  8%   { opacity: 1; }
+  92%  { opacity: 0.85; }
+  100% { transform: translateY(260px);  opacity: 0; }
+}
+
+@keyframes glow-breathe {
+  0%, 100% { opacity: 0.08; }
+  50%       { opacity: 0.18; }
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+@keyframes shimmer-x {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+/* ── Custom utilities ─────────────────────────────────────────────── */
+@utility font-heading {
+  font-family: var(--font-heading);
+}
+
+@utility bg-dot-grid {
+  background-image: radial-gradient(circle, rgba(255,255,255,0.035) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+@utility bg-cross-grid {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.018) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.018) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+@utility animate-scan {
+  animation: scan-down 5s ease-in-out infinite;
+}
+
+@utility animate-glow-breathe {
+  animation: glow-breathe 4s ease-in-out infinite;
+}
+
+@utility animate-cursor-blink {
+  animation: cursor-blink 1s step-end infinite;
+}
+
+/* ── Hero stagger helpers (inline-style compatible) ───────────────── */
+@utility hero-anim {
+  animation: fade-up 0.65s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* ── Leaflet overrides ────────────────────────────────────────────── */
 .leaflet-container {
   background: #0a0a0a;
   font-family: inherit;
