@@ -79,11 +79,31 @@ const STEPS = [
 ]
 
 const ORG_TYPES = [
-  { abbr: "PWD",   full: "Public Works Depts." },
-  { abbr: "NHAI",  full: "National Highways" },
-  { abbr: "ULBs",  full: "Municipal Corporations" },
-  { abbr: "EPC",   full: "Contractors" },
-  { abbr: "R&D",   full: "Research Institutions" },
+  {
+    abbr: "PWD",
+    full: "Public Works Departments",
+    desc: "State & national agencies responsible for road condition assessment and maintenance cycles.",
+  },
+  {
+    abbr: "NHAI",
+    full: "National Highways Authority",
+    desc: "Highway planning, monitoring, and development across India's national road network.",
+  },
+  {
+    abbr: "ULBs",
+    full: "Municipal Corporations",
+    desc: "Urban local bodies managing city road networks and pavement maintenance schedules.",
+  },
+  {
+    abbr: "EPC",
+    full: "EPC Contractors",
+    desc: "Engineering, procurement, and construction firms handling road project delivery and QA.",
+  },
+  {
+    abbr: "R&D",
+    full: "Research Institutions",
+    desc: "Academic and government technical bodies studying pavement behaviour and IRC standards.",
+  },
 ]
 
 const SPECS = [
@@ -578,24 +598,72 @@ export default function LandingPage() {
       </section>
 
       {/* ── Built for ───────────────────────────────────────────────────── */}
-      <section className="border-b border-[#161616] py-20 bg-cross-grid">
+      <section className="border-b border-[#161616] py-28 bg-cross-grid">
         <div className="mx-auto max-w-6xl px-6">
-          <p className="mb-8 text-center font-mono text-[11px] uppercase tracking-widest text-[#444]">
-            Built for infrastructure teams across India
-          </p>
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            {ORG_TYPES.map(({ abbr, full }) => (
+          <div className="grid gap-14 lg:grid-cols-[5fr_7fr] lg:items-start">
+
+            {/* Left: heading + copy */}
+            <div className="lg:pt-1">
+              <p className="mb-4 font-mono text-[11px] uppercase tracking-widest text-amber-500">
+                Trusted by
+              </p>
+              <h2 className="font-heading text-5xl font-bold uppercase leading-[0.92] tracking-tight text-white md:text-6xl">
+                India&apos;s
+                <br />
+                Infrastructure
+                <br />
+                <span style={{ color: "#333" }}>Sector</span>
+              </h2>
+              <p className="mt-6 max-w-xs text-[14px] leading-relaxed text-[#555]">
+                Built for the teams responsible for assessing, maintaining, and
+                developing India&apos;s road network — from national highways to
+                municipal streets.
+              </p>
+              {/* Decorative rule */}
               <div
-                key={abbr}
-                className="flex items-center gap-2.5 rounded-lg border px-4 py-2.5 transition-colors hover:border-[#2a2a2a] hover:bg-[#0e0e0e]"
-                style={{ borderColor: "#1c1c1c", background: "#0c0c0c" }}
-              >
-                <span className="font-heading text-sm font-bold text-white">
-                  {abbr}
-                </span>
-                <span className="text-[12px] text-[#555]">{full}</span>
-              </div>
-            ))}
+                className="mt-8 h-px w-16"
+                style={{
+                  background:
+                    "linear-gradient(to right, #f59e0b, transparent)",
+                }}
+              />
+            </div>
+
+            {/* Right: org cards grid — 2 col; last card spans full width */}
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              {ORG_TYPES.map(({ abbr, full, desc }, idx) => {
+                const isLast = idx === ORG_TYPES.length - 1
+                return (
+                  <div
+                    key={abbr}
+                    className={`group relative overflow-hidden rounded-xl border p-5 transition-all duration-200 hover:border-[#2e2e2e]${isLast ? " sm:col-span-2" : ""}`}
+                    style={{ borderColor: "#1c1c1c", background: "#0c0c0c" }}
+                  >
+                    {/* Hover amber sweep */}
+                    <div
+                      className="absolute inset-x-0 top-0 h-px origin-left scale-x-0 transition-transform duration-300 group-hover:scale-x-100"
+                      style={{
+                        background:
+                          "linear-gradient(to right, transparent, rgba(245,158,11,0.5) 40%, rgba(245,158,11,0.5) 60%, transparent)",
+                      }}
+                    />
+
+                    <div className={isLast ? "sm:flex sm:items-center sm:gap-8" : ""}>
+                      {/* Abbreviation */}
+                      <span className="font-heading text-3xl font-bold leading-none text-amber-400 sm:flex-shrink-0">
+                        {abbr}
+                      </span>
+                      <div className={isLast ? "mt-2 sm:mt-0" : "mt-2"}>
+                        {/* Full name */}
+                        <p className="text-[13px] font-semibold text-white">{full}</p>
+                        {/* Descriptor */}
+                        <p className="mt-1 text-[12px] leading-relaxed text-[#555]">{desc}</p>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
           </div>
         </div>
       </section>
