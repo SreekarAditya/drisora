@@ -385,7 +385,7 @@ function EmptyState() {
         style={{ animationDelay: "260ms" }}
       >
         <Link
-          href="/survey/new"
+          href="/upload"
           className="inline-flex items-center gap-2 rounded-md px-8 py-3 text-[14px] font-semibold text-black transition-colors hover:bg-amber-400"
           style={{ background: "#f59e0b" }}
         >
@@ -453,7 +453,7 @@ export function SurveyList({ surveys }: SurveyListProps) {
           Surveys
         </h1>
         <Link
-          href="/survey/new"
+          href="/upload"
           className="rounded-md px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400"
           style={{ background: "#f59e0b" }}
         >
