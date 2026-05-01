@@ -48,7 +48,7 @@ export function Navbar({ user, profile }: NavbarProps) {
               Surveys
             </Link>
             <Link
-              href="/survey/new"
+              href="/upload"
               className="rounded-md px-3 py-2 text-sm font-medium text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
             >
               New Survey
