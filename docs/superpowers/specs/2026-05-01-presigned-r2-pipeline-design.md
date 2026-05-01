@@ -21,8 +21,8 @@ Replaces the existing stub at `app/api/upload/presign/route.ts`.
 - Auth-gated via Supabase session
 - Body: `{ job_id: string, files: [{ name: string, size: number, type: string }] }`
 - Uses `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` (already in package.json)
-- R2 endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`, region `"auto"`
-- Bucket: `R2_BUCKET_NAME` env var
+- R2 endpoint: `https://${CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com`, region `"auto"`
+- Bucket: `CLOUDFLARE_R2_BUCKET_NAME` env var
 - Key format: `uploads/{user_id}/{job_id}/raw/{filename}`
 - URL TTL: 3600 seconds
 - Returns: `{ urls: [{ filename: string, presigned_url: string, r2_key: string }] }`
@@ -116,8 +116,8 @@ Rebuilt from current minimal scaffold. Runs on RunPod Docker where `/tmp` is ava
 **Main loop (5s poll):**
 1. Dequeue job from Redis
 2. Download raw files from R2 to `/tmp/{job_id}/` via boto3
-   - endpoint: `https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
-   - credentials from `R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY` env vars
+   - endpoint: `https://{CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com`
+   - credentials from `CLOUDFLARE_R2_ACCESS_KEY_ID` / `CLOUDFLARE_R2_SECRET_ACCESS_KEY` env vars
    - region: `"auto"`
 3. Call `dispatcher.dispatch_job(job)` → ingest for job's mode
 4. For each frame: run `detect → segment → depth → pci_scorer`
@@ -125,7 +125,7 @@ Rebuilt from current minimal scaffold. Runs on RunPod Docker where `/tmp` is ava
 6. Call `update_job_progress(job_id, processed_count)` after each frame
 7. **On complete:**
    - Set `status=complete`, `output_r2_prefix` in Redis
-   - POST `{NEXT_PUBLIC_APP_URL}/api/webhooks/job-complete` with `{ job_id, user_id, status }` and header `X-Webhook-Secret: {WORKER_WEBHOOK_SECRET}`
+   - POST `{NEXT_PUBLIC_APP_URL}/api/webhooks/job-complete` with `{ job_id, user_id, status }` and header `X-Webhook-Secret: {CLOUDFLARE_R2_WEBHOOK_SECRET}`
 8. **On error:**
    - Set `status=failed`, `error_message` in Redis
    - POST same webhook with `status=failed`
@@ -154,7 +154,7 @@ Rebuilt from current minimal scaffold. Runs on RunPod Docker where `/tmp` is ava
 
 ### POST /api/webhooks/job-complete (new)
 
-- Validate `X-Webhook-Secret` header against `WORKER_WEBHOOK_SECRET` env var → 401 if missing/wrong
+- Validate `X-Webhook-Secret` header against `CLOUDFLARE_R2_WEBHOOK_SECRET` env var → 401 if missing/wrong
 - Return 200 immediately
 - Async: update Supabase `jobs` table (`status`, `completed_at`, `error_message`)
 
@@ -186,22 +186,22 @@ New table `jobs`:
 
 **.env.local (Next.js):**
 ```
-R2_ACCOUNT_ID
-R2_ACCESS_KEY_ID
-R2_SECRET_ACCESS_KEY
-R2_BUCKET_NAME
+CLOUDFLARE_R2_ACCOUNT_ID
+CLOUDFLARE_R2_ACCESS_KEY_ID
+CLOUDFLARE_R2_SECRET_ACCESS_KEY
+CLOUDFLARE_R2_BUCKET_NAME
 R2_PUBLIC_URL
-WORKER_WEBHOOK_SECRET
+CLOUDFLARE_R2_WEBHOOK_SECRET
 ```
 
 **worker/.env (Python):**
 ```
-R2_ACCOUNT_ID
-R2_ACCESS_KEY_ID
-R2_SECRET_ACCESS_KEY
-R2_BUCKET_NAME
+CLOUDFLARE_R2_ACCOUNT_ID
+CLOUDFLARE_R2_ACCESS_KEY_ID
+CLOUDFLARE_R2_SECRET_ACCESS_KEY
+CLOUDFLARE_R2_BUCKET_NAME
 NEXT_PUBLIC_APP_URL
-WORKER_WEBHOOK_SECRET
+CLOUDFLARE_R2_WEBHOOK_SECRET
 REDIS_URL
 ```
 

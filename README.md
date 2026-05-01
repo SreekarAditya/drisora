@@ -53,21 +53,21 @@ Copy `.env.local.example` and fill in the values before running locally.
 
 | Variable | Description |
 |---|---|
-| `R2_ACCOUNT_ID` | Cloudflare account ID |
-| `R2_ACCESS_KEY_ID` | R2 API token key ID |
-| `R2_SECRET_ACCESS_KEY` | R2 API token secret |
-| `R2_BUCKET_NAME` | R2 bucket name |
+| `CLOUDFLARE_R2_ACCOUNT_ID` | Cloudflare account ID |
+| `CLOUDFLARE_R2_ACCESS_KEY_ID` | R2 API token key ID |
+| `CLOUDFLARE_R2_SECRET_ACCESS_KEY` | R2 API token secret |
+| `CLOUDFLARE_R2_BUCKET_NAME` | R2 bucket name |
 | `R2_PUBLIC_URL` | Public R2 URL (optional, for serving results) |
-| `WORKER_WEBHOOK_SECRET` | Shared secret for worker → Next.js webhook |
+| `CLOUDFLARE_R2_WEBHOOK_SECRET` | Shared secret for worker → Next.js webhook |
 
 **Worker (`worker/.env`):**
 
 | Variable | Description |
 |---|---|
-| `R2_ACCOUNT_ID` | Cloudflare account ID |
-| `R2_ACCESS_KEY_ID` | R2 API token key ID |
-| `R2_SECRET_ACCESS_KEY` | R2 API token secret |
-| `R2_BUCKET_NAME` | R2 bucket name |
+| `CLOUDFLARE_R2_ACCOUNT_ID` | Cloudflare account ID |
+| `CLOUDFLARE_R2_ACCESS_KEY_ID` | R2 API token key ID |
+| `CLOUDFLARE_R2_SECRET_ACCESS_KEY` | R2 API token secret |
+| `CLOUDFLARE_R2_BUCKET_NAME` | R2 bucket name |
 | `NEXT_PUBLIC_APP_URL` | Deployed app URL (e.g. `https://drisora.vercel.app`) |
-| `WORKER_WEBHOOK_SECRET` | Shared secret (must match Next.js) |
+| `CLOUDFLARE_R2_WEBHOOK_SECRET` | Shared secret (must match Next.js) |
 | `REDIS_URL` | Upstash Redis connection string |

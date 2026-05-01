@@ -58,9 +58,9 @@ let _r2: S3Client | null = null;
 
 function getR2Client(): S3Client {
   if (_r2) return _r2;
-  const accountId = process.env.R2_ACCOUNT_ID;
-  const accessKeyId = process.env.R2_ACCESS_KEY_ID;
-  const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
+  const accountId = process.env.CLOUDFLARE_R2_ACCOUNT_ID;
+  const accessKeyId = process.env.CLOUDFLARE_R2_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.CLOUDFLARE_R2_SECRET_ACCESS_KEY;
   if (!accountId || !accessKeyId || !secretAccessKey) {
     throw new Error("Missing R2 environment variables");
   }
@@ -73,8 +73,8 @@ function getR2Client(): S3Client {
 }
 
 function getBucketName(): string {
-  const bucket = process.env.R2_BUCKET_NAME;
-  if (!bucket) throw new Error("Missing R2_BUCKET_NAME");
+  const bucket = process.env.CLOUDFLARE_R2_BUCKET_NAME;
+  if (!bucket) throw new Error("Missing CLOUDFLARE_R2_BUCKET_NAME");
   return bucket;
 }
 
@@ -388,7 +388,7 @@ interface WebhookBody {
 
 export async function POST(request: NextRequest) {
   const secret = request.headers.get("x-webhook-secret");
-  if (!secret || secret !== process.env.WORKER_WEBHOOK_SECRET) {
+  if (!secret || secret !== process.env.CLOUDFLARE_R2_WEBHOOK_SECRET) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

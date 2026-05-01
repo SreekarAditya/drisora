@@ -39,13 +39,13 @@ log = logging.getLogger(__name__)
 # Config from environment
 # ---------------------------------------------------------------------------
 
-R2_ACCOUNT_ID = os.environ["R2_ACCOUNT_ID"]
-R2_ACCESS_KEY_ID = os.environ["R2_ACCESS_KEY_ID"]
-R2_SECRET_ACCESS_KEY = os.environ["R2_SECRET_ACCESS_KEY"]
-R2_BUCKET_NAME = os.environ["R2_BUCKET_NAME"]
+CLOUDFLARE_R2_ACCOUNT_ID = os.environ["CLOUDFLARE_R2_ACCOUNT_ID"]
+CLOUDFLARE_R2_ACCESS_KEY_ID = os.environ["CLOUDFLARE_R2_ACCESS_KEY_ID"]
+CLOUDFLARE_R2_SECRET_ACCESS_KEY = os.environ["CLOUDFLARE_R2_SECRET_ACCESS_KEY"]
+CLOUDFLARE_R2_BUCKET_NAME = os.environ["CLOUDFLARE_R2_BUCKET_NAME"]
 REDIS_URL = os.environ["REDIS_URL"]
 APP_URL = os.environ["NEXT_PUBLIC_APP_URL"].rstrip("/")
-WEBHOOK_SECRET = os.environ["WORKER_WEBHOOK_SECRET"]
+WEBHOOK_SECRET = os.environ["CLOUDFLARE_R2_WEBHOOK_SECRET"]
 
 STALE_THRESHOLD_SECONDS = 600
 POLL_INTERVAL_SECONDS = 5
@@ -56,9 +56,9 @@ POLL_INTERVAL_SECONDS = 5
 
 r2 = boto3.client(
     "s3",
-    endpoint_url=f"https://{R2_ACCOUNT_ID}.r2.cloudflarestorage.com",
-    aws_access_key_id=R2_ACCESS_KEY_ID,
-    aws_secret_access_key=R2_SECRET_ACCESS_KEY,
+    endpoint_url=f"https://{CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com",
+    aws_access_key_id=CLOUDFLARE_R2_ACCESS_KEY_ID,
+    aws_secret_access_key=CLOUDFLARE_R2_SECRET_ACCESS_KEY,
     region_name="auto",
 )
 
@@ -169,13 +169,13 @@ def download_raw_files(job: Dict[str, Any], work_dir: Path) -> None:
     for name in file_names:
         key = f"uploads/{user_id}/{job_id}/raw/{name}"
         dest = work_dir / name
-        log.info("Downloading s3://%s/%s → %s", R2_BUCKET_NAME, key, dest)
-        r2.download_file(R2_BUCKET_NAME, key, str(dest))
+        log.info("Downloading s3://%s/%s → %s", CLOUDFLARE_R2_BUCKET_NAME, key, dest)
+        r2.download_file(CLOUDFLARE_R2_BUCKET_NAME, key, str(dest))
 
 
 def upload_result(local_path: Path, r2_key: str) -> None:
-    log.info("Uploading %s → s3://%s/%s", local_path, R2_BUCKET_NAME, r2_key)
-    r2.upload_file(str(local_path), R2_BUCKET_NAME, r2_key)
+    log.info("Uploading %s → s3://%s/%s", local_path, CLOUDFLARE_R2_BUCKET_NAME, r2_key)
+    r2.upload_file(str(local_path), CLOUDFLARE_R2_BUCKET_NAME, r2_key)
 
 
 # ---------------------------------------------------------------------------
