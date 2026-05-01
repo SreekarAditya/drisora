@@ -1,3 +1,75 @@
+// ─── Job types ───────────────────────────────────────────────────────────────
+
+export type JobMode = "image_batch" | "handheld_video" | "drone_footage";
+
+export type JobStatus =
+  | "queued"
+  | "extracting_frames"
+  | "detecting"
+  | "segmenting"
+  | "scoring"
+  | "complete"
+  | "failed";
+
+export const JOB_MODE_LABELS: Record<JobMode, string> = {
+  image_batch: "Image Batch",
+  handheld_video: "Handheld Video",
+  drone_footage: "Drone Footage",
+};
+
+export function ircRecommendation(pci: number): string {
+  if (pci >= 85) return "No maintenance required";
+  if (pci >= 70) return "Preventive maintenance";
+  if (pci >= 55) return "Minor rehabilitation";
+  if (pci >= 40) return "Major rehabilitation";
+  return "Reconstruction";
+}
+
+export interface JobRecord {
+  id: string;
+  user_id: string;
+  mode: JobMode;
+  status: JobStatus;
+  frame_count: number;
+  processed_count: number;
+  gps_available: boolean;
+  average_pci: number | null;
+  r2_prefix: string | null;
+  created_at: string;
+  completed_at: string | null;
+  error_message: string | null;
+}
+
+export interface FrameResult {
+  stem: string;
+  index: number;
+  pci_score: number;
+  crack_types: string[];
+  overlay_url: string | null;
+  timestamp_ms: number | null;
+  lat: number | null;
+  lon: number | null;
+  alt_m: number | null;
+  depth_estimate: number | null;
+}
+
+export interface JobResultsSummary {
+  average_pci: number;
+  worst_pci: number;
+  best_pci: number;
+  crack_type_counts: Record<string, number>;
+  frame_count: number;
+}
+
+export interface JobResults {
+  job_id: string;
+  mode: JobMode;
+  summary: JobResultsSummary;
+  frames: FrameResult[];
+}
+
+// ─── Survey types (legacy — do not extend) ───────────────────────────────────
+
 export type SurveyStatus = "uploading" | "queued" | "processing" | "complete" | "failed";
 
 export interface Survey {

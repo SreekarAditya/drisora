@@ -1,4 +1,9 @@
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import {
+  S3Client,
+  PutObjectCommand,
+  GetObjectCommand,
+  ListObjectsV2Command,
+} from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 let _r2: S3Client | null = null;
@@ -23,6 +28,39 @@ function getBucketName(): string {
   const bucket = process.env.CLOUDFLARE_R2_BUCKET_NAME;
   if (!bucket) throw new Error("Missing CLOUDFLARE_R2_BUCKET_NAME");
   return bucket;
+}
+
+export async function listR2Objects(prefix: string): Promise<string[]> {
+  const keys: string[] = [];
+  let continuationToken: string | undefined;
+  do {
+    const cmd = new ListObjectsV2Command({
+      Bucket: getBucketName(),
+      Prefix: prefix,
+      ContinuationToken: continuationToken,
+    });
+    const res = await getR2Client().send(cmd);
+    for (const obj of res.Contents ?? []) {
+      if (obj.Key) keys.push(obj.Key);
+    }
+    continuationToken = res.IsTruncated ? res.NextContinuationToken : undefined;
+  } while (continuationToken);
+  return keys;
+}
+
+export async function getR2ObjectText(key: string): Promise<string> {
+  const cmd = new GetObjectCommand({ Bucket: getBucketName(), Key: key });
+  const res = await getR2Client().send(cmd);
+  if (!res.Body) return "";
+  return res.Body.transformToString();
+}
+
+export async function getPresignedGetUrl(
+  key: string,
+  ttlSeconds = 3600,
+): Promise<string> {
+  const command = new GetObjectCommand({ Bucket: getBucketName(), Key: key });
+  return getSignedUrl(getR2Client(), command, { expiresIn: ttlSeconds });
 }
 
 export async function getPresignedPutUrl(

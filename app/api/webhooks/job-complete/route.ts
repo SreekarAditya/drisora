@@ -6,6 +6,7 @@ interface WebhookBody {
   user_id: string;
   status: string;
   error_message?: string;
+  average_pci?: number;
 }
 
 export async function POST(request: NextRequest) {
@@ -24,14 +25,13 @@ export async function POST(request: NextRequest) {
 async function updateSupabase(body: WebhookBody) {
   try {
     const supabase = createServiceRoleClient();
-    await supabase
-      .from("jobs")
-      .update({
-        status: body.status,
-        completed_at: new Date().toISOString(),
-        error_message: body.error_message ?? null,
-      })
-      .eq("id", body.job_id);
+    const update: Record<string, unknown> = {
+      status: body.status,
+      completed_at: new Date().toISOString(),
+      error_message: body.error_message ?? null,
+    };
+    if (body.average_pci != null) update.average_pci = body.average_pci;
+    await supabase.from("jobs").update(update).eq("id", body.job_id);
   } catch (err) {
     console.error("webhook supabase update failed:", err);
   }

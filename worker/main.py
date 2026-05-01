@@ -187,11 +187,14 @@ def process_frames(
     job: Dict[str, Any],
     frame_batch: Dict[str, Any],
     output_prefix: str,
-) -> None:
+) -> float:
+    """Process all frames and return the average PCI score."""
     frames = frame_batch["frames"]
     job["frame_count"] = len(frames)
     job["status"] = "detecting"
     save_job(redis, job)
+
+    pci_scores: list[float] = []
 
     for i, frame in enumerate(frames):
         frame_path = Path(frame["path"])
@@ -200,21 +203,34 @@ def process_frames(
         depth = run_depth(str(frame_path))
         segments = run_segment(str(frame_path), detections)
         score = score_frame(detections, depth, segments)
+        pci_scores.append(float(score))
 
         frame_stem = frame_path.stem
         det_key = f"{output_prefix}/detections/{frame_stem}.json"
         dep_key = f"{output_prefix}/depth/{frame_stem}.npy"
         seg_key = f"{output_prefix}/overlays/{frame_stem}.png"
 
-        det_local = frame_path.parent / f"{frame_stem}_det.json"
-        det_local.write_text(json.dumps({**detections, "pci_score": score}))
-        upload_result(det_local, det_key)
-
-        if depth is not None:
+        depth_estimate: float | None = None
+        if depth is not None and hasattr(depth, "mean"):
             import numpy as np  # lazy import; only needed when depth module is active
+            depth_estimate = float(np.mean(depth))
             dep_local = frame_path.parent / f"{frame_stem}_dep.npy"
             np.save(str(dep_local), depth)
             upload_result(dep_local, dep_key)
+
+        det_record = {
+            **detections,
+            "pci_score": score,
+            "index": frame.get("index", i),
+            "timestamp_ms": frame.get("timestamp_ms"),
+            "lat": frame.get("lat"),
+            "lon": frame.get("lon"),
+            "alt_m": frame.get("alt_m"),
+            "depth_estimate": depth_estimate,
+        }
+        det_local = frame_path.parent / f"{frame_stem}_det.json"
+        det_local.write_text(json.dumps(det_record))
+        upload_result(det_local, det_key)
 
         if segments is not None:
             upload_result(Path(segments), seg_key)
@@ -224,15 +240,25 @@ def process_frames(
     job["status"] = "scoring"
     save_job(redis, job)
 
+    return sum(pci_scores) / len(pci_scores) if pci_scores else 0.0
+
 
 # ---------------------------------------------------------------------------
 # Webhook
 # ---------------------------------------------------------------------------
 
-def post_webhook(job_id: str, user_id: str, status: str, error_message: str | None = None) -> None:
+def post_webhook(
+    job_id: str,
+    user_id: str,
+    status: str,
+    error_message: str | None = None,
+    average_pci: float | None = None,
+) -> None:
     payload: Dict[str, Any] = {"job_id": job_id, "user_id": user_id, "status": status}
     if error_message:
         payload["error_message"] = error_message
+    if average_pci is not None:
+        payload["average_pci"] = average_pci
     try:
         resp = requests.post(
             f"{APP_URL}/api/webhooks/job-complete",
@@ -273,13 +299,14 @@ def run_job(redis: Redis, job: Dict[str, Any]) -> None:
         frame_batch = dispatch_job(job_id, mode, files)
 
         output_prefix = job.get("output_r2_prefix", f"results/{job['user_id']}/{job_id}")
-        process_frames(redis, job, frame_batch, output_prefix)
+        average_pci = process_frames(redis, job, frame_batch, output_prefix)
 
         job["status"] = "complete"
         job["output_r2_prefix"] = output_prefix
+        job["average_pci"] = average_pci
         save_job(redis, job)
-        log.info("Job %s complete (%d frames)", job_id, frame_batch["frame_count"])
-        post_webhook(job_id, job["user_id"], "complete")
+        log.info("Job %s complete (%d frames, avg PCI %.1f)", job_id, frame_batch["frame_count"], average_pci)
+        post_webhook(job_id, job["user_id"], "complete", average_pci=average_pci)
 
     except Exception as exc:
         log.exception("Job %s failed: %s", job_id, exc)

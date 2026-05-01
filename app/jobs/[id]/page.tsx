@@ -3,21 +3,14 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-
-type JobStatus =
-  | "queued"
-  | "extracting_frames"
-  | "detecting"
-  | "segmenting"
-  | "scoring"
-  | "complete"
-  | "failed";
+import type { JobMode, JobStatus } from "@/types";
+import { JOB_MODE_LABELS } from "@/types";
 
 interface JobState {
   status: JobStatus;
   processed_count: number;
   frame_count: number;
-  mode: string;
+  mode: JobMode;
   gps_available: boolean;
   error_message: string | null;
 }
@@ -32,17 +25,84 @@ const STATUS_LABELS: Record<JobStatus, string> = {
   failed: "Failed",
 };
 
-const STATUS_ORDER: JobStatus[] = [
-  "queued",
+const PIPELINE_STEPS: JobStatus[] = [
   "extracting_frames",
   "detecting",
   "segmenting",
   "scoring",
-  "complete",
 ];
 
-const TERMINAL = new Set<JobStatus>(["complete", "failed"]);
+const STATUS_ORDER: JobStatus[] = ["queued", ...PIPELINE_STEPS, "complete"];
 const POLL_MS = 3000;
+
+function ModeBadge({ mode }: { mode: JobMode }) {
+  const icons: Record<JobMode, React.ReactNode> = {
+    image_batch: (
+      <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+        <rect x="0.5" y="0.5" width="4" height="4" rx="0.75" stroke="currentColor" strokeWidth="1.1" />
+        <rect x="6.5" y="0.5" width="4" height="4" rx="0.75" stroke="currentColor" strokeWidth="1.1" />
+        <rect x="0.5" y="6.5" width="4" height="4" rx="0.75" stroke="currentColor" strokeWidth="1.1" />
+        <rect x="6.5" y="6.5" width="4" height="4" rx="0.75" stroke="currentColor" strokeWidth="1.1" />
+      </svg>
+    ),
+    handheld_video: (
+      <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+        <rect x="0.5" y="2.5" width="7" height="6" rx="1" stroke="currentColor" strokeWidth="1.1" />
+        <path d="M8 4.5l2.5-1.5v5L8 6.5" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    ),
+    drone_footage: (
+      <svg width="11" height="11" viewBox="0 0 11 11" fill="none">
+        <circle cx="5.5" cy="5.5" r="1.5" stroke="currentColor" strokeWidth="1.1" />
+        <line x1="1" y1="1" x2="3" y2="3" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+        <line x1="10" y1="1" x2="8" y2="3" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+        <line x1="1" y1="10" x2="3" y2="8" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+        <line x1="10" y1="10" x2="8" y2="8" stroke="currentColor" strokeWidth="1.1" strokeLinecap="round" />
+      </svg>
+    ),
+  };
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#2a2a2a] bg-[#141414] px-2.5 py-1 font-mono text-[10px] tracking-widest text-gray-400">
+      {icons[mode]}
+      {JOB_MODE_LABELS[mode].toUpperCase()}
+    </span>
+  );
+}
+
+function Skeleton({ className }: { className: string }) {
+  return (
+    <div
+      className={`animate-pulse rounded bg-[#1a1a1a] ${className}`}
+      style={{ backgroundImage: "linear-gradient(90deg,#1a1a1a 25%,#222 50%,#1a1a1a 75%)", backgroundSize: "200% 100%", animation: "shimmer-x 1.6s infinite" }}
+    />
+  );
+}
+
+function LoadingSkeleton() {
+  return (
+    <main className="flex min-h-screen flex-col items-center justify-center bg-[#0a0a0a] px-6">
+      <div className="w-full max-w-md">
+        <div className="mb-8 flex flex-col items-center gap-3">
+          <Skeleton className="h-7 w-24" />
+          <Skeleton className="h-4 w-32" />
+        </div>
+        <div className="rounded-xl border border-[#1a1a1a] bg-[#0f0f0f] p-8">
+          <Skeleton className="mb-2 h-5 w-40" />
+          <Skeleton className="mb-4 h-3.5 w-52" />
+          <Skeleton className="mb-6 h-1.5 w-full" />
+          <div className="space-y-3">
+            {PIPELINE_STEPS.map((s) => (
+              <div key={s} className="flex items-center gap-3">
+                <Skeleton className="h-5 w-5 rounded-full" />
+                <Skeleton className="h-3.5 w-32" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </main>
+  );
+}
 
 export default function JobPage() {
   const { id } = useParams<{ id: string }>();
@@ -56,22 +116,16 @@ export default function JobPage() {
     async function poll() {
       try {
         const res = await fetch(`/api/jobs/${id}`);
-        if (res.status === 401) {
-          router.push("/login");
-          return;
-        }
-        if (res.status === 403 || res.status === 404) {
-          setError("Job not found.");
-          return;
-        }
-        if (!res.ok) {
-          setError(`Unexpected error (${res.status})`);
-          return;
-        }
+        if (res.status === 401) { router.push("/login"); return; }
+        if (res.status === 403 || res.status === 404) { setError("Job not found."); return; }
+        if (!res.ok) { setError(`Unexpected error (${res.status})`); return; }
+
         const data = (await res.json()) as JobState;
         if (!cancelled) {
           setJob(data);
-          if (!TERMINAL.has(data.status)) {
+          if (data.status === "complete") {
+            router.push(`/jobs/${id}/results`);
+          } else if (data.status !== "failed") {
             setTimeout(poll, POLL_MS);
           }
         }
@@ -97,34 +151,21 @@ export default function JobPage() {
     );
   }
 
-  if (!job) {
-    return (
-      <main className="flex min-h-screen items-center justify-center bg-[#0a0a0a]">
-        <div className="h-5 w-5 animate-spin rounded-full border-2 border-[#2a2a2a] border-t-amber-500" />
-      </main>
-    );
-  }
+  if (!job) return <LoadingSkeleton />;
 
-  const pct =
-    job.frame_count > 0
-      ? Math.round((job.processed_count / job.frame_count) * 100)
-      : null;
+  const pct = job.frame_count > 0
+    ? Math.round((job.processed_count / job.frame_count) * 100)
+    : null;
 
-  const activeStep = STATUS_ORDER.indexOf(job.status);
+  const activeIdx = STATUS_ORDER.indexOf(job.status);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-[#0a0a0a] px-6">
       <div className="w-full max-w-md">
         {/* Header */}
-        <div className="mb-8 text-center">
+        <div className="mb-8 flex flex-col items-center gap-3">
           <span className="text-2xl font-bold tracking-tight text-white">Drisora</span>
-          <div className="mt-1 flex items-center justify-center gap-1.5">
-            <span className="h-1 w-1 rounded-full bg-amber-500" />
-            <span className="text-[11px] uppercase tracking-widest text-gray-600">
-              Processing
-            </span>
-            <span className="h-1 w-1 rounded-full bg-amber-500" />
-          </div>
+          <ModeBadge mode={job.mode} />
         </div>
 
         <div className="rounded-xl border border-[#1a1a1a] bg-[#0f0f0f] p-8">
@@ -132,17 +173,14 @@ export default function JobPage() {
             <div className="text-center">
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10">
                 <svg viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6 text-red-400">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-9v4h2V9H9zm0 6h2v-2H9v2z" clipRule="evenodd" />
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-5v-4h2v4H9zm0 2h2v-2H9v2z" clipRule="evenodd" />
                 </svg>
               </div>
               <h2 className="text-lg font-semibold text-white">Processing failed</h2>
               {job.error_message && (
                 <p className="mt-2 text-sm text-gray-500">{job.error_message}</p>
               )}
-              <Link
-                href="/upload"
-                className="mt-6 inline-block rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400"
-              >
+              <Link href="/upload" className="mt-6 inline-block rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400">
                 Try again
               </Link>
             </div>
@@ -153,17 +191,7 @@ export default function JobPage() {
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-white">Survey complete</h2>
-              <p className="mt-1 text-sm text-gray-500">
-                {job.frame_count} frame{job.frame_count !== 1 ? "s" : ""} processed
-                {job.gps_available ? " · GPS available" : ""}
-              </p>
-              <Link
-                href="/dashboard"
-                className="mt-6 inline-block rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400"
-              >
-                View in dashboard
-              </Link>
+              <h2 className="text-lg font-semibold text-white">Complete — loading results…</h2>
             </div>
           ) : (
             <>
@@ -185,11 +213,11 @@ export default function JobPage() {
               </div>
 
               {/* Pipeline steps */}
-              <ol className="mt-6 space-y-2">
-                {STATUS_ORDER.filter((s) => s !== "queued").map((step, i) => {
+              <ol className="mt-6 space-y-2.5">
+                {PIPELINE_STEPS.map((step) => {
                   const stepIdx = STATUS_ORDER.indexOf(step);
-                  const done = activeStep > stepIdx;
-                  const active = activeStep === stepIdx;
+                  const done = activeIdx > stepIdx;
+                  const active = activeIdx === stepIdx;
                   return (
                     <li key={step} className="flex items-center gap-3">
                       <span
@@ -203,21 +231,13 @@ export default function JobPage() {
                       >
                         {done ? (
                           <svg viewBox="0 0 12 12" fill="currentColor" className="h-3 w-3">
-                            <path d="M10 3L5 8.5 2 5.5l-1 1L5 10.5l6-7-1-0.5z" />
+                            <path d="M10 3.5L4.5 9 2 6.5l-.7.7L4.5 10.4l6.2-7.6L10 3.5z" />
                           </svg>
                         ) : (
-                          i + 1
+                          <span>{stepIdx}</span>
                         )}
                       </span>
-                      <span
-                        className={`text-sm ${
-                          done
-                            ? "text-gray-500 line-through"
-                            : active
-                              ? "font-medium text-white"
-                              : "text-gray-600"
-                        }`}
-                      >
+                      <span className={`text-sm ${done ? "text-gray-600 line-through" : active ? "font-medium text-white" : "text-gray-600"}`}>
                         {STATUS_LABELS[step]}
                       </span>
                       {active && (
@@ -231,7 +251,9 @@ export default function JobPage() {
           )}
         </div>
 
-        <p className="mt-6 text-center text-xs text-gray-700">Job ID: {id}</p>
+        <p className="mt-6 text-center font-mono text-[11px] text-gray-700">
+          {id}
+        </p>
       </div>
     </main>
   );
