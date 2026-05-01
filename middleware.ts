@@ -7,6 +7,7 @@ const protectedPrefixes = [
   "/report",
   "/onboarding",
   "/upload",
+  "/jobs",
 ];
 
 export async function middleware(request: NextRequest) {
