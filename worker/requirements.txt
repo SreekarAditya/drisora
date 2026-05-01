@@ -8,3 +8,7 @@ scipy
 boto3
 supabase
 requests
+Pillow
+piexif
+python-dotenv
+redis

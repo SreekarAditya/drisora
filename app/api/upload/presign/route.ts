@@ -1,53 +1,52 @@
-import { NextResponse } from "next/server";
-import { getUploadPartUrl } from "@/lib/r2";
+import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getPresignedPutUrl } from "@/lib/r2";
 
-export async function POST(request: Request) {
+interface FileInput {
+  name: string;
+  size: number;
+  type: string;
+}
+
+interface PresignBody {
+  job_id: string;
+  files: FileInput[];
+}
+
+export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const {
     data: { user },
     error: authError,
   } = await supabase.auth.getUser();
-
   if (authError || !user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const body = (await request.json()) as {
-    survey_id?: string;
-    upload_id?: string;
-    r2_key?: string;
-    part_numbers?: unknown;
-  };
-  const { survey_id, upload_id, r2_key, part_numbers } = body;
-
-  if (!survey_id || !upload_id || !r2_key || !Array.isArray(part_numbers)) {
-    return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+  let body: PresignBody;
+  try {
+    body = (await request.json()) as PresignBody;
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { data: survey } = await supabase
-    .from("surveys")
-    .select("id")
-    .eq("id", survey_id)
-    .eq("user_id", user.id)
-    .single();
-
-  if (!survey) {
-    return NextResponse.json({ error: "Survey not found" }, { status: 404 });
+  if (!body.job_id || !Array.isArray(body.files) || body.files.length === 0) {
+    return NextResponse.json(
+      { error: "job_id and files are required" },
+      { status: 400 },
+    );
   }
 
-  const parts = await Promise.all(
-    part_numbers.map(async (partNumber) => {
-      if (typeof partNumber !== "number") {
-        throw new Error("Invalid part number");
-      }
-
-      return {
-        part_number: partNumber,
-        url: await getUploadPartUrl(r2_key, upload_id, partNumber),
-      };
+  const urls = await Promise.all(
+    body.files.map(async (file) => {
+      const r2_key = `uploads/${user.id}/${body.job_id}/raw/${file.name}`;
+      const presigned_url = await getPresignedPutUrl(
+        r2_key,
+        file.type || "application/octet-stream",
+      );
+      return { filename: file.name, presigned_url, r2_key };
     }),
   );
 
-  return NextResponse.json({ parts });
+  return NextResponse.json({ urls });
 }

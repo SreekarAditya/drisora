@@ -34,3 +34,40 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+## Cloudflare R2 CORS Setup
+
+File uploads go directly from the browser to R2 using presigned PUT URLs. The CORS policy must be applied to the R2 bucket before uploads will work.
+
+1. Open [Cloudflare Dashboard](https://dash.cloudflare.com/) → R2 → your bucket → **Settings** → **CORS policy**
+2. Paste the contents of [`worker/R2_CORS_CONFIG.json`](worker/R2_CORS_CONFIG.json)
+3. Save
+
+Without this, browsers will block the cross-origin PUT requests.
+
+## Environment Variables
+
+Copy `.env.local.example` and fill in the values before running locally.
+
+**Next.js (`.env.local`):**
+
+| Variable | Description |
+|---|---|
+| `R2_ACCOUNT_ID` | Cloudflare account ID |
+| `R2_ACCESS_KEY_ID` | R2 API token key ID |
+| `R2_SECRET_ACCESS_KEY` | R2 API token secret |
+| `R2_BUCKET_NAME` | R2 bucket name |
+| `R2_PUBLIC_URL` | Public R2 URL (optional, for serving results) |
+| `WORKER_WEBHOOK_SECRET` | Shared secret for worker → Next.js webhook |
+
+**Worker (`worker/.env`):**
+
+| Variable | Description |
+|---|---|
+| `R2_ACCOUNT_ID` | Cloudflare account ID |
+| `R2_ACCESS_KEY_ID` | R2 API token key ID |
+| `R2_SECRET_ACCESS_KEY` | R2 API token secret |
+| `R2_BUCKET_NAME` | R2 bucket name |
+| `NEXT_PUBLIC_APP_URL` | Deployed app URL (e.g. `https://drisora.vercel.app`) |
+| `WORKER_WEBHOOK_SECRET` | Shared secret (must match Next.js) |
+| `REDIS_URL` | Upstash Redis connection string |
