@@ -1,9 +1,16 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const protectedPrefixes = ["/dashboard", "/survey", "/report"];
+const protectedPrefixes = [
+  "/dashboard",
+  "/survey",
+  "/report",
+  "/onboarding",
+  "/upload",
+  "/jobs",
+];
 
-export async function proxy(request: NextRequest) {
+export async function middleware(request: NextRequest) {
   const response = NextResponse.next({ request });
   const refreshedCookies: Array<{
     name: string;
@@ -37,7 +44,6 @@ export async function proxy(request: NextRequest) {
     refreshedCookies.forEach(({ name, value, options }) => {
       nextResponse.cookies.set(name, value, options);
     });
-
     return nextResponse;
   }
 
@@ -46,7 +52,9 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  const hasReportToken = path.startsWith("/report/") && request.nextUrl.searchParams.has("token");
+  const hasReportToken =
+    path.startsWith("/report/") &&
+    request.nextUrl.searchParams.has("token");
   const needsAuth = protectedPrefixes.some(
     (prefix) => path === prefix || path.startsWith(`${prefix}/`),
   );

@@ -4,13 +4,20 @@ RUN pip install --no-cache-dir \
     torch torchvision \
     ultralytics \
     opencv-python-headless \
-    numpy scipy boto3 \
-    supabase requests runpod
+    numpy scipy \
+    boto3 \
+    supabase requests \
+    Pillow piexif \
+    python-dotenv \
+    redis \
+    runpod
 
 COPY pipeline/ /app/pipeline/
+COPY ingest/ /app/ingest/
+COPY jobs/ /app/jobs/
 COPY weights/ /app/weights/
-COPY handler.py /app/handler.py
+COPY main.py /app/main.py
 
 WORKDIR /app
 
-CMD ["python", "handler.py"]
+CMD ["python", "main.py"]

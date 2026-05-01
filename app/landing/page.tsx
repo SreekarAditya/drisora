@@ -474,7 +474,7 @@ export default function LandingPage() {
               Log in
             </Link>
             <Link
-              href="/signup"
+              href="/login"
               className="ml-1 rounded-md px-4 py-1.5 text-[13px] font-medium text-black transition-colors hover:bg-amber-400"
               style={{ background: "#f59e0b" }}
             >
@@ -484,7 +484,7 @@ export default function LandingPage() {
 
           {/* Mobile CTA */}
           <Link
-            href="/signup"
+            href="/login"
             className="rounded-md px-3 py-1.5 text-[13px] font-medium text-black sm:hidden"
             style={{ background: "#f59e0b" }}
           >
@@ -544,7 +544,7 @@ export default function LandingPage() {
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <Link
-                href="/signup"
+                href="/login"
                 className="rounded-md px-6 py-2.5 text-[14px] font-medium text-black transition-colors hover:bg-amber-400"
                 style={{ background: "#f59e0b" }}
               >
@@ -937,7 +937,7 @@ export default function LandingPage() {
               </p>
               <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
                 <Link
-                  href="/signup"
+                  href="/login"
                   className="rounded-md px-8 py-3 text-[14px] font-medium text-black transition-colors hover:bg-amber-400"
                   style={{ background: "#f59e0b" }}
                 >

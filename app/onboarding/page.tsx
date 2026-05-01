@@ -1,0 +1,209 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+
+const ROLES = [
+  "PWD Engineer",
+  "Municipal Corporation",
+  "College Infrastructure Team",
+  "Private Contractor",
+  "Other",
+] as const;
+
+type Role = (typeof ROLES)[number];
+
+export default function OnboardingPage() {
+  const router = useRouter();
+
+  const [fullName, setFullName] = useState("");
+  const [orgName, setOrgName] = useState("");
+  const [role, setRole] = useState<Role | "">("");
+  const [phone, setPhone] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [checking, setChecking] = useState(true);
+
+  // Pre-fill from Google metadata and skip if already onboarded
+  useEffect(() => {
+    const supabase = createClient();
+
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+
+      // Check if already onboarded
+      supabase
+        .from("profiles")
+        .select("org_name, role")
+        .eq("id", user.id)
+        .single()
+        .then(({ data: profile }) => {
+          if (profile?.org_name && profile?.role) {
+            router.replace("/dashboard");
+            return;
+          }
+
+          // Pre-fill name from Google
+          const googleName =
+            (user.user_metadata?.full_name as string | undefined) ??
+            (user.user_metadata?.name as string | undefined) ??
+            "";
+          setFullName(googleName);
+          setChecking(false);
+        });
+    });
+  }, [router]);
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!role) return;
+
+    setSubmitting(true);
+    setError(null);
+
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      router.replace("/login");
+      return;
+    }
+
+    const { error: upsertError } = await supabase.from("profiles").upsert({
+      id: user.id,
+      user_id: user.id,
+      full_name: fullName.trim(),
+      org_name: orgName.trim(),
+      role,
+      phone: phone.trim() || null,
+    });
+
+    if (upsertError) {
+      setError(upsertError.message);
+      setSubmitting(false);
+      return;
+    }
+
+    router.push("/dashboard");
+    router.refresh();
+  }
+
+  if (checking) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-[#0a0a0a]">
+        <span className="text-sm text-gray-600">Loading…</span>
+      </main>
+    );
+  }
+
+  return (
+    <main className="flex min-h-screen items-center justify-center bg-[#0a0a0a] px-6">
+      <div className="w-full max-w-sm">
+        <div className="mb-8 text-center">
+          <span className="text-2xl font-bold tracking-tight text-white">
+            Drisora
+          </span>
+          <div className="mt-1 flex items-center justify-center gap-1.5">
+            <span className="h-1 w-1 rounded-full bg-amber-500" />
+            <span className="text-[11px] uppercase tracking-widest text-gray-600">
+              Pavement Intelligence
+            </span>
+            <span className="h-1 w-1 rounded-full bg-amber-500" />
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-[#1a1a1a] bg-[#0f0f0f] p-8 shadow-2xl">
+          <h1 className="text-xl font-semibold text-white">
+            Set up your account
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Tell us a bit about yourself to personalise your workspace.
+          </p>
+
+          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-gray-400">
+                Full name
+              </label>
+              <input
+                className="w-full rounded-md border border-[#2a2a2a] bg-[#0a0a0a] px-3 py-2.5 text-sm text-white outline-none transition-colors placeholder:text-gray-700 focus:border-amber-500"
+                type="text"
+                placeholder="Aditya Kumar"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-gray-400">
+                Organisation name
+              </label>
+              <input
+                className="w-full rounded-md border border-[#2a2a2a] bg-[#0a0a0a] px-3 py-2.5 text-sm text-white outline-none transition-colors placeholder:text-gray-700 focus:border-amber-500"
+                type="text"
+                placeholder="NHAI / IIT Bombay / …"
+                value={orgName}
+                onChange={(e) => setOrgName(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-gray-400">Role</label>
+              <select
+                className="w-full rounded-md border border-[#2a2a2a] bg-[#0a0a0a] px-3 py-2.5 text-sm text-white outline-none transition-colors focus:border-amber-500 [&>option]:bg-[#0a0a0a]"
+                value={role}
+                onChange={(e) => setRole(e.target.value as Role)}
+                required
+              >
+                <option value="" disabled>
+                  Select your role…
+                </option>
+                {ROLES.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-gray-400">
+                Phone{" "}
+                <span className="text-gray-600">(optional)</span>
+              </label>
+              <input
+                className="w-full rounded-md border border-[#2a2a2a] bg-[#0a0a0a] px-3 py-2.5 text-sm text-white outline-none transition-colors placeholder:text-gray-700 focus:border-amber-500"
+                type="tel"
+                placeholder="+91 98765 43210"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+              />
+            </div>
+
+            {error && (
+              <p className="rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-400">
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={submitting || !role}
+              className="mt-2 w-full rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {submitting ? "Saving…" : "Continue to dashboard →"}
+            </button>
+          </form>
+        </div>
+      </div>
+    </main>
+  );
+}
