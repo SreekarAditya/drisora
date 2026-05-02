@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json()) as WebhookBody;
 
-  void updateSupabase(body);
+  await updateSupabase(body);
 
   return NextResponse.json({ ok: true });
 }

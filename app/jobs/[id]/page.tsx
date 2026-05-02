@@ -19,21 +19,21 @@ const STATUS_LABELS: Record<JobStatus, string> = {
   uploading: "Uploading files",
   queued: "Queued",
   extracting_frames: "Extracting frames",
-  detecting: "Detecting cracks",
-  segmenting: "Segmenting",
-  scoring: "Scoring PCI",
+  detecting: "Analyzing frames",
+  segmenting: "Analyzing frames",
+  scoring: "Finalizing results",
   complete: "Complete",
   failed: "Failed",
 };
 
-const PIPELINE_STEPS: JobStatus[] = [
-  "extracting_frames",
-  "detecting",
-  "segmenting",
-  "scoring",
+const PIPELINE_STEPS: Array<{ key: string; label: string; statuses: JobStatus[] }> = [
+  { key: "queued", label: "Queued", statuses: ["queued"] },
+  { key: "extracting", label: "Extracting frames", statuses: ["extracting_frames"] },
+  { key: "analyzing", label: "Analyzing frames", statuses: ["detecting", "segmenting"] },
+  { key: "finalizing", label: "Finalizing results", statuses: ["scoring"] },
 ];
 
-const STATUS_ORDER: JobStatus[] = ["uploading", "queued", ...PIPELINE_STEPS, "complete"];
+const STATUS_ORDER: JobStatus[] = ["uploading", "queued", "extracting_frames", "detecting", "segmenting", "scoring", "complete"];
 const POLL_MS = 3000;
 
 function ModeBadge({ mode }: { mode: JobMode }) {
@@ -92,8 +92,8 @@ function LoadingSkeleton() {
           <Skeleton className="mb-4 h-3.5 w-52" />
           <Skeleton className="mb-6 h-1.5 w-full" />
           <div className="space-y-3">
-            {PIPELINE_STEPS.map((s) => (
-              <div key={s} className="flex items-center gap-3">
+            {PIPELINE_STEPS.map((step) => (
+              <div key={step.key} className="flex items-center gap-3">
                 <Skeleton className="h-5 w-5 rounded-full" />
                 <Skeleton className="h-3.5 w-32" />
               </div>
@@ -128,7 +128,7 @@ export default function JobPage() {
         if (!cancelled) {
           setJob(data);
           if (data.status === "complete") {
-            router.push(`/jobs/${id}/results`);
+            router.replace(`/jobs/${id}/results`);
           } else if (data.status !== "failed" && data.status !== "uploading") {
             setTimeout(poll, POLL_MS);
           }
@@ -180,6 +180,7 @@ export default function JobPage() {
     : null;
 
   const activeIdx = STATUS_ORDER.indexOf(job.status);
+  const hasFrameProgress = job.frame_count > 0 && !["uploading", "queued", "extracting_frames"].includes(job.status);
   const isTimeout = job.status === "failed" &&
     (job.error_message?.toLowerCase().includes("timeout") ?? false);
 
@@ -256,8 +257,10 @@ export default function JobPage() {
               <p className="mt-1 text-sm text-gray-500">
                 {job.status === "uploading"
                   ? "Waiting for upload to finish…"
-                  : pct !== null
-                  ? `${job.processed_count} / ${job.frame_count} frames · ${pct}%`
+                  : hasFrameProgress && pct !== null
+                  ? `${job.processed_count} / ${job.frame_count} frames analyzed · ${pct}%`
+                  : job.status === "extracting_frames"
+                    ? "Preparing frames for analysis…"
                   : "Preparing…"}
               </p>
 
@@ -271,12 +274,14 @@ export default function JobPage() {
 
               {/* Pipeline steps */}
               <ol className="mt-6 space-y-2.5">
-                {PIPELINE_STEPS.map((step) => {
-                  const stepIdx = STATUS_ORDER.indexOf(step);
-                  const done = activeIdx > stepIdx;
-                  const active = activeIdx === stepIdx;
+                {PIPELINE_STEPS.map((step, index) => {
+                  const stepIndexes = step.statuses.map((status) => STATUS_ORDER.indexOf(status));
+                  const firstStepIdx = Math.min(...stepIndexes);
+                  const lastStepIdx = Math.max(...stepIndexes);
+                  const done = activeIdx > lastStepIdx;
+                  const active = step.statuses.includes(job.status);
                   return (
-                    <li key={step} className="flex items-center gap-3">
+                    <li key={step.key} className="flex items-center gap-3">
                       <span
                         className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs ${
                           done
@@ -291,13 +296,16 @@ export default function JobPage() {
                             <path d="M10 3.5L4.5 9 2 6.5l-.7.7L4.5 10.4l6.2-7.6L10 3.5z" />
                           </svg>
                         ) : (
-                          <span>{stepIdx}</span>
+                          <span>{index + 1}</span>
                         )}
                       </span>
                       <span className={`text-sm ${done ? "text-gray-600 line-through" : active ? "font-medium text-white" : "text-gray-600"}`}>
-                        {STATUS_LABELS[step]}
+                        {step.label}
                       </span>
-                      {active && (
+                      {active && firstStepIdx >= STATUS_ORDER.indexOf("detecting") && pct !== null && (
+                        <span className="ml-auto font-mono text-xs text-gray-500">{pct}%</span>
+                      )}
+                      {active && !(firstStepIdx >= STATUS_ORDER.indexOf("detecting") && pct !== null) && (
                         <span className="ml-auto h-3 w-3 animate-spin rounded-full border-2 border-[#2a2a2a] border-t-amber-500" />
                       )}
                     </li>
