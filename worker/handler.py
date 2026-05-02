@@ -42,6 +42,20 @@ def get_depth() -> Any:
     return _depth
 
 
+def _warm_model(name: str, loader: Any) -> None:
+    try:
+        loader()
+        print(f"{name} model ready", flush=True)
+    except Exception as exc:
+        print(f"{name} model unavailable; using fallback path: {exc}", flush=True)
+
+
+def _warm_pipeline_models() -> None:
+    _warm_model("YOLO", get_yolo)
+    _warm_model("SAM2", get_sam2)
+    _warm_model("DepthPro", get_depth)
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
@@ -268,6 +282,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
         frame_batch = dispatch_job(job_id, mode, _build_dispatch_files(mode, local_files, options))
         frames = frame_batch["frames"]
+        _warm_pipeline_models()
         _update_job(
             redis_url,
             redis_token,

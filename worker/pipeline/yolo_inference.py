@@ -5,6 +5,7 @@ from typing import Any
 
 _MODEL: Any | None = None
 _DEVICE: str | None = None
+_LOAD_FAILED = False
 
 WEIGHTS_PATH = Path(__file__).resolve().parents[1] / "weights" / "yolov12s_rdd2022.pt"
 CLASS_NAMES = ("D00", "D10", "D20", "D40")
@@ -14,15 +15,26 @@ IOU = 0.45
 
 def load_model() -> Any:
     """Load and cache the YOLOv12s RDD2022 model."""
-    global _MODEL, _DEVICE
+    global _MODEL, _DEVICE, _LOAD_FAILED
     if _MODEL is not None:
         return _MODEL
+    if _LOAD_FAILED:
+        raise RuntimeError("YOLO model load previously failed")
 
-    import torch
-    from ultralytics import YOLO
+    try:
+        import torch
+        from ultralytics import YOLO
+    except Exception:
+        _LOAD_FAILED = True
+        raise
 
     _DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-    model = YOLO(str(WEIGHTS_PATH))
+    try:
+        model = YOLO(str(WEIGHTS_PATH))
+    except Exception:
+        _LOAD_FAILED = True
+        raise
+
     try:
         model.to(_DEVICE)
     except Exception:

@@ -8,6 +8,7 @@ from typing import Any
 import numpy as np
 
 _MODEL_AND_TRANSFORM: tuple[Any, Any, str] | None = None
+_LOAD_FAILED = False
 
 MODEL_URL = "https://ml-site.cdn-apple.com/models/depth-pro/depth_pro.pt"
 MODEL_PATH = Path("/tmp/models/depth_pro.pt")
@@ -24,29 +25,35 @@ def _download(url: str, path: Path) -> None:
 
 def load_model() -> tuple[Any, Any, str]:
     """Download, load, and cache Depth Pro model/transforms."""
-    global _MODEL_AND_TRANSFORM
+    global _MODEL_AND_TRANSFORM, _LOAD_FAILED
     if _MODEL_AND_TRANSFORM is not None:
         return _MODEL_AND_TRANSFORM
+    if _LOAD_FAILED:
+        raise RuntimeError("DepthPro model load previously failed")
 
-    import torch
-    import depth_pro
+    try:
+        import torch
+        import depth_pro
 
-    _download(MODEL_URL, MODEL_PATH)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    try:
-        model, transform = depth_pro.create_model_and_transforms(
-            device=device,
-            precision=torch.float16 if device == "cuda" else torch.float32,
-        )
-    except TypeError:
-        model, transform = depth_pro.create_model_and_transforms()
-        model = model.to(device)
-    try:
-        model.load_state_dict(torch.load(str(MODEL_PATH), map_location=device), strict=False)
+        _download(MODEL_URL, MODEL_PATH)
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        try:
+            model, transform = depth_pro.create_model_and_transforms(
+                device=device,
+                precision=torch.float16 if device == "cuda" else torch.float32,
+            )
+        except TypeError:
+            model, transform = depth_pro.create_model_and_transforms()
+            model = model.to(device)
+        try:
+            model.load_state_dict(torch.load(str(MODEL_PATH), map_location=device), strict=False)
+        except Exception:
+            pass
+        model.eval()
+        _MODEL_AND_TRANSFORM = (model, transform, device)
     except Exception:
-        pass
-    model.eval()
-    _MODEL_AND_TRANSFORM = (model, transform, device)
+        _LOAD_FAILED = True
+        raise
     return _MODEL_AND_TRANSFORM
 
 

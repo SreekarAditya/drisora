@@ -7,6 +7,7 @@ from typing import Any
 import numpy as np
 
 _PREDICTOR: Any | None = None
+_LOAD_FAILED = False
 
 MODEL_URL = "https://dl.fbaipublicfiles.com/segment_anything_v2/sam2.1_hiera_small.pt"
 MODEL_PATH = Path("/tmp/models/sam2.1_hiera_small.pt")
@@ -21,18 +22,24 @@ def _download(url: str, path: Path) -> None:
 
 def load_model() -> Any:
     """Download, load, and cache the SAM2 image predictor."""
-    global _PREDICTOR
+    global _PREDICTOR, _LOAD_FAILED
     if _PREDICTOR is not None:
         return _PREDICTOR
+    if _LOAD_FAILED:
+        raise RuntimeError("SAM2 model load previously failed")
 
-    import torch
-    from sam2.build_sam import build_sam2
-    from sam2.sam2_image_predictor import SAM2ImagePredictor
+    try:
+        import torch
+        from sam2.build_sam import build_sam2
+        from sam2.sam2_image_predictor import SAM2ImagePredictor
 
-    _download(MODEL_URL, MODEL_PATH)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    sam_model = build_sam2(MODEL_CFG, str(MODEL_PATH), device=device)
-    _PREDICTOR = SAM2ImagePredictor(sam_model)
+        _download(MODEL_URL, MODEL_PATH)
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        sam_model = build_sam2(MODEL_CFG, str(MODEL_PATH), device=device)
+        _PREDICTOR = SAM2ImagePredictor(sam_model)
+    except Exception:
+        _LOAD_FAILED = True
+        raise
     return _PREDICTOR
 
 
