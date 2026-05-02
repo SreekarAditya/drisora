@@ -43,6 +43,10 @@ _TIMECODE_RE = re.compile(
 )
 _LAT_RE = re.compile(r"latitude\s*[:=]\s*(-?\d+(?:\.\d+)?)", re.IGNORECASE)
 _LON_RE = re.compile(r"longitude\s*[:=]\s*(-?\d+(?:\.\d+)?)", re.IGNORECASE)
+_GPS_TUPLE_RE = re.compile(
+    r"GPS\s*\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*(?:,\s*(-?\d+(?:\.\d+)?))?\s*\)",
+    re.IGNORECASE,
+)
 _ABS_ALT_RE = re.compile(r"abs_alt\s*[:=]\s*(-?\d+(?:\.\d+)?)", re.IGNORECASE)
 _REL_ALT_RE = re.compile(r"rel_alt\s*[:=]\s*(-?\d+(?:\.\d+)?)", re.IGNORECASE)
 _ALT_RE = re.compile(
@@ -80,18 +84,30 @@ def parse_srt(srt_path: str | Path) -> List[SrtEntry]:
 
         lat_m = _LAT_RE.search(block)
         lon_m = _LON_RE.search(block)
-        if not (lat_m and lon_m):
+        gps_tuple_m = _GPS_TUPLE_RE.search(block)
+
+        tuple_alt_m: Optional[float] = None
+        if lat_m and lon_m:
+            try:
+                lat = float(lat_m.group(1))
+                lon = float(lon_m.group(1))
+            except ValueError:
+                continue
+        elif gps_tuple_m:
+            try:
+                # DJI compact SRT format writes GPS as (longitude, latitude, altitude).
+                lon = float(gps_tuple_m.group(1))
+                lat = float(gps_tuple_m.group(2))
+                if gps_tuple_m.group(3) is not None:
+                    tuple_alt_m = float(gps_tuple_m.group(3))
+            except ValueError:
+                continue
+        else:
             # Skip frames without GPS — they're not useful for georeferencing.
             continue
 
-        try:
-            lat = float(lat_m.group(1))
-            lon = float(lon_m.group(1))
-        except ValueError:
-            continue
-
         # Prefer absolute altitude (MSL); fall back to relative or generic alt.
-        alt_m: Optional[float] = None
+        alt_m: Optional[float] = tuple_alt_m
         for rx in (_ABS_ALT_RE, _REL_ALT_RE, _ALT_RE):
             am = rx.search(block)
             if am:
