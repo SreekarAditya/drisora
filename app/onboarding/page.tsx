@@ -90,8 +90,7 @@ export default function OnboardingPage() {
       return;
     }
 
-    router.push("/dashboard");
-    router.refresh();
+    router.push("/onboarding/tour");
   }
 
   if (checking) {
