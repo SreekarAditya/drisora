@@ -112,6 +112,10 @@ function SegmentSidebar({
 
 export function DroneJobResults({ results, jobId, surveyDate, orgName }: Props) {
   const [selectedFrame, setSelectedFrame] = useState<FrameResult | null>(null);
+  const isMobile = useMediaQuery("(max-width: 1023px)");
+  const handleSelect = useCallback((frame: FrameResult) => {
+    setSelectedFrame(frame);
+  }, []);
 
   const { frames, summary } = results;
 
@@ -125,12 +129,6 @@ export function DroneJobResults({ results, jobId, surveyDate, orgName }: Props) 
   }
 
   const gpsFrames = frames.filter((f) => f.lat != null && f.lon != null);
-
-  const isMobile = useMediaQuery("(max-width: 1023px)");
-
-  const handleSelect = useCallback((frame: FrameResult) => {
-    setSelectedFrame(frame);
-  }, []);
 
   // Compute road length as sum of Haversine distances between consecutive GPS frames
   const totalLengthM = gpsFrames.reduce((acc, f, i) => {

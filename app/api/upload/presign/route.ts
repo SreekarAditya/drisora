@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { loadRedisJob } from "@/lib/jobs/submit";
 import { getPresignedPutUrl } from "@/lib/r2";
 
 interface FileInput {
@@ -34,6 +35,18 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: "job_id and files are required" },
       { status: 400 },
+    );
+  }
+
+  const job = await loadRedisJob(body.job_id);
+  if (!job || job.user_id !== user.id) {
+    return NextResponse.json({ error: "Job not found" }, { status: 404 });
+  }
+
+  if (job.status !== "uploading") {
+    return NextResponse.json(
+      { error: `Cannot upload files while job is ${job.status}` },
+      { status: 409 },
     );
   }
 

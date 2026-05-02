@@ -9,6 +9,7 @@ interface Props {
 // ─── Status badge ─────────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<JobStatus, { bg: string; text: string; dot: string }> = {
+  uploading:         { bg: "bg-sky-500/10",     text: "text-sky-400",    dot: "bg-sky-400" },
   queued:            { bg: "bg-[#1a1a1a]",      text: "text-gray-500",   dot: "bg-gray-600" },
   extracting_frames: { bg: "bg-amber-500/10",   text: "text-amber-400",  dot: "bg-amber-400" },
   detecting:         { bg: "bg-amber-500/10",   text: "text-amber-400",  dot: "bg-amber-400" },
@@ -19,6 +20,7 @@ const STATUS_COLORS: Record<JobStatus, { bg: string; text: string; dot: string }
 };
 
 const STATUS_LABELS: Record<JobStatus, string> = {
+  uploading:         "Uploading",
   queued:            "Queued",
   extracting_frames: "Processing",
   detecting:         "Processing",
@@ -30,7 +32,7 @@ const STATUS_LABELS: Record<JobStatus, string> = {
 
 function StatusBadge({ status }: { status: JobStatus }) {
   const c = STATUS_COLORS[status];
-  const isProcessing = !["queued", "complete", "failed"].includes(status);
+  const isProcessing = !["complete", "failed"].includes(status);
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${c.bg} ${c.text}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${c.dot} ${isProcessing ? "animate-pulse" : ""}`} />
@@ -80,6 +82,9 @@ function ModeBadge({ mode }: { mode: JobMode }) {
 
 function StatsCards({ jobs }: { jobs: JobRecord[] }) {
   const completed = jobs.filter((j) => j.status === "complete");
+  const active = jobs.filter((j) => !["complete", "failed", "uploading"].includes(j.status));
+  const uploading = jobs.filter((j) => j.status === "uploading");
+  const failed = jobs.filter((j) => j.status === "failed");
   const pciValues = completed
     .map((j) => j.average_pci)
     .filter((v): v is number => v != null);
@@ -88,17 +93,20 @@ function StatsCards({ jobs }: { jobs: JobRecord[] }) {
       ? pciValues.reduce((a, b) => a + b, 0) / pciValues.length
       : null;
   const totalFrames = completed.reduce((a, j) => a + (j.frame_count ?? 0), 0);
+  const poorSurveys = completed.filter((j) => (j.average_pci ?? 100) < 70).length;
 
   const stats = [
     {
-      label: "Total surveys",
-      value: String(jobs.length),
-      sub: `${completed.length} complete`,
+      label: "Active queue",
+      value: String(active.length + uploading.length),
+      sub: uploading.length > 0 ? `${uploading.length} uploading` : `${active.length} processing`,
+      color: active.length + uploading.length > 0 ? "#38bdf8" : undefined,
     },
     {
-      label: "Frames analysed",
-      value: totalFrames >= 1000 ? `${(totalFrames / 1000).toFixed(1)}k` : String(totalFrames),
-      sub: "across all jobs",
+      label: "Ready reports",
+      value: String(completed.length),
+      sub: `${totalFrames >= 1000 ? `${(totalFrames / 1000).toFixed(1)}k` : totalFrames} frames analyzed`,
+      color: completed.length > 0 ? "#34d399" : undefined,
     },
     {
       label: "Average PCI",
@@ -107,10 +115,10 @@ function StatsCards({ jobs }: { jobs: JobRecord[] }) {
       color: avgPci != null ? getPciBand(avgPci).color : undefined,
     },
     {
-      label: "IRC:82-2023",
-      value: avgPci != null ? (avgPci >= 70 ? "Compliant" : "Non-compliant") : "—",
-      sub: avgPci != null ? `Avg PCI ${avgPci.toFixed(1)}` : "no completed surveys",
-      color: avgPci != null ? (avgPci >= 70 ? "#22c55e" : "#ef4444") : undefined,
+      label: "Needs review",
+      value: String(failed.length + poorSurveys),
+      sub: failed.length > 0 ? `${failed.length} failed job${failed.length === 1 ? "" : "s"}` : `${poorSurveys} below PCI 70`,
+      color: failed.length + poorSurveys > 0 ? "#f87171" : "#94a3b8",
     },
   ];
 
@@ -119,7 +127,7 @@ function StatsCards({ jobs }: { jobs: JobRecord[] }) {
       {stats.map((s) => (
         <div
           key={s.label}
-          className="rounded-xl border border-[#1a1a1a] bg-[#0f0f0f] px-5 py-4"
+          className="rounded-lg border border-white/10 bg-[#101113] px-5 py-4 shadow-[0_12px_30px_rgba(0,0,0,0.18)]"
         >
           <p className="font-mono text-[10px] uppercase tracking-widest text-gray-600">{s.label}</p>
           <p
@@ -139,7 +147,7 @@ function StatsCards({ jobs }: { jobs: JobRecord[] }) {
 
 function EmptyState() {
   return (
-    <div className="flex flex-col items-center rounded-xl border border-[#1a1a1a] bg-[#0f0f0f] px-6 py-20 text-center">
+    <div className="flex flex-col items-center rounded-lg border border-white/10 bg-[#101113] px-6 py-20 text-center">
       <div
         className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-[#222] bg-[#111]"
         style={{ boxShadow: "0 0 24px rgba(245,158,11,0.15)" }}
@@ -172,7 +180,7 @@ function JobRow({ job }: { job: JobRecord }) {
     day: "2-digit", month: "short", year: "numeric",
   });
   const pciColor = job.average_pci != null ? getPciBand(job.average_pci).color : "#555";
-  const isActive = !["complete", "failed", "queued"].includes(job.status);
+  const isActive = !["complete", "failed", "uploading"].includes(job.status);
 
   return (
     <tr className="group border-b border-[#141414] transition-colors hover:bg-[#0d0d0d]">
@@ -222,6 +230,8 @@ function JobRow({ job }: { job: JobRecord }) {
             >
               Track
             </Link>
+          ) : job.status === "uploading" ? (
+            <span className="text-xs text-sky-500">Uploading</span>
           ) : (
             <span className="text-xs text-gray-700">—</span>
           )}
@@ -234,16 +244,41 @@ function JobRow({ job }: { job: JobRecord }) {
 // ─── Job list ─────────────────────────────────────────────────────────────────
 
 export function JobList({ jobs }: Props) {
+  const latestJob = jobs[0];
+  const latestDate = latestJob
+    ? new Date(latestJob.created_at).toLocaleDateString("en-IN", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "No activity";
+
   return (
     <main className="mx-auto max-w-7xl px-6 py-10">
-      <div className="mb-8 flex items-center justify-between gap-4">
-        <h1 className="text-3xl font-semibold tracking-tight text-white">Surveys</h1>
-        <Link
-          href="/upload"
-          className="rounded-md bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400"
-        >
-          New Survey
-        </Link>
+      <div className="mb-8 flex flex-col justify-between gap-5 border-b border-white/10 pb-6 md:flex-row md:items-end">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-widest text-gray-600">
+            Pavement intelligence
+          </p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Survey operations</h1>
+          <p className="mt-2 text-sm text-gray-500">
+            {jobs.length} total surveys · latest activity {latestDate}
+          </p>
+        </div>
+        <div className="flex items-center gap-3">
+          <Link
+            href="/dashboard"
+            className="rounded-md border border-white/10 px-4 py-2.5 text-sm font-semibold text-gray-300 transition-colors hover:border-white/20 hover:bg-white/5 hover:text-white"
+          >
+            Refresh
+          </Link>
+          <Link
+            href="/upload"
+            className="rounded-md bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400"
+          >
+            New Survey
+          </Link>
+        </div>
       </div>
 
       <StatsCards jobs={jobs} />
@@ -252,10 +287,10 @@ export function JobList({ jobs }: Props) {
         {jobs.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="overflow-x-auto overflow-hidden rounded-xl border border-[#1a1a1a] bg-[#0a0a0a]">
+          <div className="overflow-x-auto overflow-hidden rounded-lg border border-white/10 bg-[#0b0c0d] shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
             <table className="w-full min-w-[640px]">
               <thead>
-                <tr className="border-b border-[#1a1a1a] bg-[#0f0f0f]">
+                <tr className="border-b border-white/10 bg-[#111315]">
                   <th className="py-3 pl-6 pr-4 text-left font-mono text-[10px] uppercase tracking-widest text-gray-600">
                     Date
                   </th>

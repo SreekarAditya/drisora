@@ -53,25 +53,28 @@ const MODES: ModeCard[] = [
 ];
 
 export function UploadClient() {
-  const [activeMode, setActiveMode] = useState<UploadMode | null>(null);
+  const [activeMode, setActiveMode] = useState<UploadMode>("drone_footage");
 
   return (
-    <div className="space-y-10">
-      {/* Mode cards */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+    <div className="space-y-8">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" role="tablist" aria-label="Survey mode">
         {MODES.map((mode) => {
           const isActive = activeMode === mode.id;
           return (
-            <div
+            <button
+              type="button"
               key={mode.id}
-              className={`flex flex-col rounded-xl border p-6 transition-colors ${
+              onClick={() => setActiveMode(mode.id)}
+              role="tab"
+              aria-selected={isActive}
+              className={`flex min-h-[148px] flex-col rounded-lg border p-5 text-left transition-colors ${
                 isActive
-                  ? "border-amber-500 bg-amber-500/5"
-                  : "border-[#1a1a1a] bg-[#0f0f0f] hover:border-[#2a2a2a]"
+                  ? "border-amber-500/80 bg-amber-500/10 shadow-[0_18px_50px_rgba(245,158,11,0.08)]"
+                  : "border-white/10 bg-[#101113] hover:border-white/20 hover:bg-[#141619]"
               }`}
             >
               <div
-                className={`mb-4 flex h-11 w-11 items-center justify-center rounded-lg ${
+                className={`mb-4 flex h-10 w-10 items-center justify-center rounded-md ${
                   isActive ? "bg-amber-500 text-black" : "bg-[#1a1a1a] text-amber-500"
                 }`}
               >
@@ -79,23 +82,14 @@ export function UploadClient() {
               </div>
               <h3 className="text-base font-semibold text-white">{mode.title}</h3>
               <p className="mt-1.5 text-sm text-gray-500">{mode.description}</p>
-              <button
-                type="button"
-                onClick={() => setActiveMode(mode.id)}
-                className={`mt-6 w-full rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
-                  isActive
-                    ? "bg-amber-500 text-black hover:bg-amber-400"
-                    : "border border-[#2a2a2a] bg-[#141414] text-white hover:border-[#3a3a3a] hover:bg-[#1a1a1a]"
-                }`}
-              >
+              <span className={`mt-auto pt-5 text-xs font-semibold ${isActive ? "text-amber-400" : "text-gray-500"}`}>
                 {isActive ? "Selected" : "Select"}
-              </button>
-            </div>
+              </span>
+            </button>
           );
         })}
       </div>
 
-      {/* Mode panel */}
       {activeMode === "image_batch" && <ImageBatchPanel />}
       {activeMode === "handheld_video" && <HandheldVideoPanel />}
       {activeMode === "drone_footage" && <DroneFootagePanel />}

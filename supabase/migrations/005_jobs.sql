@@ -3,7 +3,7 @@ create table if not exists jobs (
   user_id        uuid not null references auth.users(id) on delete cascade,
   mode           text not null check (mode in ('image_batch', 'handheld_video', 'drone_footage')),
   status         text not null default 'queued' check (
-                   status in ('queued', 'extracting_frames', 'detecting',
+                   status in ('uploading', 'queued', 'extracting_frames', 'detecting',
                               'segmenting', 'scoring', 'complete', 'failed')
                  ),
   frame_count    int,

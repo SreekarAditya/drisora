@@ -10,7 +10,7 @@ const protectedPrefixes = [
   "/jobs",
 ];
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const response = NextResponse.next({ request });
   const refreshedCookies: Array<{
     name: string;
@@ -53,8 +53,7 @@ export async function middleware(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const hasReportToken =
-    path.startsWith("/report/") &&
-    request.nextUrl.searchParams.has("token");
+    path.startsWith("/report/") && request.nextUrl.searchParams.has("token");
   const needsAuth = protectedPrefixes.some(
     (prefix) => path === prefix || path.startsWith(`${prefix}/`),
   );

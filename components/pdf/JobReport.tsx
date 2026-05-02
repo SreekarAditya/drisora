@@ -217,6 +217,7 @@ export function JobReport({ results, surveyDate, orgName }: Props) {
               return (
                 <View key={f.stem} style={s.thumbCard}>
                   {f.overlay_url && (
+                    // eslint-disable-next-line jsx-a11y/alt-text
                     <Image src={f.overlay_url} style={s.thumbImg} />
                   )}
                   <View style={s.thumbMeta}>

@@ -21,7 +21,7 @@ export function DashboardSkeleton() {
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <div key={i} className="rounded-xl border border-[#1a1a1a] bg-[#0f0f0f] px-5 py-4">
+          <div key={i} className="rounded-lg border border-[#1a1a1a] bg-[#0f0f0f] px-5 py-4">
             <Skeleton className="mb-2 h-2.5 w-24" />
             <Skeleton className="mb-2 h-8 w-16" />
             <Skeleton className="h-2 w-28" />
@@ -29,7 +29,7 @@ export function DashboardSkeleton() {
         ))}
       </div>
 
-      <div className="mt-8 overflow-hidden rounded-xl border border-[#1a1a1a] bg-[#0a0a0a]">
+      <div className="mt-8 overflow-hidden rounded-lg border border-[#1a1a1a] bg-[#0a0a0a]">
         <div className="border-b border-[#1a1a1a] bg-[#0f0f0f] px-6 py-3">
           <Skeleton className="h-2.5 w-72" />
         </div>

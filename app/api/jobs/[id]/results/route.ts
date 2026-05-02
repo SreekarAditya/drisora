@@ -2,8 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getRedisClient } from "@/lib/redis";
 import { loadJobResults } from "@/lib/jobs/results";
-import type { JobRecord } from "@/app/api/jobs/create/route";
-import type { JobMode } from "@/types";
+import type { JobMode, ProcessingJobRecord } from "@/types";
 
 export async function GET(
   _req: NextRequest,
@@ -22,7 +21,7 @@ export async function GET(
     return NextResponse.json({ error: "Job not found" }, { status: 404 });
   }
 
-  const job = (typeof raw === "string" ? JSON.parse(raw) : raw) as JobRecord;
+  const job = (typeof raw === "string" ? JSON.parse(raw) : raw) as ProcessingJobRecord;
   if (job.user_id !== user.id) {
     return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }

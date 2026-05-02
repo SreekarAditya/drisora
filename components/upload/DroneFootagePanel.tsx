@@ -84,7 +84,7 @@ export function DroneFootagePanel() {
   }
 
   return (
-    <section className="rounded-xl border border-[#1a1a1a] bg-[#0f0f0f] p-6">
+    <section className="rounded-lg border border-white/10 bg-[#101113] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
       <h2 className="text-lg font-semibold text-white">Drone footage</h2>
       <p className="mt-1 text-sm text-gray-500">
         Single MP4 or MOV. We&apos;ll use embedded GPS if present, otherwise pair it
@@ -98,7 +98,7 @@ export function DroneFootagePanel() {
         }}
         onDragLeave={() => setVideoDrag(false)}
         onDrop={handleVideoDrop}
-        className={`mt-6 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-10 transition-colors ${
+        className={`mt-6 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-10 transition-colors ${
           videoDrag
             ? "border-amber-500 bg-amber-500/5"
             : "border-[#2a2a2a] bg-[#0a0a0a] hover:border-[#3a3a3a]"
