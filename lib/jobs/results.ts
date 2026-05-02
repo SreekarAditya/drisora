@@ -1,7 +1,16 @@
 import { listR2Objects, getR2ObjectText, getPresignedGetUrl } from "@/lib/r2";
+import { crackTypeLabel, normalizeCrackTypes } from "@/lib/crack-labels";
 import type { FrameResult, JobResults, JobMode, JobResultsSummary } from "@/types";
 
 interface RawDetection {
+  frame?: {
+    index?: number;
+    timestamp_ms?: number | null;
+    lat?: number | null;
+    lon?: number | null;
+    alt_m?: number | null;
+    alt?: number | null;
+  };
   pci_score?: number;
   crack_types?: string[];
   index?: number;
@@ -62,14 +71,14 @@ export async function loadJobResults(
       const { stem, data } = item;
       frames.push({
         stem,
-        index: data.index ?? i + j,
+        index: data.index ?? data.frame?.index ?? i + j,
         pci_score: typeof data.pci_score === "number" ? data.pci_score : 0,
-        crack_types: Array.isArray(data.crack_types) ? data.crack_types : [],
+        crack_types: normalizeCrackTypes(data.crack_types),
         overlay_url: overlayPresigns[j],
-        timestamp_ms: data.timestamp_ms ?? null,
-        lat: data.lat ?? null,
-        lon: data.lon ?? null,
-        alt_m: data.alt_m ?? null,
+        timestamp_ms: data.timestamp_ms ?? data.frame?.timestamp_ms ?? null,
+        lat: data.lat ?? data.frame?.lat ?? null,
+        lon: data.lon ?? data.frame?.lon ?? null,
+        alt_m: data.alt_m ?? data.frame?.alt_m ?? data.frame?.alt ?? null,
         depth_estimate: data.depth_estimate ?? null,
       });
     }
@@ -90,7 +99,8 @@ function computeSummary(frames: FrameResult[]): JobResultsSummary {
   const crack_type_counts: Record<string, number> = {};
   for (const f of frames) {
     for (const ct of f.crack_types) {
-      crack_type_counts[ct] = (crack_type_counts[ct] ?? 0) + 1;
+      const label = crackTypeLabel(ct);
+      crack_type_counts[label] = (crack_type_counts[label] ?? 0) + 1;
     }
   }
   return {
