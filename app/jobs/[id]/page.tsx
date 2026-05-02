@@ -16,6 +16,7 @@ interface JobState {
 }
 
 const STATUS_LABELS: Record<JobStatus, string> = {
+  uploading: "Uploading files",
   queued: "Queued",
   extracting_frames: "Extracting frames",
   detecting: "Detecting cracks",
@@ -32,7 +33,7 @@ const PIPELINE_STEPS: JobStatus[] = [
   "scoring",
 ];
 
-const STATUS_ORDER: JobStatus[] = ["queued", ...PIPELINE_STEPS, "complete"];
+const STATUS_ORDER: JobStatus[] = ["uploading", "queued", ...PIPELINE_STEPS, "complete"];
 const POLL_MS = 3000;
 
 function ModeBadge({ mode }: { mode: JobMode }) {
@@ -128,7 +129,7 @@ export default function JobPage() {
           setJob(data);
           if (data.status === "complete") {
             router.push(`/jobs/${id}/results`);
-          } else if (data.status !== "failed") {
+          } else if (data.status !== "failed" && data.status !== "uploading") {
             setTimeout(poll, POLL_MS);
           }
         }
@@ -253,7 +254,9 @@ export default function JobPage() {
                 {STATUS_LABELS[job.status]}…
               </h2>
               <p className="mt-1 text-sm text-gray-500">
-                {pct !== null
+                {job.status === "uploading"
+                  ? "Waiting for upload to finish…"
+                  : pct !== null
                   ? `${job.processed_count} / ${job.frame_count} frames · ${pct}%`
                   : "Preparing…"}
               </p>

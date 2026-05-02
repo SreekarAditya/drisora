@@ -2,7 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import type { JobMode } from "@/app/api/jobs/create/route";
+import type { JobMode } from "@/types";
 
 export interface UseUploadOptions {
   mode: JobMode;
@@ -27,6 +27,21 @@ export function useUpload() {
 
   const jobIdRef = useRef<string | null>(null);
   const pendingFilesRef = useRef<File[]>([]);
+
+  const submitJob = useCallback(
+    async (jobId: string) => {
+      const submitRes = await fetch(`/api/jobs/${jobId}/submit`, {
+        method: "POST",
+      });
+
+      if (!submitRes.ok) {
+        throw new Error(await responseMessage(submitRes, "Failed to start processing"));
+      }
+
+      router.push(`/jobs/${jobId}`);
+    },
+    [router],
+  );
 
   const startUpload = useCallback(
     async (files: File[], jobOptions: UseUploadOptions) => {
@@ -118,9 +133,17 @@ export function useUpload() {
         return;
       }
 
-      router.push(`/jobs/${job_id}`);
+      try {
+        await submitJob(job_id);
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Failed to start processing";
+        setUploadError(message);
+        setPhase("error");
+        return;
+      }
     },
-    [router],
+    [submitJob],
   );
 
   const retryFile = useCallback(
@@ -163,22 +186,36 @@ export function useUpload() {
         await xhrUpload(file, url, (pct) =>
           setProgress((prev) => new Map(prev).set(filename, pct)),
         );
+        let shouldSubmit = false;
         setFailedFiles((prev) => {
           const next = new Set(prev);
           next.delete(filename);
-          if (next.size === 0 && jobIdRef.current) {
-            router.push(`/jobs/${jobIdRef.current}`);
-          }
+          shouldSubmit = next.size === 0;
           return next;
         });
+        if (shouldSubmit && jobIdRef.current) {
+          await submitJob(jobIdRef.current);
+        }
       } catch {
         setFailedFiles((prev) => new Set(prev).add(filename));
       }
     },
-    [router],
+    [submitJob],
   );
 
   return { phase, progress, failedFiles, uploadError, startUpload, retryFile };
+}
+
+async function responseMessage(response: Response, fallback: string) {
+  const text = await response.text();
+  let message = `${fallback} (${response.status})`;
+  try {
+    const json = JSON.parse(text) as { error?: string };
+    if (json.error) message = json.error;
+  } catch {
+    if (text) message = text;
+  }
+  return message;
 }
 
 function xhrUpload(

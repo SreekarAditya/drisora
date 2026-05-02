@@ -84,7 +84,7 @@ function FrameCard({ frame }: { frame: FrameResult }) {
 
 export function ImageBatchResults({ results, jobId, surveyDate, orgName }: Props) {
   const [filter, setFilter] = useState<PciFilter>("all");
-  const { frames, summary } = results;
+  const { frames } = results;
 
   if (frames.length === 0) {
     return (

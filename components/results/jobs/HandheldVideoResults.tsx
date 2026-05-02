@@ -11,7 +11,6 @@ import {
   Tooltip,
   ReferenceLine,
   ResponsiveContainer,
-  Dot,
 } from "recharts";
 import { SummaryBar, PciChip, NoDetectionsState } from "./shared";
 import { getPciBand, ircRecommendation } from "@/types";
@@ -142,6 +141,9 @@ function FramePanel({ frame, onClose }: { frame: FrameResult; onClose: () => voi
 
 export function HandheldVideoResults({ results, jobId, surveyDate, orgName }: Props) {
   const [selectedFrame, setSelectedFrame] = useState<FrameResult | null>(null);
+  const handleDotClick = useCallback((frame: FrameResult) => {
+    setSelectedFrame(frame);
+  }, []);
 
   const { frames, summary } = results;
 
@@ -171,10 +173,6 @@ export function HandheldVideoResults({ results, jobId, surveyDate, orgName }: Pr
     (w, f) => (!w || f.pci_score < w.pci_score ? f : w),
     null,
   );
-
-  const handleDotClick = useCallback((frame: FrameResult) => {
-    setSelectedFrame(frame);
-  }, []);
 
   return (
     <div className="min-h-screen bg-[#0a0a0a]">

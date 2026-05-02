@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import type { FrameResult } from "@/types";
-import { getPciBand, ircRecommendation } from "@/types";
+import { getPciBand } from "@/types";
 
 interface Props {
   frames: FrameResult[];

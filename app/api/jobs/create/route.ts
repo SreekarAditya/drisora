@@ -2,35 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { randomUUID } from "node:crypto";
 import { createClient } from "@/lib/supabase/server";
 import { getRedisClient } from "@/lib/redis";
-
-export type JobMode = "image_batch" | "handheld_video" | "drone_footage";
-
-export type JobStatus =
-  | "queued"
-  | "extracting_frames"
-  | "detecting"
-  | "segmenting"
-  | "scoring"
-  | "complete"
-  | "failed";
-
-export interface JobRecord {
-  job_id: string;
-  user_id: string;
-  runpod_job_id: string | null;
-  mode: JobMode;
-  status: JobStatus;
-  frame_count: number;
-  processed_count: number;
-  gps_available: boolean;
-  output_r2_prefix: string;
-  last_updated: string;
-  created_at: string;
-  error_message: string | null;
-  options: Record<string, unknown>;
-  file_names: string[];
-  total_bytes: number;
-}
+import { jobKey, userJobsKey } from "@/lib/jobs/submit";
+import type { JobMode, ProcessingJobRecord } from "@/types";
 
 interface CreateJobBody {
   mode: JobMode;
@@ -41,54 +14,6 @@ interface CreateJobBody {
 }
 
 const VALID_MODES: JobMode[] = ["image_batch", "handheld_video", "drone_footage"];
-
-function jobKey(jobId: string) {
-  return `job:${jobId}`;
-}
-
-function userJobsKey(userId: string) {
-  return `user:${userId}:jobs`;
-}
-
-function requireEnv(name: string) {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`Missing ${name}`);
-  }
-  return value;
-}
-
-async function submitRunpodJob(input: {
-  job_id: string;
-  user_id: string;
-  mode: JobMode;
-  r2_prefix: string;
-  file_names: string[];
-  options: Record<string, unknown>;
-}) {
-  const endpointId = requireEnv("RUNPOD_ENDPOINT_ID");
-  const apiKey = requireEnv("RUNPOD_API_KEY");
-
-  const runpodResponse = await fetch(`https://api.runpod.ai/v2/${endpointId}/run`, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({ input }),
-  });
-
-  if (!runpodResponse.ok) {
-    const errorText = await runpodResponse.text();
-    throw new Error(`RunPod submission failed (${runpodResponse.status}): ${errorText}`);
-  }
-
-  const data = (await runpodResponse.json()) as { id?: string };
-  if (!data.id) {
-    throw new Error("RunPod submission response did not include an id");
-  }
-  return data.id;
-}
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -117,6 +42,20 @@ export async function POST(request: NextRequest) {
 
   if (!Array.isArray(body.file_names) || body.file_names.length === 0) {
     return NextResponse.json({ error: "file_names is required" }, { status: 400 });
+  }
+
+  if (body.file_count !== body.file_names.length) {
+    return NextResponse.json(
+      { error: "file_count must match file_names length" },
+      { status: 400 },
+    );
+  }
+
+  if (!Number.isFinite(body.total_bytes) || body.total_bytes <= 0) {
+    return NextResponse.json(
+      { error: "total_bytes must be a positive number" },
+      { status: 400 },
+    );
   }
 
   if (body.mode === "image_batch" && body.file_names.length > 1000) {
@@ -158,12 +97,12 @@ export async function POST(request: NextRequest) {
   const jobId = randomUUID();
   const now = new Date().toISOString();
 
-  const job: JobRecord = {
+  const job: ProcessingJobRecord = {
     job_id: jobId,
     user_id: user.id,
     runpod_job_id: null,
     mode: body.mode,
-    status: "queued",
+    status: "uploading",
     frame_count: 0,
     processed_count: 0,
     gps_available: gpsAvailable,
@@ -176,58 +115,37 @@ export async function POST(request: NextRequest) {
     total_bytes: body.total_bytes ?? 0,
   };
 
-  const redis = getRedisClient();
-  await Promise.all([
-    redis.set(jobKey(job.job_id), JSON.stringify(job)),
-    redis.lpush(userJobsKey(user.id), job.job_id),
-  ]);
-
-  await supabase.from("jobs").insert({
+  const { error: insertError } = await supabase.from("jobs").insert({
     id: jobId,
     user_id: user.id,
     mode: body.mode,
-    status: "queued",
+    status: "uploading",
     frame_count: 0,
+    processed_count: 0,
     gps_available: gpsAvailable,
     r2_prefix: `results/${user.id}/${jobId}/`,
     created_at: now,
   });
 
-  try {
-    const runpodJobId = await submitRunpodJob({
-      job_id: job.job_id,
-      user_id: user.id,
-      mode: body.mode,
-      r2_prefix: `uploads/${user.id}/${job.job_id}/raw/`,
-      file_names: body.file_names,
-      options,
-    });
-
-    job.runpod_job_id = runpodJobId;
-    job.last_updated = new Date().toISOString();
-    await redis.set(jobKey(job.job_id), JSON.stringify(job));
-
+  if (insertError) {
     return NextResponse.json(
-      { job_id: job.job_id, runpod_job_id: runpodJobId, job },
-      { status: 201 },
+      { error: `Failed to create job record: ${insertError.message}` },
+      { status: 500 },
     );
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "RunPod submission failed";
-    job.status = "failed";
-    job.error_message = errorMessage;
-    job.last_updated = new Date().toISOString();
+  }
+
+  try {
+    const redis = getRedisClient();
     await Promise.all([
       redis.set(jobKey(job.job_id), JSON.stringify(job)),
-      supabase
-        .from("jobs")
-        .update({
-          status: "failed",
-          error_message: errorMessage,
-          completed_at: new Date().toISOString(),
-        })
-        .eq("id", job.job_id),
+      redis.lpush(userJobsKey(user.id), job.job_id),
     ]);
-
-    return NextResponse.json({ error: errorMessage, job_id: job.job_id }, { status: 500 });
+  } catch (error) {
+    await supabase.from("jobs").delete().eq("id", jobId).eq("user_id", user.id);
+    const message =
+      error instanceof Error ? error.message : "Failed to create upload session";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
+
+  return NextResponse.json({ job_id: job.job_id, job }, { status: 201 });
 }

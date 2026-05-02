@@ -3,6 +3,7 @@
 export type JobMode = "image_batch" | "handheld_video" | "drone_footage";
 
 export type JobStatus =
+  | "uploading"
   | "queued"
   | "extracting_frames"
   | "detecting"
@@ -38,6 +39,24 @@ export interface JobRecord {
   created_at: string;
   completed_at: string | null;
   error_message: string | null;
+}
+
+export interface ProcessingJobRecord {
+  job_id: string;
+  user_id: string;
+  runpod_job_id: string | null;
+  mode: JobMode;
+  status: JobStatus;
+  frame_count: number;
+  processed_count: number;
+  gps_available: boolean;
+  output_r2_prefix: string;
+  last_updated: string;
+  created_at: string;
+  error_message: string | null;
+  options: Record<string, unknown>;
+  file_names: string[];
+  total_bytes: number;
 }
 
 export interface FrameResult {

@@ -84,6 +84,11 @@ export function SummaryBar({ results, jobId, surveyDate, orgName, extra }: Summa
           </div>
           <div className="h-8 w-px bg-[#1e1e1e]" />
           <div>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-gray-600">Organization</p>
+            <p className="mt-0.5 max-w-[180px] truncate text-sm text-gray-300">{orgName}</p>
+          </div>
+          <div className="h-8 w-px bg-[#1e1e1e]" />
+          <div>
             <p className="font-mono text-[10px] uppercase tracking-widest text-gray-600">IRC:82-2023</p>
             <p className={`mt-0.5 text-sm font-medium ${summary.average_pci >= 70 ? "text-emerald-400" : "text-red-400"}`}>
               {summary.average_pci >= 70 ? "Compliant" : "Non-compliant"}
