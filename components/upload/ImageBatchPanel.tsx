@@ -13,6 +13,7 @@ interface FilePreview {
 export function ImageBatchPanel() {
   const [files, setFiles] = useState<FilePreview[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  const [fileErrors, setFileErrors] = useState<Record<string, string>>({});
   const { phase, progress, failedFiles, uploadError, startUpload, retryFile } =
     useUpload();
 
@@ -25,12 +26,26 @@ export function ImageBatchPanel() {
 
   function addFiles(incoming: FileList | File[]) {
     const accepted: FilePreview[] = [];
+    const newErrors: Record<string, string> = {};
+
     Array.from(incoming).forEach((file) => {
-      if (!file.type.startsWith("image/")) return;
+      if (!file.type.startsWith("image/")) {
+        newErrors[file.name] = "Unsupported format";
+        return;
+      }
+      if (file.size > 50 * 1024 * 1024) {
+        newErrors[file.name] = "File too large (max 50 MB)";
+        return;
+      }
       accepted.push({ file, url: URL.createObjectURL(file) });
     });
-    if (accepted.length === 0) return;
-    setFiles((prev) => [...prev, ...accepted].slice(0, 1000));
+
+    if (Object.keys(newErrors).length > 0) {
+      setFileErrors((prev) => ({ ...prev, ...newErrors }));
+    }
+    if (accepted.length > 0) {
+      setFiles((prev) => [...prev, ...accepted].slice(0, 1000));
+    }
   }
 
   function removeAt(index: number) {
@@ -107,6 +122,31 @@ export function ImageBatchPanel() {
         <p className="mt-1 text-xs text-gray-600">JPEG and PNG · up to 1,000 files</p>
       </label>
 
+      {Object.keys(fileErrors).length > 0 && (
+        <div className="mt-4 space-y-1.5">
+          {Object.entries(fileErrors).map(([name, reason]) => (
+            <div key={name} className="flex items-center justify-between rounded-md bg-red-500/10 px-3 py-2">
+              <span className="max-w-[70%] truncate text-xs text-red-300">{name}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-red-400">{reason}</span>
+                <button
+                  type="button"
+                  onClick={() => setFileErrors((prev) => {
+                    const next = { ...prev };
+                    delete next[name];
+                    return next;
+                  })}
+                  className="text-xs text-gray-600 hover:text-gray-400"
+                  aria-label={`Dismiss error for ${name}`}
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {files.length > 0 && (
         <>
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
@@ -124,6 +164,7 @@ export function ImageBatchPanel() {
               onClick={() => {
                 files.forEach((f) => URL.revokeObjectURL(f.url));
                 setFiles([]);
+                setFileErrors({});
               }}
               className="text-xs font-medium text-gray-500 hover:text-white"
             >
@@ -180,7 +221,7 @@ export function ImageBatchPanel() {
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={isUploading || files.length === 0}
+          disabled={isUploading || files.length === 0 || Object.keys(fileErrors).length > 0}
           className="rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {phase === "creating_job"

@@ -16,12 +16,17 @@ export function HandheldVideoPanel() {
   const [video, setVideo] = useState<File | null>(null);
   const [interval, setInterval] = useState<Interval>(1);
   const [dragOver, setDragOver] = useState(false);
+  const [videoError, setVideoError] = useState<string | null>(null);
   const { phase, progress, failedFiles, uploadError, startUpload, retryFile } =
     useUpload();
 
   function setSingleVideo(file: File | null) {
     if (!file) return;
-    if (!file.type.startsWith("video/") && !/\.(mp4|mov)$/i.test(file.name)) return;
+    setVideoError(null);
+    if (!file.type.startsWith("video/") && !/\.(mp4|mov)$/i.test(file.name)) {
+      setVideoError(`${file.name} — Unsupported format (MP4 or MOV required)`);
+      return;
+    }
     setVideo(file);
   }
 
@@ -90,6 +95,19 @@ export function HandheldVideoPanel() {
         </p>
       </label>
 
+      {videoError && (
+        <div className="mt-4 flex items-center justify-between rounded-md bg-red-500/10 px-3 py-2">
+          <span className="truncate text-xs text-red-300">{videoError}</span>
+          <button
+            type="button"
+            onClick={() => setVideoError(null)}
+            className="ml-2 text-xs text-gray-600 hover:text-gray-400"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <div className="mt-6">
         <label className="text-xs font-medium text-gray-400">Frame interval</label>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
@@ -150,7 +168,7 @@ export function HandheldVideoPanel() {
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={isUploading || !video}
+          disabled={isUploading || !video || !!videoError}
           className="rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {phase === "creating_job"

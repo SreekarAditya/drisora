@@ -15,12 +15,17 @@ export function DroneFootagePanel() {
   const [gps, setGps] = useState<GpsState>({ kind: "unchecked" });
   const [videoDrag, setVideoDrag] = useState(false);
   const [srtDrag, setSrtDrag] = useState(false);
+  const [videoError, setVideoError] = useState<string | null>(null);
   const { phase, progress, failedFiles, uploadError, startUpload, retryFile } =
     useUpload();
 
   function setSingleVideo(file: File | null) {
     if (!file) return;
-    if (!file.type.startsWith("video/") && !/\.(mp4|mov)$/i.test(file.name)) return;
+    setVideoError(null);
+    if (!file.type.startsWith("video/") && !/\.(mp4|mov)$/i.test(file.name)) {
+      setVideoError(`${file.name} — Unsupported format (MP4 or MOV required)`);
+      return;
+    }
     setVideo(file);
     setGps({ kind: "unchecked" });
     setSrt(null);
@@ -126,6 +131,19 @@ export function DroneFootagePanel() {
         </p>
       </label>
 
+      {videoError && (
+        <div className="mt-4 flex items-center justify-between rounded-md bg-red-500/10 px-3 py-2">
+          <span className="truncate text-xs text-red-300">{videoError}</span>
+          <button
+            type="button"
+            onClick={() => setVideoError(null)}
+            className="ml-2 text-xs text-gray-600 hover:text-gray-400"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {video && (
         <div className="mt-6 rounded-lg border border-[#1a1a1a] bg-[#0a0a0a] p-4">
           {gps.kind === "unchecked" && (
@@ -228,7 +246,7 @@ export function DroneFootagePanel() {
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={isUploading || !canSubmit}
+          disabled={isUploading || !canSubmit || !!videoError}
           className="rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {phase === "creating_job"
