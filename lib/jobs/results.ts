@@ -35,6 +35,12 @@ export async function loadJobResults(
   if (detectionKeys.length === 0) {
     return emptyResults(jobId, mode);
   }
+  let overlayKeys = new Set<string>();
+  try {
+    overlayKeys = new Set(await listR2Objects(overlayPrefix));
+  } catch {
+    overlayKeys = new Set();
+  }
 
   // Fetch all detection JSONs in parallel (batched to avoid overwhelming R2)
   const BATCH = 50;
@@ -57,6 +63,7 @@ export async function loadJobResults(
       batch.map(async (key) => {
         const stem = key.replace(detectionPrefix, "").replace(/\.json$/, "");
         const overlayKey = `${overlayPrefix}${stem}.png`;
+        if (!overlayKeys.has(overlayKey)) return null;
         try {
           return await getPresignedGetUrl(overlayKey, 3600);
         } catch {

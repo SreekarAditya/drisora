@@ -11,7 +11,7 @@ _LOAD_FAILED = False
 
 MODEL_URL = "https://dl.fbaipublicfiles.com/segment_anything_v2/sam2.1_hiera_small.pt"
 MODEL_PATH = Path("/tmp/models/sam2.1_hiera_small.pt")
-MODEL_CFG = "configs/sam2.1/sam2.1_hiera_s.yaml"
+MODEL_CFG = "sam2.1_hiera_s.yaml"
 
 
 def _download(url: str, path: Path) -> None:
@@ -37,7 +37,8 @@ def load_model() -> Any:
         device = "cuda" if torch.cuda.is_available() else "cpu"
         sam_model = build_sam2(MODEL_CFG, str(MODEL_PATH), device=device)
         _PREDICTOR = SAM2ImagePredictor(sam_model)
-    except Exception:
+    except Exception as e:
+        print(f"[SAM2] LOAD FAILED: {e}")
         _LOAD_FAILED = True
         raise
     return _PREDICTOR
@@ -104,7 +105,8 @@ def _run_one(image_path: str, detections: list[dict[str, Any]]) -> list[dict[str
             except Exception:
                 segmented.append(_fallback_detection(detection))
         return segmented
-    except Exception:
+    except Exception as e:
+        print(f"[SAM2] _run_one failed for {image_path}: {e}")
         return [_fallback_detection(detection) for detection in detections]
 
 

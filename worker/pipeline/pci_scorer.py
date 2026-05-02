@@ -166,7 +166,8 @@ def _rut_depth_mm(depth_map: Any) -> float:
         if top_third.size == 0:
             return 0.0
         return max(0.0, float(np.std(top_third)) * 0.3 * 1000.0)
-    except Exception:
+    except Exception as e:
+        print(f"[PCI] scoring failed: {e}")
         return 0.0
 
 
@@ -224,7 +225,8 @@ def score(
             "dominant_crack": dominant_crack,
             "irc_standard": IRC_STANDARD,
         }
-    except Exception:
+    except Exception as e:
+        print(f"[PCI] scoring failed: {e}")
         return _safe_fallback()
 
 
