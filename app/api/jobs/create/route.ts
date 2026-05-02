@@ -69,7 +69,7 @@ async function submitRunpodJob(input: {
   const endpointId = requireEnv("RUNPOD_ENDPOINT_ID");
   const apiKey = requireEnv("RUNPOD_API_KEY");
 
-  const runpodResponse = await fetch(`https://api.runpod.io/v2/${endpointId}/run`, {
+  const runpodResponse = await fetch(`https://api.runpod.ai/v2/${endpointId}/run`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
