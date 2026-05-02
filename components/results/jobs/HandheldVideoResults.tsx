@@ -13,7 +13,7 @@ import {
   ResponsiveContainer,
   Dot,
 } from "recharts";
-import { SummaryBar, PciChip } from "./shared";
+import { SummaryBar, PciChip, NoDetectionsState } from "./shared";
 import { getPciBand, ircRecommendation } from "@/types";
 import type { JobResults, FrameResult } from "@/types";
 
@@ -144,6 +144,15 @@ export function HandheldVideoResults({ results, jobId, surveyDate, orgName }: Pr
   const [selectedFrame, setSelectedFrame] = useState<FrameResult | null>(null);
 
   const { frames, summary } = results;
+
+  if (frames.length === 0) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a]">
+        <SummaryBar results={results} jobId={jobId} surveyDate={surveyDate} orgName={orgName} />
+        <NoDetectionsState jobId={jobId} />
+      </div>
+    );
+  }
 
   const chartData: ChartPoint[] = frames
     .filter((f) => f.timestamp_ms != null)

@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
-import { SummaryBar, PciChip } from "./shared";
+import { SummaryBar, PciChip, NoDetectionsState } from "./shared";
 import { getPciBand, ircRecommendation, PCI_BANDS } from "@/types";
 import type { JobResults, FrameResult } from "@/types";
 
@@ -113,6 +113,16 @@ export function DroneJobResults({ results, jobId, surveyDate, orgName }: Props) 
   const [selectedFrame, setSelectedFrame] = useState<FrameResult | null>(null);
 
   const { frames, summary } = results;
+
+  if (frames.length === 0) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a]">
+        <SummaryBar results={results} jobId={jobId} surveyDate={surveyDate} orgName={orgName} />
+        <NoDetectionsState jobId={jobId} />
+      </div>
+    );
+  }
+
   const gpsFrames = frames.filter((f) => f.lat != null && f.lon != null);
 
   const handleSelect = useCallback((frame: FrameResult) => {

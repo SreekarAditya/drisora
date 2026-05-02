@@ -96,4 +96,31 @@ export function SummaryBar({ results, jobId, surveyDate, orgName, extra }: Summa
   );
 }
 
+export function NoDetectionsState({ jobId }: { jobId: string }) {
+  return (
+    <div className="flex flex-col items-center px-6 py-20 text-center">
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-500/10">
+        <svg viewBox="0 0 24 24" fill="none" className="h-7 w-7 text-emerald-400">
+          <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </div>
+      <h2 className="text-lg font-semibold text-white">No defects detected</h2>
+      <p className="mt-2 max-w-xs text-sm text-gray-500">
+        This road section scored PCI 100 — no cracks or damage were found.
+      </p>
+      <div className="mt-6 flex items-center gap-3">
+        <a
+          href={`/api/jobs/${jobId}/report`}
+          className="rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400"
+        >
+          Download report
+        </a>
+        <Link href="/dashboard" className="text-sm text-gray-400 hover:text-gray-300">
+          Back to dashboard
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 export { getPciBand, ircRecommendation };

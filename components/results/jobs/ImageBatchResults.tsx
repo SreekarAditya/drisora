@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { SummaryBar, PciChip } from "./shared";
+import { SummaryBar, PciChip, NoDetectionsState } from "./shared";
 import { getPciBand, PCI_BANDS } from "@/types";
 import type { JobResults, FrameResult } from "@/types";
 
@@ -86,6 +86,15 @@ export function ImageBatchResults({ results, jobId, surveyDate, orgName }: Props
   const [filter, setFilter] = useState<PciFilter>("all");
   const { frames, summary } = results;
 
+  if (frames.length === 0) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a]">
+        <SummaryBar results={results} jobId={jobId} surveyDate={surveyDate} orgName={orgName} />
+        <NoDetectionsState jobId={jobId} />
+      </div>
+    );
+  }
+
   const filtered = filter === "all" ? frames : frames.filter((f) => bandKey(f.pci_score) === filter);
 
   const bandCounts = PCI_BANDS.map((b) => ({
@@ -164,7 +173,7 @@ export function ImageBatchResults({ results, jobId, surveyDate, orgName }: Props
             No sections in this PCI band
           </div>
         ) : (
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             {filtered.map((frame) => (
               <FrameCard key={frame.stem} frame={frame} />
             ))}
