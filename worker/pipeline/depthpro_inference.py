@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import io
 import math
+import sys
 import urllib.request
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -37,21 +40,31 @@ def load_model() -> tuple[Any, Any, str]:
 
         _download(MODEL_URL, MODEL_PATH)
         device = "cuda" if torch.cuda.is_available() else "cpu"
+        precision = torch.float16 if device == "cuda" else torch.float32
+        old_stdout = sys.stdout
+        sys.stdout = io.StringIO()
         try:
+            from depth_pro.depth_pro import DEFAULT_MONODEPTH_CONFIG_DICT
+
+            config = replace(DEFAULT_MONODEPTH_CONFIG_DICT, checkpoint_uri=str(MODEL_PATH))
             model, transform = depth_pro.create_model_and_transforms(
+                config=config,
                 device=device,
-                precision=torch.float16 if device == "cuda" else torch.float32,
+                precision=precision,
             )
         except TypeError:
             model, transform = depth_pro.create_model_and_transforms()
             model = model.to(device)
-        try:
-            model.load_state_dict(torch.load(str(MODEL_PATH), map_location=device), strict=False)
-        except Exception:
-            pass
+            try:
+                model.load_state_dict(torch.load(str(MODEL_PATH), map_location=device), strict=False)
+            except Exception as e:
+                print(f"[DepthPro] checkpoint load failed: {e}", file=old_stdout)
+        finally:
+            sys.stdout = old_stdout
         model.eval()
         _MODEL_AND_TRANSFORM = (model, transform, device)
-    except Exception:
+    except Exception as e:
+        print(f"[DepthPro] LOAD FAILED: {e}")
         _LOAD_FAILED = True
         raise
     return _MODEL_AND_TRANSFORM
@@ -140,7 +153,8 @@ def _run_one(image_path: str, detections: list[dict[str, Any]]) -> dict[str, Any
             item["mask_area_m2"] = area_px * pixel_size_m * pixel_size_m
             updated.append(item)
         return {"depth_map": depth_map, "detections": updated}
-    except Exception:
+    except Exception as e:
+        print(f"[DepthPro] frame inference failed: {e}")
         return _fallback(detections)
 
 

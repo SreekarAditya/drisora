@@ -42,18 +42,20 @@ def get_depth() -> Any:
     return _depth
 
 
-def _warm_model(name: str, loader: Any) -> None:
+def _warm_model(name: str, loader: Any, ready_message: str) -> None:
     try:
         loader()
-        print(f"{name} model ready", flush=True)
+        print(ready_message, flush=True)
     except Exception as exc:
         print(f"{name} model unavailable; using fallback path: {exc}", flush=True)
 
 
 def _warm_pipeline_models() -> None:
-    _warm_model("YOLO", get_yolo)
-    _warm_model("SAM2", get_sam2)
-    _warm_model("DepthPro", get_depth)
+    print("[WARMUP] Starting model warmup...", flush=True)
+    _warm_model("YOLO", get_yolo, "[WARMUP] YOLO ready")
+    _warm_model("SAM2", get_sam2, "[WARMUP] SAM2 ready")
+    _warm_model("DepthPro", get_depth, "[WARMUP] DepthPro ready")
+    print("[WARMUP] All models ready — starting frame loop", flush=True)
 
 
 def _now() -> str:
@@ -232,7 +234,7 @@ def _process_frame(frame: dict[str, Any]) -> dict[str, Any]:
         "alt": frame.get("alt_m", frame.get("alt")),
         "detections": detections,
         "pci_details": pci_result,
-        "depth_available": depth_map is not None,
+        "depth_available": depth_map is not None and getattr(depth_map, "size", 0) > 0,
     }
 
 
@@ -293,9 +295,15 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         )
 
         pci_scores: list[float] = []
+        processed = 0
+        total = len(frames)
+        total_detections = 0
         for processed_count, frame in enumerate(frames, start=1):
+            print(f"[FRAME {processed_count}/{total}] processing", flush=True)
             frame_path = Path(frame["path"])
             frame_result = _process_frame(frame)
+            processed = processed_count
+            total_detections += len(frame_result.get("detections") or [])
             pci_scores.append(float(frame_result["pci_score"]))
 
             detection_path = detection_dir / f"{frame_path.stem}.json"
@@ -323,6 +331,10 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             status="complete",
             average_pci=average_pci,
             output_r2_prefix=output_r2_prefix,
+        )
+        print(
+            f"[DONE] processed {processed} frames, avg_pci={average_pci:.1f}, detections={total_detections}",
+            flush=True,
         )
         _post_webhook(
             app_url,

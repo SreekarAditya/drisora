@@ -24,14 +24,16 @@ def load_model() -> Any:
     try:
         import torch
         from ultralytics import YOLO
-    except Exception:
+    except Exception as e:
+        print(f"[YOLO] LOAD FAILED: {e}")
         _LOAD_FAILED = True
         raise
 
     _DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
     try:
         model = YOLO(str(WEIGHTS_PATH))
-    except Exception:
+    except Exception as e:
+        print(f"[YOLO] LOAD FAILED: {e}")
         _LOAD_FAILED = True
         raise
 
@@ -104,7 +106,8 @@ def _run_one(image_path: str, frame_index: Any = None) -> list[dict[str, Any]]:
                 detection["frame_index"] = frame_index
             detections.append(detection)
         return detections
-    except Exception:
+    except Exception as e:
+        print(f"[YOLO] frame {frame_index} inference failed: {e}")
         return []
 
 
