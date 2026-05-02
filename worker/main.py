@@ -1,5 +1,7 @@
 """RunPod worker entrypoint.
 
+# NOT USED IN SERVERLESS MODE — kept for local testing only.
+
 Polls Redis for queued jobs, downloads raw files from R2 to /tmp,
 runs the ingest + detection pipeline frame-by-frame, uploads results
 back to R2, then POSTs a webhook to Next.js.

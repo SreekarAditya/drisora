@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Sequence, TypedDict
 
-from worker.ingest.image_batch import process_image_batch
-from worker.ingest.srt_parser import parse_srt
-from worker.ingest.video_handler import attach_gps_to_frames, extract_frames
+from ingest.image_batch import process_image_batch
+from ingest.srt_parser import parse_srt
+from ingest.video_handler import attach_gps_to_frames, extract_frames
 
 # --- Public types -----------------------------------------------------------
 
