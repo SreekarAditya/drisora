@@ -109,6 +109,9 @@ export default function JobPage() {
   const router = useRouter();
   const [job, setJob] = useState<JobState | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [pollKey, setPollKey] = useState(0);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -136,7 +139,25 @@ export default function JobPage() {
 
     void poll();
     return () => { cancelled = true; };
-  }, [id, router]);
+  }, [id, router, pollKey]);
+
+  async function handleRetry() {
+    setRetrying(true);
+    setRetryError(null);
+    try {
+      const res = await fetch(`/api/jobs/${id}/retry`, { method: "POST" });
+      if (!res.ok) {
+        setRetryError("Retry failed — please try again.");
+        return;
+      }
+      setJob(null);
+      setPollKey((k) => k + 1);
+    } catch {
+      setRetryError("Retry failed — please try again.");
+    } finally {
+      setRetrying(false);
+    }
+  }
 
   if (error) {
     return (
@@ -158,6 +179,8 @@ export default function JobPage() {
     : null;
 
   const activeIdx = STATUS_ORDER.indexOf(job.status);
+  const isTimeout = job.status === "failed" &&
+    (job.error_message?.toLowerCase().includes("timeout") ?? false);
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-[#0a0a0a] px-6">
@@ -176,12 +199,43 @@ export default function JobPage() {
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-5v-4h2v4H9zm0 2h2v-2H9v2z" clipRule="evenodd" />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-white">Processing failed</h2>
-              {job.error_message && (
+              <h2 className="text-lg font-semibold text-white">
+                {isTimeout ? "Processing timed out" : "Processing failed"}
+              </h2>
+              {isTimeout ? (
+                <p className="mt-2 text-sm text-gray-500">
+                  The pipeline took too long and was stopped automatically.
+                </p>
+              ) : job.error_message ? (
                 <p className="mt-2 text-sm text-gray-500">{job.error_message}</p>
+              ) : null}
+              <button
+                type="button"
+                onClick={handleRetry}
+                disabled={retrying}
+                className="mt-6 inline-flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {retrying && (
+                  <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-black/30 border-t-black" />
+                )}
+                {retrying ? "Retrying…" : "Retry"}
+              </button>
+              {retryError && (
+                <p className="mt-2 text-sm text-red-400">{retryError}</p>
               )}
-              <Link href="/upload" className="mt-6 inline-block rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400">
-                Try again
+              {isTimeout && (
+                <a
+                  href="mailto:support@drisora.com"
+                  className="mt-3 block text-sm text-gray-400 underline hover:text-gray-300"
+                >
+                  Contact support
+                </a>
+              )}
+              <Link
+                href="/upload"
+                className="mt-3 block text-sm text-gray-500 hover:text-gray-400"
+              >
+                New survey
               </Link>
             </div>
           ) : job.status === "complete" ? (
