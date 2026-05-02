@@ -6,6 +6,7 @@ import Image from "next/image";
 import { SummaryBar, PciChip, NoDetectionsState } from "./shared";
 import { getPciBand, ircRecommendation, PCI_BANDS } from "@/types";
 import type { JobResults, FrameResult } from "@/types";
+import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 const DroneMapClient = dynamic(
   () => import("./DroneMapClient").then((m) => m.DroneMapClient),
@@ -125,6 +126,8 @@ export function DroneJobResults({ results, jobId, surveyDate, orgName }: Props) 
 
   const gpsFrames = frames.filter((f) => f.lat != null && f.lon != null);
 
+  const isMobile = useMediaQuery("(max-width: 1023px)");
+
   const handleSelect = useCallback((frame: FrameResult) => {
     setSelectedFrame(frame);
   }, []);
@@ -189,19 +192,36 @@ export function DroneJobResults({ results, jobId, surveyDate, orgName }: Props) 
         {/* Map + sidebar */}
         <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
           <div className="h-[560px] overflow-hidden rounded-xl border border-[#1a1a1a]">
-            <DroneMapClient
-              frames={frames}
-              onSelect={handleSelect}
-              selectedStem={selectedFrame?.stem ?? null}
-            />
+            {gpsFrames.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center px-6 text-center">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="mb-3 text-gray-600">
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="currentColor" strokeWidth="1.5" />
+                  <circle cx="12" cy="9" r="2.5" stroke="currentColor" strokeWidth="1.5" />
+                </svg>
+                <p className="text-sm font-semibold text-white">No GPS data available</p>
+                <p className="mt-1 text-xs text-gray-600">
+                  This survey has no location coordinates — the map view is unavailable.
+                </p>
+                <p className="mt-1 text-xs text-gray-700">
+                  Results are still available in the crack distribution section below.
+                </p>
+              </div>
+            ) : (
+              <DroneMapClient
+                frames={frames}
+                onSelect={handleSelect}
+                selectedStem={selectedFrame?.stem ?? null}
+              />
+            )}
           </div>
 
-          <div className="h-[560px]">
+          {/* Desktop sidebar (hidden on mobile — bottom sheet used instead) */}
+          <div className="hidden h-[560px] lg:block">
             {selectedFrame ? (
               <SegmentSidebar frame={selectedFrame} onClose={() => setSelectedFrame(null)} />
             ) : (
               <div className="flex h-full items-center justify-center rounded-xl border border-[#1a1a1a] bg-[#0f0f0f]">
-                <div className="text-center px-6">
+                <div className="px-6 text-center">
                   <svg width="32" height="32" viewBox="0 0 32 32" fill="none" className="mx-auto mb-3 text-[#2a2a2a]">
                     <circle cx="16" cy="16" r="12" stroke="currentColor" strokeWidth="1.5" />
                     <circle cx="16" cy="16" r="4" stroke="currentColor" strokeWidth="1.5" />
@@ -216,6 +236,16 @@ export function DroneJobResults({ results, jobId, surveyDate, orgName }: Props) 
             )}
           </div>
         </div>
+
+        {/* Mobile bottom sheet */}
+        {isMobile && selectedFrame && (
+          <div className="fixed bottom-0 left-0 right-0 z-50 h-96 overflow-hidden rounded-t-xl border-t border-[#1a1a1a] bg-[#0f0f0f]">
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="h-1 w-10 rounded-full bg-[#333]" />
+            </div>
+            <SegmentSidebar frame={selectedFrame} onClose={() => setSelectedFrame(null)} />
+          </div>
+        )}
 
         {/* Crack distribution */}
         {Object.keys(summary.crack_type_counts).length > 0 && (
