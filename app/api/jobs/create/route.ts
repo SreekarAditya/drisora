@@ -85,12 +85,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (
-    (body.mode === "handheld_video" || body.mode === "drone_footage") &&
-    body.file_count !== 1
-  ) {
+  if (body.mode === "handheld_video" && body.file_count !== 1) {
     return NextResponse.json(
       { error: "Video modes require exactly one video file" },
+      { status: 400 },
+    );
+  }
+
+  if (body.mode === "drone_footage" && (body.file_count < 1 || body.file_count > 2)) {
+    return NextResponse.json(
+      { error: "Drone footage requires one video file and an optional SRT file" },
       { status: 400 },
     );
   }
