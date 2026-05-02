@@ -5,18 +5,9 @@ import {
   View,
   Image,
   StyleSheet,
-  Font,
 } from "@react-pdf/renderer";
 import type { JobResults, FrameResult } from "@/types";
 import { getPciBand, ircRecommendation, JOB_MODE_LABELS } from "@/types";
-
-Font.register({
-  family: "IBM Plex Sans",
-  fonts: [
-    { src: "https://fonts.gstatic.com/s/ibmplexsans/v19/zYXgKVElMYYaJe8bpLHnCwDKjR7_AI5sdP3pBmtF8A.woff2", fontWeight: 400 },
-    { src: "https://fonts.gstatic.com/s/ibmplexsans/v19/zYX9KVElMYYaJe8bpLHnCwDKjQ76AI5sdO_q.woff2", fontWeight: 600 },
-  ],
-});
 
 const C = {
   bg: "#0a0a0a",
@@ -33,7 +24,7 @@ const C = {
 } as const;
 
 const s = StyleSheet.create({
-  page: { backgroundColor: C.bg, fontFamily: "IBM Plex Sans", color: C.text, padding: 48 },
+  page: { backgroundColor: C.bg, fontFamily: "Helvetica", color: C.text, padding: 48 },
   coverTitle: { fontSize: 42, fontWeight: 600, color: "#ffffff", marginBottom: 4 },
   coverSub: { fontSize: 13, color: C.amber, letterSpacing: 2, textTransform: "uppercase" },
   coverMeta: { marginTop: 32, gap: 6 },
