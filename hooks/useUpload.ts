@@ -50,7 +50,14 @@ export function useUpload() {
 
       if (!jobRes.ok) {
         const text = await jobRes.text();
-        setUploadError(text || `Failed to create job (${jobRes.status})`);
+        let message = `Failed to create job (${jobRes.status})`;
+        try {
+          const json = JSON.parse(text) as { error?: string };
+          if (json.error) message = json.error;
+        } catch {
+          if (text) message = text;
+        }
+        setUploadError(message);
         setPhase("error");
         return;
       }
@@ -71,7 +78,14 @@ export function useUpload() {
 
       if (!presignRes.ok) {
         const text = await presignRes.text();
-        setUploadError(text || `Failed to get upload URLs (${presignRes.status})`);
+        let message = `Failed to get upload URLs (${presignRes.status})`;
+        try {
+          const json = JSON.parse(text) as { error?: string };
+          if (json.error) message = json.error;
+        } catch {
+          if (text) message = text;
+        }
+        setUploadError(message);
         setPhase("error");
         return;
       }
