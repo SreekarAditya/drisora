@@ -17,6 +17,7 @@ export type JobStatus =
 export interface JobRecord {
   job_id: string;
   user_id: string;
+  runpod_job_id: string | null;
   mode: JobMode;
   status: JobStatus;
   frame_count: number;
@@ -47,6 +48,46 @@ function jobKey(jobId: string) {
 
 function userJobsKey(userId: string) {
   return `user:${userId}:jobs`;
+}
+
+function requireEnv(name: string) {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(`Missing ${name}`);
+  }
+  return value;
+}
+
+async function submitRunpodJob(input: {
+  job_id: string;
+  user_id: string;
+  mode: JobMode;
+  r2_prefix: string;
+  file_names: string[];
+  options: Record<string, unknown>;
+}) {
+  const endpointId = requireEnv("RUNPOD_ENDPOINT_ID");
+  const apiKey = requireEnv("RUNPOD_API_KEY");
+
+  const runpodResponse = await fetch(`https://api.runpod.io/v2/${endpointId}/run`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({ input }),
+  });
+
+  if (!runpodResponse.ok) {
+    const errorText = await runpodResponse.text();
+    throw new Error(`RunPod submission failed (${runpodResponse.status}): ${errorText}`);
+  }
+
+  const data = (await runpodResponse.json()) as { id?: string };
+  if (!data.id) {
+    throw new Error("RunPod submission response did not include an id");
+  }
+  return data.id;
 }
 
 export async function POST(request: NextRequest) {
@@ -120,12 +161,13 @@ export async function POST(request: NextRequest) {
   const job: JobRecord = {
     job_id: jobId,
     user_id: user.id,
+    runpod_job_id: null,
     mode: body.mode,
     status: "queued",
     frame_count: 0,
     processed_count: 0,
     gps_available: gpsAvailable,
-    output_r2_prefix: `results/${user.id}/${jobId}`,
+    output_r2_prefix: `results/${user.id}/${jobId}/`,
     last_updated: now,
     created_at: now,
     error_message: null,
@@ -147,9 +189,45 @@ export async function POST(request: NextRequest) {
     status: "queued",
     frame_count: 0,
     gps_available: gpsAvailable,
-    r2_prefix: `results/${user.id}/${jobId}`,
+    r2_prefix: `results/${user.id}/${jobId}/`,
     created_at: now,
   });
 
-  return NextResponse.json({ job_id: job.job_id, job }, { status: 201 });
+  try {
+    const runpodJobId = await submitRunpodJob({
+      job_id: job.job_id,
+      user_id: user.id,
+      mode: body.mode,
+      r2_prefix: `uploads/${user.id}/${job.job_id}/raw/`,
+      file_names: body.file_names,
+      options,
+    });
+
+    job.runpod_job_id = runpodJobId;
+    job.last_updated = new Date().toISOString();
+    await redis.set(jobKey(job.job_id), JSON.stringify(job));
+
+    return NextResponse.json(
+      { job_id: job.job_id, runpod_job_id: runpodJobId, job },
+      { status: 201 },
+    );
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "RunPod submission failed";
+    job.status = "failed";
+    job.error_message = errorMessage;
+    job.last_updated = new Date().toISOString();
+    await Promise.all([
+      redis.set(jobKey(job.job_id), JSON.stringify(job)),
+      supabase
+        .from("jobs")
+        .update({
+          status: "failed",
+          error_message: errorMessage,
+          completed_at: new Date().toISOString(),
+        })
+        .eq("id", job.job_id),
+    ]);
+
+    return NextResponse.json({ error: errorMessage, job_id: job.job_id }, { status: 500 });
+  }
 }

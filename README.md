@@ -59,6 +59,9 @@ Copy `.env.local.example` and fill in the values before running locally.
 | `CLOUDFLARE_R2_BUCKET_NAME` | R2 bucket name |
 | `R2_PUBLIC_URL` | Public R2 URL (optional, for serving results) |
 | `CLOUDFLARE_R2_WEBHOOK_SECRET` | Shared secret for worker → Next.js webhook |
+| `WORKER_WEBHOOK_SECRET` | Preferred shared secret for worker → Next.js webhook |
+| `RUNPOD_API_KEY` | RunPod API key for serverless job submission |
+| `RUNPOD_ENDPOINT_ID` | RunPod serverless endpoint ID |
 
 **Worker (`worker/.env`):**
 
@@ -69,5 +72,8 @@ Copy `.env.local.example` and fill in the values before running locally.
 | `CLOUDFLARE_R2_SECRET_ACCESS_KEY` | R2 API token secret |
 | `CLOUDFLARE_R2_BUCKET_NAME` | R2 bucket name |
 | `NEXT_PUBLIC_APP_URL` | Deployed app URL (e.g. `https://drisora.vercel.app`) |
-| `CLOUDFLARE_R2_WEBHOOK_SECRET` | Shared secret (must match Next.js) |
-| `REDIS_URL` | Upstash Redis connection string |
+| `WORKER_WEBHOOK_SECRET` | Shared secret (must match Next.js) |
+| `UPSTASH_REDIS_REST_URL` | Upstash Redis REST URL |
+| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST token |
+| `RUNPOD_API_KEY` | RunPod API key |
+| `RUNPOD_ENDPOINT_ID` | RunPod serverless endpoint ID |

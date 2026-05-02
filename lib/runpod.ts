@@ -5,7 +5,7 @@ if (!RUNPOD_API_KEY || !RUNPOD_ENDPOINT_ID) {
   throw new Error("Missing RUNPOD_API_KEY or RUNPOD_ENDPOINT_ID");
 }
 
-const RUNPOD_BASE = "https://api.runpod.ai/v2";
+const RUNPOD_BASE = "https://api.runpod.io/v2";
 
 export async function triggerRunpodJob(payload: Record<string, unknown>) {
   const res = await fetch(`${RUNPOD_BASE}/${RUNPOD_ENDPOINT_ID}/run`, {
