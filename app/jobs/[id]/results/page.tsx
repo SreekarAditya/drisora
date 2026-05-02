@@ -1,12 +1,13 @@
 import { Suspense } from "react";
 import { notFound, redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { getRedisClient } from "@/lib/redis";
 import { loadJobResults } from "@/lib/jobs/results";
 import { ImageBatchResults } from "@/components/results/jobs/ImageBatchResults";
 import { HandheldVideoResults } from "@/components/results/jobs/HandheldVideoResults";
 import { DroneJobResults } from "@/components/results/jobs/DroneJobResults";
 import { ResultsSkeleton } from "@/components/results/jobs/ResultsSkeleton";
-import type { JobMode } from "@/types";
+import type { JobMode, ProcessingJobRecord } from "@/types";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -22,7 +23,14 @@ async function ResultsContent({ id, userId }: { id: string; userId: string }) {
     .single();
 
   if (!job || job.user_id !== userId) notFound();
-  if (job.status !== "complete") redirect(`/jobs/${id}`);
+  if (job.status !== "complete") {
+    const redis = getRedisClient();
+    const raw = await redis.get<string>(`job:${id}`);
+    const redisJob = (typeof raw === "string" ? JSON.parse(raw) : raw) as ProcessingJobRecord | null;
+    if (!redisJob || redisJob.user_id !== userId || redisJob.status !== "complete") {
+      redirect(`/jobs/${id}`);
+    }
+  }
 
   const results = await loadJobResults(id, userId, job.mode as JobMode);
 
