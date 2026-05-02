@@ -140,14 +140,17 @@ function StatsCards({ jobs }: { jobs: JobRecord[] }) {
 function EmptyState() {
   return (
     <div className="flex flex-col items-center rounded-xl border border-[#1a1a1a] bg-[#0f0f0f] px-6 py-20 text-center">
-      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full border border-[#222] bg-[#111]">
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-amber-500">
+      <div
+        className="mb-4 flex h-16 w-16 items-center justify-center rounded-full border border-[#222] bg-[#111]"
+        style={{ boxShadow: "0 0 24px rgba(245,158,11,0.15)" }}
+      >
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-amber-500">
           <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </div>
       <h3 className="text-base font-semibold text-white">No surveys yet</h3>
-      <p className="mt-1.5 max-w-xs text-sm text-gray-600">
-        Start your first survey — upload drone footage, a handheld video, or an image batch.
+      <p className="mt-1.5 max-w-xs text-sm text-gray-500">
+        Upload drone footage, a handheld video, or an image batch to get your first PCI report.
       </p>
       <Link
         href="/upload"
@@ -180,7 +183,7 @@ function JobRow({ job }: { job: JobRecord }) {
       <td className="px-4 py-3.5">
         <ModeBadge mode={job.mode} />
       </td>
-      <td className="px-4 py-3.5 font-mono text-sm text-gray-400">
+      <td className="hidden px-4 py-3.5 font-mono text-sm text-gray-400 sm:table-cell">
         {job.frame_count ?? "—"}
       </td>
       <td className="px-4 py-3.5">
@@ -249,8 +252,8 @@ export function JobList({ jobs }: Props) {
         {jobs.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="overflow-hidden rounded-xl border border-[#1a1a1a] bg-[#0a0a0a]">
-            <table className="w-full">
+          <div className="overflow-x-auto overflow-hidden rounded-xl border border-[#1a1a1a] bg-[#0a0a0a]">
+            <table className="w-full min-w-[640px]">
               <thead>
                 <tr className="border-b border-[#1a1a1a] bg-[#0f0f0f]">
                   <th className="py-3 pl-6 pr-4 text-left font-mono text-[10px] uppercase tracking-widest text-gray-600">
@@ -259,7 +262,7 @@ export function JobList({ jobs }: Props) {
                   <th className="px-4 py-3 text-left font-mono text-[10px] uppercase tracking-widest text-gray-600">
                     Mode
                   </th>
-                  <th className="px-4 py-3 text-left font-mono text-[10px] uppercase tracking-widest text-gray-600">
+                  <th className="hidden px-4 py-3 text-left font-mono text-[10px] uppercase tracking-widest text-gray-600 sm:table-cell">
                     Frames
                   </th>
                   <th className="px-4 py-3 text-left font-mono text-[10px] uppercase tracking-widest text-gray-600">
