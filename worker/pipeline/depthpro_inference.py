@@ -129,6 +129,22 @@ def _focal_length_px(width: int) -> float:
     return float(width) / (2.0 * math.tan(FOV_RADIANS / 2.0))
 
 
+def _crack_width_mm(item: dict[str, Any], pixel_size_m: float) -> float | None:
+    crack_class = str(item.get("class") or "").upper()
+    if crack_class == "D40":
+        return None
+    try:
+        x1, y1, x2, y2 = [float(v) for v in item.get("bbox") or []]
+        length_px = max(abs(x2 - x1), abs(y2 - y1))
+        area_px = float(item.get("mask_area_px") or item.get("area_px") or 0.0)
+        if length_px <= 0 or area_px <= 0 or pixel_size_m <= 0:
+            return None
+        width_m = (area_px / length_px) * pixel_size_m
+        return width_m * 1000.0 if math.isfinite(width_m) and width_m > 0 else None
+    except Exception:
+        return None
+
+
 def _infer_depth_map(image_path: str) -> np.ndarray:
     import torch
     from PIL import Image
@@ -159,7 +175,12 @@ def _run_one(image_path: str, detections: list[dict[str, Any]]) -> dict[str, Any
             area_px = float(item.get("mask_area_px") or item.get("area_px") or 0.0)
             pixel_size_m = depth_m / focal_length_px if focal_length_px > 0 else 0.01
             item["depth_m"] = depth_m
+            item["camera_surface_distance_m"] = depth_m
+            item["pixel_size_m"] = pixel_size_m
             item["mask_area_m2"] = area_px * pixel_size_m * pixel_size_m
+            crack_width_mm = _crack_width_mm(item, pixel_size_m)
+            if crack_width_mm is not None:
+                item["crack_width_mm"] = crack_width_mm
             updated.append(item)
         return {"depth_map": depth_map, "detections": updated}
     except Exception as e:

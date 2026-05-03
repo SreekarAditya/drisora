@@ -70,6 +70,9 @@ export interface FrameResult {
   lon: number | null;
   alt_m: number | null;
   depth_estimate: number | null;
+  camera_surface_distance_m: number | null;
+  avg_crack_width_mm: number | null;
+  max_crack_width_mm: number | null;
   depth_available: boolean | null;
   depth_attempted: boolean | null;
   depth_skipped_reason: string | null;

@@ -57,11 +57,11 @@ const STEPS = [
   {
     n: "02",
     title: "Automated CV pipeline",
-    desc: "YOLOv12s detects cracks, SAM2 creates pixel masks, DepthPro estimates structure depth, then the IRC scorer computes PCI per 10 m section.",
+    desc: "YOLOv12s detects cracks, SAM2 creates pixel masks, Metric Analysis estimates camera-to-surface distance and crack width, then the IRC scorer computes PCI per 10 m section.",
     lines: [
       { dim: true,  text: "[YOLOv12s]  847 detections  /  32 sections" },
       { dim: true,  text: "[SAM2]      pixel masks  ·  crack area mapped" },
-      { dim: true,  text: "[DepthPro]  structural depth estimated" },
+      { dim: true,  text: "[Metric]    camera distance  ·  crack width" },
       { dim: false, text: "[IRC-PCI]   avg 67.3  ·  32 sections scored" },
     ],
   },
@@ -971,7 +971,7 @@ export default function LandingPage() {
             <span className="text-[14px] font-semibold text-white">Drisora</span>
           </div>
           <span className="font-mono text-[11px] text-[#333]">
-            IRC:82-2023 · YOLOv12s · SAM2 · DepthPro
+            IRC:82-2023 · YOLOv12s · SAM2 · Metric Analysis
           </span>
         </div>
       </footer>

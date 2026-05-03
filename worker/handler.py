@@ -71,7 +71,11 @@ def _depth_enabled(mode: str, options: dict[str, Any]) -> bool:
         default = env_default.strip().lower() in {"1", "true", "yes", "on"}
     else:
         default = False
-    return _option_enabled(options, "enable_depthpro", default)
+    return _option_enabled(
+        options,
+        "enable_metric_analysis",
+        _option_enabled(options, "enable_depthpro", default),
+    )
 
 
 def _sam2_warmup_enabled(options: dict[str, Any]) -> bool:
@@ -247,6 +251,27 @@ def _depth_estimate(depth_map: Any) -> float | None:
         return None
 
 
+def _metric_summary(detections: list[dict[str, Any]], depth_map: Any) -> dict[str, float | None]:
+    distances = [
+        float(d["camera_surface_distance_m"])
+        for d in detections
+        if d.get("camera_surface_distance_m") is not None
+    ]
+    widths = [
+        float(d["crack_width_mm"])
+        for d in detections
+        if d.get("crack_width_mm") is not None
+    ]
+    camera_surface_distance_m = (
+        sum(distances) / len(distances) if distances else _depth_estimate(depth_map)
+    )
+    return {
+        "camera_surface_distance_m": camera_surface_distance_m,
+        "avg_crack_width_mm": sum(widths) / len(widths) if widths else None,
+        "max_crack_width_mm": max(widths) if widths else None,
+    }
+
+
 def _process_frame(frame: dict[str, Any], use_depth: bool) -> dict[str, Any]:
     started = time.perf_counter()
     frame_path = Path(frame["path"])
@@ -281,6 +306,11 @@ def _process_frame(frame: dict[str, Any], use_depth: bool) -> dict[str, Any]:
         pci_result = _fallback_pci(str(exc))
 
     depth_available = depth_map is not None and getattr(depth_map, "size", 0) > 0
+    metrics = _metric_summary(detections, depth_map) if depth_available else {
+        "camera_surface_distance_m": None,
+        "avg_crack_width_mm": None,
+        "max_crack_width_mm": None,
+    }
     final_count = len(detections)
     elapsed_ms = int((time.perf_counter() - started) * 1000)
     print(
@@ -305,6 +335,9 @@ def _process_frame(frame: dict[str, Any], use_depth: bool) -> dict[str, Any]:
         "pci_details": pci_result,
         "depth_available": depth_available,
         "depth_estimate": _depth_estimate(depth_map),
+        "camera_surface_distance_m": metrics["camera_surface_distance_m"],
+        "avg_crack_width_mm": metrics["avg_crack_width_mm"],
+        "max_crack_width_mm": metrics["max_crack_width_mm"],
         "depth_attempted": depth_attempted,
         "depth_skipped_reason": depth_skipped_reason,
         "sam2_attempted": sam2_attempted,
@@ -368,15 +401,16 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
         frame_batch = dispatch_job(job_id, mode, _build_dispatch_files(mode, local_files, options))
         frames = frame_batch["frames"]
-        _warm_pipeline_models(use_depth=use_depth, warm_sam2=warm_sam2)
         _update_job(
             redis_url,
             redis_token,
             job_id,
             status="detecting",
             frame_count=len(frames),
+            processed_count=0,
             output_r2_prefix=output_r2_prefix,
         )
+        _warm_pipeline_models(use_depth=use_depth, warm_sam2=warm_sam2)
 
         pci_scores: list[float] = []
         processed = 0

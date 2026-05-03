@@ -19,6 +19,9 @@ interface RawDetection {
   lon?: number | null;
   alt_m?: number | null;
   depth_estimate?: number | null;
+  camera_surface_distance_m?: number | null;
+  avg_crack_width_mm?: number | null;
+  max_crack_width_mm?: number | null;
   depth_available?: boolean | null;
   depth_attempted?: boolean | null;
   depth_skipped_reason?: string | null;
@@ -94,6 +97,9 @@ export async function loadJobResults(
         lon: data.lon ?? data.frame?.lon ?? null,
         alt_m: data.alt_m ?? data.frame?.alt_m ?? data.frame?.alt ?? null,
         depth_estimate: data.depth_estimate ?? null,
+        camera_surface_distance_m: data.camera_surface_distance_m ?? data.depth_estimate ?? null,
+        avg_crack_width_mm: data.avg_crack_width_mm ?? null,
+        max_crack_width_mm: data.max_crack_width_mm ?? null,
         depth_available: data.depth_available ?? null,
         depth_attempted: data.depth_attempted ?? null,
         depth_skipped_reason: data.depth_skipped_reason ?? null,
