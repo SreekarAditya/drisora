@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { analyzeDistress } from "@/lib/civil-intelligence";
+import { crackTypeLabel } from "@/lib/crack-labels";
+import { deriveCrackMetrics } from "@/lib/crack-metrics";
 import { createClient } from "@/lib/supabase/server";
 import type { RoadSectionFeatureCollection, RoadSectionProperties } from "@/types";
 
@@ -88,11 +90,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     };
     item.count += 1;
     if (detection.crack_type) {
-      item.types.add(detection.crack_type);
-      detectionsSummary[detection.crack_type] = (detectionsSummary[detection.crack_type] ?? 0) + 1;
+      const label = crackTypeLabel(detection.crack_type);
+      item.types.add(label);
+      detectionsSummary[label] = (detectionsSummary[label] ?? 0) + 1;
       if (detection.length_m != null) {
-        item.lengths[detection.crack_type] =
-          (item.lengths[detection.crack_type] ?? 0) + detection.length_m;
+        item.lengths[label] =
+          (item.lengths[label] ?? 0) + detection.length_m;
       }
     }
     const width = detection.max_width_mm ?? detection.avg_width_mm;
@@ -119,16 +122,26 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
         lengths: {},
       };
       const crackTypes = Array.from(sectionSummary.types).sort();
-      const avgWidth =
+      const detectionAvgWidth =
         sectionFeature.properties.avg_crack_width_mm ??
         (sectionSummary.widthCount > 0 ? sectionSummary.widthSum / sectionSummary.widthCount : null);
-      const maxWidth = sectionFeature.properties.max_crack_width_mm ?? sectionSummary.maxWidth;
+      const detectionMaxWidth = sectionFeature.properties.max_crack_width_mm ?? sectionSummary.maxWidth;
+      const metrics = deriveCrackMetrics({
+        crackTypes,
+        pci: sectionFeature.properties.pci_score,
+        avgWidthMm: detectionAvgWidth,
+        maxWidthMm: detectionMaxWidth,
+        crackTypeLengthsM:
+          sectionFeature.properties.crack_length_m_by_type ?? sectionSummary.lengths,
+        finalDetectionCount: sectionSummary.count,
+        sectionLengthM: sectionFeature.properties.length_m,
+      });
       const analysis = analyzeDistress({
         crackTypes,
         pci: sectionFeature.properties.pci_score,
-        avgWidthMm: avgWidth,
-        maxWidthMm: maxWidth,
-        crackCount: sectionSummary.count,
+        avgWidthMm: metrics.avgWidthMm,
+        maxWidthMm: metrics.maxWidthMm,
+        crackCount: metrics.crackCount,
         sectionLengthM: sectionFeature.properties.length_m,
       });
 
@@ -142,12 +155,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
           recommended_intervention: sectionFeature.properties.recommended_intervention,
           priority_rank: sectionFeature.properties.priority_rank,
           length_m: sectionFeature.properties.length_m,
-          crack_count: sectionSummary.count,
+          crack_count: metrics.hasCracks ? metrics.crackCount : sectionSummary.count,
           crack_types: crackTypes,
-          avg_crack_width_mm: avgWidth,
-          max_crack_width_mm: maxWidth,
-          crack_length_m_by_type:
-            sectionFeature.properties.crack_length_m_by_type ?? sectionSummary.lengths,
+          avg_crack_width_mm: metrics.avgWidthMm,
+          max_crack_width_mm: metrics.maxWidthMm,
+          crack_length_m_by_type: metrics.lengthByTypeM,
+          crack_metrics_estimated: metrics.estimated,
           possible_causes: sectionFeature.properties.possible_causes ?? analysis.possibleCauses,
           recommended_mitigation:
             sectionFeature.properties.recommended_mitigation ?? analysis.recommendedMitigation,

@@ -1,11 +1,14 @@
+import { DrisoraLogo } from "@/components/branding/DrisoraLogo";
+
 export default function AboutPage() {
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
       <header className="mb-8 border-b border-white/10 pb-6">
-        <p className="font-mono text-[10px] uppercase tracking-widest text-gray-600">
+        <DrisoraLogo size="lg" showSubtext />
+        <p className="mt-6 font-mono text-[10px] uppercase tracking-widest text-gray-600">
           Product
         </p>
-        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">About Drisora</h1>
+        <h1 className="mt-4 text-3xl font-semibold tracking-tight text-white">About Drisora</h1>
         <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-500">
           Drisora turns drone footage and telemetry into engineering-grade pavement condition intelligence for PWD, NHAI, municipal, and EPC teams.
         </p>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { DrisoraLogo } from "@/components/branding/DrisoraLogo";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
@@ -29,18 +30,8 @@ export default function LoginPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-[#0a0a0a] px-6">
       <div className="w-full max-w-sm">
-        {/* Logo / wordmark */}
-        <div className="mb-8 text-center">
-          <span className="text-2xl font-bold tracking-tight text-white">
-            Drisora
-          </span>
-          <div className="mt-1 flex items-center justify-center gap-1.5">
-            <span className="h-1 w-1 rounded-full bg-amber-500" />
-            <span className="text-[11px] uppercase tracking-widest text-gray-600">
-              Pavement Intelligence
-            </span>
-            <span className="h-1 w-1 rounded-full bg-amber-500" />
-          </div>
+        <div className="mb-8 flex justify-center">
+          <DrisoraLogo size="lg" showSubtext />
         </div>
 
         {/* Card */}

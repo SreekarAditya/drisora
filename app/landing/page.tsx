@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { DrisoraLogo } from "@/components/branding/DrisoraLogo"
 import { PCI_BANDS } from "@/types"
 
 // ─── Static data ────────────────────────────────────────────────────────────
@@ -440,18 +441,7 @@ export default function LandingPage() {
         style={{ background: "rgba(8,8,8,0.85)", backdropFilter: "blur(16px)" }}
       >
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          {/* Wordmark */}
-          <div className="flex items-center gap-2.5">
-            <div
-              className="flex h-6 w-6 items-center justify-center rounded"
-              style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.2)" }}
-            >
-              <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                <path d="M1 10L4 5.5L6.5 7.5L8.5 4L11 6" stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-            <span className="text-[15px] font-semibold tracking-tight text-white">Drisora</span>
-          </div>
+          <DrisoraLogo href="/" size="sm" />
 
           {/* Nav links */}
           <nav className="hidden items-center gap-1 sm:flex">
@@ -959,17 +949,7 @@ export default function LandingPage() {
       {/* ── Footer ──────────────────────────────────────────────────────── */}
       <footer className="border-t border-[#161616] py-8">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6">
-          <div className="flex items-center gap-2.5">
-            <div
-              className="flex h-5 w-5 items-center justify-center rounded"
-              style={{ background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.15)" }}
-            >
-              <svg width="10" height="10" viewBox="0 0 12 12" fill="none">
-                <path d="M1 10L4 5.5L6.5 7.5L8.5 4L11 6" stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            </div>
-            <span className="text-[14px] font-semibold text-white">Drisora</span>
-          </div>
+          <DrisoraLogo size="sm" />
           <span className="font-mono text-[11px] text-[#333]">
             IRC:82-2023 · YOLOv12s · SAM2 · Metric Analysis
           </span>

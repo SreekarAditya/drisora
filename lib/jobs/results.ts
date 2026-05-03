@@ -1,5 +1,6 @@
 import { listR2Objects, getR2ObjectText, getPresignedGetUrl } from "@/lib/r2";
 import { crackTypeLabel, normalizeCrackTypes } from "@/lib/crack-labels";
+import { deriveCrackMetrics } from "@/lib/crack-metrics";
 import type { FrameResult, JobResults, JobMode, JobResultsSummary } from "@/types";
 
 interface RawDetection {
@@ -88,22 +89,36 @@ export async function loadJobResults(
       const item = parsed[j];
       if (!item) continue;
       const { stem, data } = item;
+      const crackTypes = normalizeCrackTypes(data.crack_types);
+      const cameraSurfaceDistanceM = data.camera_surface_distance_m ?? data.depth_estimate ?? null;
+      const metrics = deriveCrackMetrics({
+        crackTypes,
+        pci: typeof data.pci_score === "number" ? data.pci_score : 0,
+        avgWidthMm: data.avg_crack_width_mm ?? null,
+        maxWidthMm: data.max_crack_width_mm ?? null,
+        crackTypeLengthsM: data.crack_type_lengths_m ?? data.crack_lengths_m_by_type ?? {},
+        finalDetectionCount: data.final_detection_count ?? null,
+        yoloDetectionCount: data.yolo_detection_count ?? null,
+        cameraSurfaceDistanceM,
+        sectionLengthM: 10,
+      });
       frames.push({
         stem,
         index: data.index ?? data.frame?.index ?? i + j,
         pci_score: typeof data.pci_score === "number" ? data.pci_score : 0,
-        crack_types: normalizeCrackTypes(data.crack_types),
-        crack_type_lengths_m:
-          data.crack_type_lengths_m ?? data.crack_lengths_m_by_type ?? {},
+        crack_types: crackTypes,
+        crack_type_lengths_m: metrics.lengthByTypeM,
         overlay_url: overlayPresigns[j],
         timestamp_ms: data.timestamp_ms ?? data.frame?.timestamp_ms ?? null,
         lat: data.lat ?? data.frame?.lat ?? null,
         lon: data.lon ?? data.frame?.lon ?? null,
         alt_m: data.alt_m ?? data.frame?.alt_m ?? data.frame?.alt ?? null,
         depth_estimate: data.depth_estimate ?? null,
-        camera_surface_distance_m: data.camera_surface_distance_m ?? data.depth_estimate ?? null,
-        avg_crack_width_mm: data.avg_crack_width_mm ?? null,
-        max_crack_width_mm: data.max_crack_width_mm ?? null,
+        camera_surface_distance_m: cameraSurfaceDistanceM,
+        avg_crack_width_mm: metrics.avgWidthMm,
+        max_crack_width_mm: metrics.maxWidthMm,
+        crack_metrics_estimated: metrics.estimated,
+        crack_metrics_source: metrics.source,
         depth_available: data.depth_available ?? null,
         depth_attempted: data.depth_attempted ?? null,
         depth_skipped_reason: data.depth_skipped_reason ?? null,

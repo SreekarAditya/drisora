@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { FrameResult } from "@/types";
 import { getPciBand } from "@/types";
+import { CRACK_WIDTH_BANDS, crackWidthBandLabel, crackWidthColor } from "@/lib/crack-metrics";
 
 interface Props {
   frames: FrameResult[];
@@ -73,22 +74,34 @@ export function DroneMapClient({ frames, onSelect, selectedStem }: Props) {
         const a = gpsFrames[i];
         const b = gpsFrames[i + 1];
 
+        const widthValue = a.max_crack_width_mm ?? a.avg_crack_width_mm;
         L.polyline([[a.lat!, a.lon!], [b.lat!, b.lon!]], {
-          color: overlayMode === "width" ? widthColor(a.max_crack_width_mm ?? a.avg_crack_width_mm) : getPciBand(a.pci_score).color,
+          color: overlayMode === "width" ? crackWidthColor(widthValue) : getPciBand(a.pci_score).color,
           weight: overlayMode === "width" ? 7 : 5,
           opacity: 0.88,
-        }).addTo(layers);
+        })
+          .bindTooltip(segmentTooltip(a), {
+            sticky: true,
+            className: "drisora-map-tooltip",
+          })
+          .addTo(layers);
       }
 
       for (const frame of gpsFrames) {
+        const widthValue = frame.max_crack_width_mm ?? frame.avg_crack_width_mm;
         const marker = L.circleMarker([frame.lat!, frame.lon!], {
           radius: 6,
-          fillColor: overlayMode === "width" ? widthColor(frame.max_crack_width_mm ?? frame.avg_crack_width_mm) : getPciBand(frame.pci_score).color,
+          fillColor: overlayMode === "width" ? crackWidthColor(widthValue) : getPciBand(frame.pci_score).color,
           color: "#000",
           weight: 1,
           opacity: 1,
           fillOpacity: 0.9,
-        }).addTo(layers);
+        })
+          .bindTooltip(segmentTooltip(frame), {
+            sticky: true,
+            className: "drisora-map-tooltip",
+          })
+          .addTo(layers);
 
         marker.on("click", () => onSelect(frame));
       }
@@ -135,15 +148,62 @@ export function DroneMapClient({ frames, onSelect, selectedStem }: Props) {
           </button>
         ))}
       </div>
+      <div className="absolute bottom-3 left-3 z-[500] max-w-[260px] rounded-lg border border-white/10 bg-[#0b0c0d]/90 p-3 text-xs shadow-xl backdrop-blur">
+        <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-gray-500">
+          {overlayMode === "width" ? "Crack width legend" : "PCI legend"}
+        </p>
+        <div className="space-y-1.5">
+          {overlayMode === "width"
+            ? CRACK_WIDTH_BANDS.map((band) => (
+                <div key={band.label} className="flex items-center justify-between gap-3">
+                  <span className="flex items-center gap-2 text-gray-300">
+                    <span className="h-2.5 w-6 rounded-sm" style={{ background: band.color }} />
+                    {band.label}
+                  </span>
+                  <span className="text-gray-600">{band.detail}</span>
+                </div>
+              ))
+            : ["Good 85-100", "Satisfactory 70-84", "Fair 55-69", "Poor 40-54", "Very poor 0-39"].map((label, index) => {
+                const colors = ["#22c55e", "#eab308", "#f97316", "#ef4444", "#7f1d1d"];
+                return (
+                  <div key={label} className="flex items-center gap-2 text-gray-300">
+                    <span className="h-2.5 w-6 rounded-sm" style={{ background: colors[index] }} />
+                    {label}
+                  </div>
+                );
+              })}
+        </div>
+        {overlayMode === "width" && (
+          <p className="mt-2 border-t border-white/10 pt-2 text-[11px] leading-4 text-gray-600">
+            Legacy surveys are estimated from crack type, PCI, and detection density when depth metrics were not stored.
+          </p>
+        )}
+      </div>
       <div ref={containerRef} className="h-full w-full rounded-xl" />
     </div>
   );
 }
 
-function widthColor(value: number | null | undefined) {
-  if (value == null) return "#64748b";
-  if (value < 3) return "#22c55e";
-  if (value < 5) return "#eab308";
-  if (value < 8) return "#f97316";
-  return "#ef4444";
+function segmentTooltip(frame: FrameResult) {
+  const widthValue = frame.max_crack_width_mm ?? frame.avg_crack_width_mm;
+  const crackTypes = frame.crack_types.length > 0 ? frame.crack_types.join(", ") : "No cracks detected";
+  const estimate = frame.crack_metrics_estimated ? " (legacy estimate)" : "";
+  return `
+    <div style="min-width: 180px">
+      <div style="font-size: 11px; color: #9ca3af">Section ${frame.index + 1}</div>
+      <div style="margin-top: 3px; font-weight: 700; color: ${getPciBand(frame.pci_score).color}">PCI ${frame.pci_score.toFixed(0)} - ${getPciBand(frame.pci_score).label}</div>
+      <div style="margin-top: 6px; color: #e5e7eb">Max width: ${widthValue == null ? "N/A" : `${widthValue.toFixed(1)} mm${estimate}`}</div>
+      <div style="margin-top: 2px; color: #9ca3af">${crackWidthBandLabel(widthValue)}</div>
+      <div style="margin-top: 6px; color: #9ca3af">${escapeHtml(crackTypes)}</div>
+    </div>
+  `;
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
 }

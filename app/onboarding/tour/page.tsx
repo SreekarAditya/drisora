@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { DrisoraLogo } from "@/components/branding/DrisoraLogo";
 
 type Step = 0 | 1 | 2;
 type ResultTab = "image_batch" | "handheld_video" | "drone_footage";
@@ -241,13 +242,8 @@ export default function OnboardingTourPage() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-[#0a0a0a] px-6 py-10">
       <div className="w-full max-w-lg">
-        <div className="mb-8 text-center">
-          <span className="text-2xl font-bold tracking-tight text-white">Drisora</span>
-          <div className="mt-1 flex items-center justify-center gap-1.5">
-            <span className="h-1 w-1 rounded-full bg-amber-500" />
-            <span className="text-[11px] uppercase tracking-widest text-gray-600">Pavement Intelligence</span>
-            <span className="h-1 w-1 rounded-full bg-amber-500" />
-          </div>
+        <div className="mb-8 flex justify-center">
+          <DrisoraLogo size="lg" showSubtext />
         </div>
 
         <div className="rounded-xl border border-[#1a1a1a] bg-[#0f0f0f] p-8">

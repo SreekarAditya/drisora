@@ -1,4 +1,4 @@
-import { Document, Page, StyleSheet, Text, View } from "@react-pdf/renderer";
+import { Document, Line, Page, Rect, StyleSheet, Svg, Text, View } from "@react-pdf/renderer";
 import { getPciBand, type ProjectRecord } from "@/types";
 
 type LinkedReport = {
@@ -12,6 +12,7 @@ type LinkedReport = {
 
 const s = StyleSheet.create({
   page: { padding: 42, fontFamily: "Helvetica", color: "#111827", backgroundColor: "#ffffff", fontSize: 9 },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 9 },
   brand: { fontSize: 26, fontWeight: 700 },
   kicker: { marginTop: 6, fontSize: 9, color: "#b45309", letterSpacing: 1.5, textTransform: "uppercase" },
   title: { marginTop: 40, fontSize: 24, fontWeight: 700, lineHeight: 1.2 },
@@ -27,6 +28,19 @@ const s = StyleSheet.create({
   footer: { position: "absolute", bottom: 24, left: 42, right: 42, flexDirection: "row", justifyContent: "space-between" },
   footerText: { fontSize: 7, color: "#6b7280" },
 });
+
+function PdfLogo() {
+  return (
+    <View style={s.brandRow}>
+      <Svg width="30" height="30" viewBox="0 0 36 36">
+        <Rect x="1" y="1" width="34" height="34" rx="8" fill="#111214" stroke="#e5e7eb" strokeWidth="0.8" />
+        <Rect x="10" y="7.5" width="15" height="21" rx="6" fill="none" stroke="#f8fafc" strokeWidth="2" />
+        <Line x1="18.4" y1="9.4" x2="18.4" y2="26.6" stroke="#f59e0b" strokeWidth="2.2" strokeLinecap="round" />
+      </Svg>
+      <Text style={s.brand}>Drisora</Text>
+    </View>
+  );
+}
 
 function formatDate(value: string) {
   return new Date(value).toLocaleDateString("en-IN", {
@@ -51,7 +65,7 @@ export function ProjectReport({
   return (
     <Document>
       <Page size="A4" style={s.page}>
-        <Text style={s.brand}>Drisora</Text>
+        <PdfLogo />
         <Text style={s.kicker}>Combined Project Report</Text>
         <Text style={s.title}>{project.name}</Text>
         <Text style={[s.muted, { marginTop: 8 }]}>

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
 import { type User } from "@supabase/supabase-js";
+import { DrisoraLogo } from "@/components/branding/DrisoraLogo";
 import { createClient } from "@/lib/supabase/client";
 
 interface NavbarProfile {
@@ -54,12 +55,7 @@ export function Navbar({ user, profile }: NavbarProps) {
     <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0a0a0a]/95 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
         <div className="flex min-w-0 items-center gap-7">
-          <Link href="/dashboard" className="flex shrink-0 items-center gap-2 text-white">
-            <span className="flex h-8 w-8 items-center justify-center rounded-md bg-amber-500 text-sm font-black text-black">
-              D
-            </span>
-            <span className="text-[15px] font-semibold tracking-tight">Drisora</span>
-          </Link>
+          <DrisoraLogo href="/dashboard" size="sm" />
 
           <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary">
             {NAV_LINKS.map((link) => {

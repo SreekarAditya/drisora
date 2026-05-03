@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { DrisoraLogo } from "@/components/branding/DrisoraLogo";
 import type { JobMode, JobStatus } from "@/types";
 import { JOB_MODE_LABELS } from "@/types";
 
@@ -189,7 +190,7 @@ export default function JobPage() {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="mb-8 flex flex-col items-center gap-3">
-          <span className="text-2xl font-bold tracking-tight text-white">Drisora</span>
+          <DrisoraLogo size="lg" />
           <ModeBadge mode={job.mode} />
         </div>
 

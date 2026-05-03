@@ -77,6 +77,8 @@ export interface FrameResult {
   camera_surface_distance_m: number | null;
   avg_crack_width_mm: number | null;
   max_crack_width_mm: number | null;
+  crack_metrics_estimated?: boolean;
+  crack_metrics_source?: "none" | "measured" | "estimated";
   depth_available: boolean | null;
   depth_attempted: boolean | null;
   depth_skipped_reason: string | null;
@@ -140,6 +142,7 @@ export interface RoadSectionProperties {
   avg_crack_width_mm?: number | null;
   max_crack_width_mm?: number | null;
   crack_length_m_by_type?: Record<string, number>;
+  crack_metrics_estimated?: boolean;
   possible_causes?: string[];
   recommended_mitigation?: string | null;
   maintenance_priority?: "Immediate" | "Preventive" | "Routine" | null;

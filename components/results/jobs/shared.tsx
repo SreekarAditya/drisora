@@ -28,6 +28,10 @@ interface SummaryBarProps {
 export function SummaryBar({ results, jobId, surveyDate, orgName, extra }: SummaryBarProps) {
   const { summary, mode } = results;
   const avgBand = getPciBand(summary.average_pci);
+  const maxWidth = results.frames
+    .map((frame) => frame.max_crack_width_mm ?? frame.avg_crack_width_mm)
+    .filter((value): value is number => value != null)
+    .sort((a, b) => b - a)[0] ?? null;
 
   return (
     <div className="border-b border-[#1a1a1a] bg-[#0a0a0a]">
@@ -75,6 +79,13 @@ export function SummaryBar({ results, jobId, surveyDate, orgName, extra }: Summa
             <p className="font-mono text-[10px] uppercase tracking-widest text-gray-600">Worst PCI</p>
             <p className="mt-0.5 text-2xl font-semibold" style={{ color: getPciBand(summary.worst_pci).color }}>
               {summary.worst_pci.toFixed(0)}
+            </p>
+          </div>
+          <div className="h-8 w-px bg-[#1e1e1e]" />
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-gray-600">Max width</p>
+            <p className="mt-0.5 text-2xl font-semibold text-white">
+              {maxWidth == null ? "N/A" : `${maxWidth.toFixed(1)} mm`}
             </p>
           </div>
           <div className="h-8 w-px bg-[#1e1e1e]" />
