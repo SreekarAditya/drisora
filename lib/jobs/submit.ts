@@ -34,6 +34,7 @@ export async function submitProcessingJob(job: ProcessingJobRecord) {
   const runpodJobId = await submitRunpodJob({
     job_id: job.job_id,
     user_id: job.user_id,
+    project_id: job.project_id ?? null,
     mode: job.mode,
     r2_prefix: `uploads/${job.user_id}/${job.job_id}/raw/`,
     file_names: job.file_names,

@@ -32,6 +32,7 @@ export async function triggerRunpodJob(payload: Record<string, unknown>) {
 export async function submitRunpodJob(input: {
   job_id: string;
   user_id: string;
+  project_id?: string | null;
   mode: string;
   r2_prefix: string;
   file_names: string[];

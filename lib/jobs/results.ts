@@ -22,6 +22,8 @@ interface RawDetection {
   camera_surface_distance_m?: number | null;
   avg_crack_width_mm?: number | null;
   max_crack_width_mm?: number | null;
+  crack_type_lengths_m?: Record<string, number> | null;
+  crack_lengths_m_by_type?: Record<string, number> | null;
   depth_available?: boolean | null;
   depth_attempted?: boolean | null;
   depth_skipped_reason?: string | null;
@@ -91,6 +93,8 @@ export async function loadJobResults(
         index: data.index ?? data.frame?.index ?? i + j,
         pci_score: typeof data.pci_score === "number" ? data.pci_score : 0,
         crack_types: normalizeCrackTypes(data.crack_types),
+        crack_type_lengths_m:
+          data.crack_type_lengths_m ?? data.crack_lengths_m_by_type ?? {},
         overlay_url: overlayPresigns[j],
         timestamp_ms: data.timestamp_ms ?? data.frame?.timestamp_ms ?? null,
         lat: data.lat ?? data.frame?.lat ?? null,

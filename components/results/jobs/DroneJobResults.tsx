@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { SummaryBar, PciChip, NoDetectionsState } from "./shared";
+import { analyzeDistress } from "@/lib/civil-intelligence";
 import { getPciBand, ircRecommendation, PCI_BANDS } from "@/types";
 import type { JobResults, FrameResult } from "@/types";
 import { useMediaQuery } from "@/hooks/useMediaQuery";
@@ -29,10 +30,19 @@ function SegmentSidebar({
 }) {
   const [imgError, setImgError] = useState(false);
   const band = getPciBand(frame.pci_score);
+  const analysis = analyzeDistress({
+    crackTypes: frame.crack_types,
+    pci: frame.pci_score,
+    avgWidthMm: frame.avg_crack_width_mm,
+    maxWidthMm: frame.max_crack_width_mm,
+    crackCount: frame.final_detection_count ?? frame.crack_types.length,
+    sectionLengthM: 10,
+  });
   const hasMetricAnalysis =
     frame.camera_surface_distance_m != null ||
     frame.avg_crack_width_mm != null ||
-    frame.max_crack_width_mm != null;
+    frame.max_crack_width_mm != null ||
+    Object.keys(frame.crack_type_lengths_m).length > 0;
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-xl border border-[#1a1a1a] bg-[#0f0f0f]">
@@ -99,7 +109,7 @@ function SegmentSidebar({
 
           {hasMetricAnalysis && (
             <div>
-              <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-gray-600">Metric Analysis</p>
+              <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-gray-600">Crack Metrics</p>
               {frame.camera_surface_distance_m != null && (
                 <p className="text-sm text-gray-300">
                   {frame.camera_surface_distance_m.toFixed(2)} m camera-to-surface
@@ -115,8 +125,50 @@ function SegmentSidebar({
                   {frame.max_crack_width_mm.toFixed(1)} mm max estimated width
                 </p>
               )}
+              {Object.keys(frame.crack_type_lengths_m).length > 0 && (
+                <div className="mt-3 space-y-1">
+                  {Object.entries(frame.crack_type_lengths_m).map(([type, length]) => (
+                    <div key={type} className="flex justify-between gap-3 rounded bg-[#111] px-2 py-1 text-xs">
+                      <span className="text-gray-400">{type}</span>
+                      <span className="font-mono text-gray-300">{length.toFixed(2)} m</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
+
+          <div>
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-gray-600">Possible Causes</p>
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                  analysis.priority === "Immediate"
+                    ? "bg-red-500/10 text-red-300"
+                    : analysis.priority === "Preventive"
+                      ? "bg-amber-500/10 text-amber-300"
+                      : "bg-emerald-500/10 text-emerald-300"
+                }`}
+              >
+                {analysis.priority}
+              </span>
+            </div>
+            <p className="text-sm font-medium text-gray-200">
+              {analysis.distressLabel} · {analysis.severity}
+            </p>
+            <ul className="mt-2 space-y-1.5">
+              {analysis.possibleCauses.map((cause) => (
+                <li key={cause} className="text-sm leading-5 text-gray-500">
+                  {cause}
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-gray-600">Recommended Action</p>
+            <p className="text-sm leading-6 text-gray-300">{analysis.recommendedMitigation}</p>
+          </div>
 
           <div>
             <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-gray-600">IRC:82-2023</p>

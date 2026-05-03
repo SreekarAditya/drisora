@@ -12,7 +12,7 @@ const INTERVALS = [
 
 type Interval = (typeof INTERVALS)[number]["value"];
 
-export function HandheldVideoPanel() {
+export function HandheldVideoPanel({ projectId }: { projectId?: string | null }) {
   const [video, setVideo] = useState<File | null>(null);
   const [interval, setInterval] = useState<Interval>(1);
   const [enableMetricAnalysis, setEnableMetricAnalysis] = useState(false);
@@ -44,6 +44,7 @@ export function HandheldVideoPanel() {
     if (!video) return;
     await startUpload([video], {
       mode: "handheld_video",
+      project_id: projectId ?? null,
       file_names: [video.name],
       total_bytes: video.size,
       options: {

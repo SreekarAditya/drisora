@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
+import { analyzeDistress } from "@/lib/civil-intelligence";
 import { createClient } from "@/lib/supabase/server";
 import type { RoadSectionFeatureCollection, RoadSectionProperties } from "@/types";
 
 type DetectionRow = {
   section_id: string | null;
   crack_type: string | null;
+  avg_width_mm: number | null;
+  max_width_mm: number | null;
+  length_m: number | null;
 };
 
 type SectionFeature = RoadSectionFeatureCollection["features"][number] & {
@@ -40,7 +44,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const sectionsQuery = supabase
     .from("road_sections")
     .select(
-      "id, geom, section_index, pci_score, condition_category, recommended_intervention, priority_rank, length_m",
+      "id, geom, section_index, pci_score, condition_category, recommended_intervention, priority_rank, length_m, avg_crack_width_mm, max_crack_width_mm, crack_length_m_by_type, possible_causes, recommended_mitigation, maintenance_priority, civil_severity",
     )
     .eq("survey_id", id)
     .order("section_index", { ascending: true })
@@ -48,7 +52,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   const detectionsQuery = supabase
     .from("detections")
-    .select("section_id, crack_type")
+    .select("section_id, crack_type, avg_width_mm, max_width_mm, length_m")
     .eq("survey_id", id);
 
   const [{ data: sectionsGeojson, error: sectionsError }, { data: detections, error: detectionsError }] =
@@ -62,16 +66,40 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: detectionsError.message }, { status: 500 });
   }
 
-  const summary = new Map<string, { count: number; types: Set<string> }>();
+  const summary = new Map<string, {
+    count: number;
+    types: Set<string>;
+    maxWidth: number | null;
+    widthSum: number;
+    widthCount: number;
+    lengths: Record<string, number>;
+  }>();
   const detectionsSummary: Record<string, number> = {};
 
   for (const detection of ((detections ?? []) as DetectionRow[])) {
     if (!detection.section_id) continue;
-    const item = summary.get(detection.section_id) ?? { count: 0, types: new Set<string>() };
+    const item = summary.get(detection.section_id) ?? {
+      count: 0,
+      types: new Set<string>(),
+      maxWidth: null,
+      widthSum: 0,
+      widthCount: 0,
+      lengths: {},
+    };
     item.count += 1;
     if (detection.crack_type) {
       item.types.add(detection.crack_type);
       detectionsSummary[detection.crack_type] = (detectionsSummary[detection.crack_type] ?? 0) + 1;
+      if (detection.length_m != null) {
+        item.lengths[detection.crack_type] =
+          (item.lengths[detection.crack_type] ?? 0) + detection.length_m;
+      }
+    }
+    const width = detection.max_width_mm ?? detection.avg_width_mm;
+    if (width != null) {
+      item.maxWidth = item.maxWidth == null ? width : Math.max(item.maxWidth, width);
+      item.widthSum += width;
+      item.widthCount += 1;
     }
     summary.set(detection.section_id, item);
   }
@@ -82,7 +110,27 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     features: (rawCollection?.features ?? []).map((feature) => {
       const sectionFeature = feature as SectionFeature;
       const sectionId = sectionFeature.properties.id ?? "";
-      const sectionSummary = summary.get(sectionId) ?? { count: 0, types: new Set<string>() };
+      const sectionSummary = summary.get(sectionId) ?? {
+        count: 0,
+        types: new Set<string>(),
+        maxWidth: null,
+        widthSum: 0,
+        widthCount: 0,
+        lengths: {},
+      };
+      const crackTypes = Array.from(sectionSummary.types).sort();
+      const avgWidth =
+        sectionFeature.properties.avg_crack_width_mm ??
+        (sectionSummary.widthCount > 0 ? sectionSummary.widthSum / sectionSummary.widthCount : null);
+      const maxWidth = sectionFeature.properties.max_crack_width_mm ?? sectionSummary.maxWidth;
+      const analysis = analyzeDistress({
+        crackTypes,
+        pci: sectionFeature.properties.pci_score,
+        avgWidthMm: avgWidth,
+        maxWidthMm: maxWidth,
+        crackCount: sectionSummary.count,
+        sectionLengthM: sectionFeature.properties.length_m,
+      });
 
       return {
         type: "Feature",
@@ -95,7 +143,18 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
           priority_rank: sectionFeature.properties.priority_rank,
           length_m: sectionFeature.properties.length_m,
           crack_count: sectionSummary.count,
-          crack_types: Array.from(sectionSummary.types).sort(),
+          crack_types: crackTypes,
+          avg_crack_width_mm: avgWidth,
+          max_crack_width_mm: maxWidth,
+          crack_length_m_by_type:
+            sectionFeature.properties.crack_length_m_by_type ?? sectionSummary.lengths,
+          possible_causes: sectionFeature.properties.possible_causes ?? analysis.possibleCauses,
+          recommended_mitigation:
+            sectionFeature.properties.recommended_mitigation ?? analysis.recommendedMitigation,
+          maintenance_priority:
+            sectionFeature.properties.maintenance_priority ?? analysis.priority,
+          distress_severity:
+            sectionFeature.properties.civil_severity ?? analysis.severity,
         },
       };
     }),
