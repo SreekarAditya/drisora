@@ -1,6 +1,8 @@
 import json
+import math
 import os
 import shutil
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -50,11 +52,44 @@ def _warm_model(name: str, loader: Any, ready_message: str) -> None:
         print(f"{name} model unavailable; using fallback path: {exc}", flush=True)
 
 
-def _warm_pipeline_models() -> None:
+def _option_enabled(options: dict[str, Any], name: str, default: bool = False) -> bool:
+    value = options.get(name)
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (int, float)):
+        return value != 0
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "on"}
+    return default
+
+
+def _depth_enabled(mode: str, options: dict[str, Any]) -> bool:
+    env_default = os.environ.get("DRISORA_ENABLE_DEPTHPRO_DEFAULT")
+    if env_default is not None:
+        default = env_default.strip().lower() in {"1", "true", "yes", "on"}
+    else:
+        default = mode == "drone_footage"
+    return _option_enabled(options, "enable_depthpro", default)
+
+
+def _sam2_warmup_enabled(options: dict[str, Any]) -> bool:
+    env_default = os.environ.get("DRISORA_WARM_SAM2", "0").strip().lower() in {"1", "true", "yes", "on"}
+    return _option_enabled(options, "warm_sam2", env_default)
+
+
+def _warm_pipeline_models(use_depth: bool, warm_sam2: bool) -> None:
     print("[WARMUP] Starting model warmup...", flush=True)
     _warm_model("YOLO", get_yolo, "[WARMUP] YOLO ready")
-    _warm_model("SAM2", get_sam2, "[WARMUP] SAM2 ready")
-    _warm_model("DepthPro", get_depth, "[WARMUP] DepthPro ready")
+    if warm_sam2:
+        _warm_model("SAM2", get_sam2, "[WARMUP] SAM2 ready")
+    else:
+        print("[WARMUP] SAM2 warmup skipped (loads on first detection)", flush=True)
+    if use_depth:
+        _warm_model("DepthPro", get_depth, "[WARMUP] DepthPro ready")
+    else:
+        print("[WARMUP] DepthPro skipped for this job", flush=True)
     print("[WARMUP] All models ready — starting frame loop", flush=True)
 
 
@@ -202,16 +237,38 @@ def _fallback_pci(error_message: str) -> dict[str, Any]:
     }
 
 
-def _process_frame(frame: dict[str, Any]) -> dict[str, Any]:
+def _depth_estimate(depth_map: Any) -> float | None:
+    if depth_map is None or getattr(depth_map, "size", 0) <= 0:
+        return None
+    try:
+        value = float(depth_map.mean())
+        return value if math.isfinite(value) else None
+    except Exception:
+        return None
+
+
+def _process_frame(frame: dict[str, Any], use_depth: bool) -> dict[str, Any]:
+    started = time.perf_counter()
     frame_path = Path(frame["path"])
+    yolo_count = 0
+    sam2_attempted = False
+    depth_attempted = False
+    depth_skipped_reason = None if use_depth else "disabled_for_mode"
     try:
         detections = yolo_inference.run(str(frame_path))
+        yolo_count = len(detections)
 
-        detections = sam2_inference.run(str(frame_path), detections)
+        if detections:
+            sam2_attempted = True
+            detections = sam2_inference.run(str(frame_path), detections)
 
-        depth_result = depthpro_inference.run(str(frame_path), detections)
-        detections = depth_result.get("detections", detections)
-        depth_map = depth_result.get("depth_map")
+        if use_depth:
+            depth_attempted = True
+            depth_result = depthpro_inference.run(str(frame_path), detections)
+            detections = depth_result.get("detections", detections)
+            depth_map = depth_result.get("depth_map")
+        else:
+            depth_map = None
 
         pci_result = pci_scorer.score(
             detections,
@@ -222,6 +279,18 @@ def _process_frame(frame: dict[str, Any]) -> dict[str, Any]:
         detections = []
         depth_map = None
         pci_result = _fallback_pci(str(exc))
+
+    depth_available = depth_map is not None and getattr(depth_map, "size", 0) > 0
+    final_count = len(detections)
+    elapsed_ms = int((time.perf_counter() - started) * 1000)
+    print(
+        "[FRAME_RESULT] "
+        f"index={frame.get('index')} pci={pci_result['pci']} "
+        f"yolo={yolo_count} final={final_count} "
+        f"sam2_attempted={sam2_attempted} depth_attempted={depth_attempted} "
+        f"depth_available={depth_available} elapsed_ms={elapsed_ms}",
+        flush=True,
+    )
 
     return {
         "pci_score": pci_result["pci"],
@@ -234,7 +303,14 @@ def _process_frame(frame: dict[str, Any]) -> dict[str, Any]:
         "alt": frame.get("alt_m", frame.get("alt")),
         "detections": detections,
         "pci_details": pci_result,
-        "depth_available": depth_map is not None and getattr(depth_map, "size", 0) > 0,
+        "depth_available": depth_available,
+        "depth_estimate": _depth_estimate(depth_map),
+        "depth_attempted": depth_attempted,
+        "depth_skipped_reason": depth_skipped_reason,
+        "sam2_attempted": sam2_attempted,
+        "yolo_detection_count": yolo_count,
+        "final_detection_count": final_count,
+        "processing_ms": elapsed_ms,
     }
 
 
@@ -282,9 +358,17 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         r2_client = _create_r2_client()
         local_files = _download_raw_files(r2_client, bucket, r2_prefix, file_names, raw_dir)
 
+        use_depth = _depth_enabled(mode, options)
+        warm_sam2 = _sam2_warmup_enabled(options)
+        print(
+            f"[PIPELINE] mode={mode} use_depth={use_depth} warm_sam2={warm_sam2} "
+            f"options={json.dumps(options, sort_keys=True)}",
+            flush=True,
+        )
+
         frame_batch = dispatch_job(job_id, mode, _build_dispatch_files(mode, local_files, options))
         frames = frame_batch["frames"]
-        _warm_pipeline_models()
+        _warm_pipeline_models(use_depth=use_depth, warm_sam2=warm_sam2)
         _update_job(
             redis_url,
             redis_token,
@@ -301,7 +385,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         for processed_count, frame in enumerate(frames, start=1):
             print(f"[FRAME {processed_count}/{total}] processing", flush=True)
             frame_path = Path(frame["path"])
-            frame_result = _process_frame(frame)
+            frame_result = _process_frame(frame, use_depth=use_depth)
             processed = processed_count
             total_detections += len(frame_result.get("detections") or [])
             pci_scores.append(float(frame_result["pci_score"]))

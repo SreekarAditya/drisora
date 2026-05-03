@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -9,8 +10,11 @@ import numpy as np
 _PREDICTOR: Any | None = None
 _LOAD_FAILED = False
 
-MODEL_URL = "https://dl.fbaipublicfiles.com/segment_anything_v2/sam2.1_hiera_small.pt"
-MODEL_PATH = Path("/tmp/models/sam2.1_hiera_small.pt")
+MODEL_URL = os.environ.get(
+    "SAM2_MODEL_URL",
+    "https://dl.fbaipublicfiles.com/segment_anything_v2/sam2.1_hiera_small.pt",
+)
+MODEL_PATH = Path(os.environ.get("SAM2_MODEL_PATH", "/tmp/models/sam2.1_hiera_small.pt"))
 MODEL_CFG = "sam2.1_hiera_s.yaml"
 
 
@@ -35,6 +39,7 @@ def load_model() -> Any:
 
         _download(MODEL_URL, MODEL_PATH)
         device = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"[SAM2] device={device} model_path={MODEL_PATH}")
         sam_model = build_sam2(MODEL_CFG, str(MODEL_PATH), device=device)
         _PREDICTOR = SAM2ImagePredictor(sam_model)
     except Exception as e:

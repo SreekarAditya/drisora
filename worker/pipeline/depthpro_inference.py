@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import io
+import logging
 import math
+import os
 import sys
 import urllib.request
 from dataclasses import replace
@@ -13,8 +15,8 @@ import numpy as np
 _MODEL_AND_TRANSFORM: tuple[Any, Any, str] | None = None
 _LOAD_FAILED = False
 
-MODEL_URL = "https://ml-site.cdn-apple.com/models/depth-pro/depth_pro.pt"
-MODEL_PATH = Path("/tmp/models/depth_pro.pt")
+MODEL_URL = os.environ.get("DEPTHPRO_MODEL_URL", "https://ml-site.cdn-apple.com/models/depth-pro/depth_pro.pt")
+MODEL_PATH = Path(os.environ.get("DEPTHPRO_MODEL_PATH", "/tmp/models/depth_pro.pt"))
 DEFAULT_DEPTH_M = 1.0
 FALLBACK_AREA_SCALE_M2_PER_PX = 0.0001
 FOV_RADIANS = 1.0
@@ -41,8 +43,13 @@ def load_model() -> tuple[Any, Any, str]:
         _download(MODEL_URL, MODEL_PATH)
         device = "cuda" if torch.cuda.is_available() else "cpu"
         precision = torch.float16 if device == "cuda" else torch.float32
+        print(f"[DepthPro] device={device} precision={precision} model_path={MODEL_PATH}")
         old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        previous_logging_disable = logging.root.manager.disable
         sys.stdout = io.StringIO()
+        sys.stderr = io.StringIO()
+        logging.disable(logging.CRITICAL)
         try:
             from depth_pro.depth_pro import DEFAULT_MONODEPTH_CONFIG_DICT
 
@@ -61,6 +68,8 @@ def load_model() -> tuple[Any, Any, str]:
                 print(f"[DepthPro] checkpoint load failed: {e}", file=old_stdout)
         finally:
             sys.stdout = old_stdout
+            sys.stderr = old_stderr
+            logging.disable(previous_logging_disable)
         model.eval()
         _MODEL_AND_TRANSFORM = (model, transform, device)
     except Exception as e:

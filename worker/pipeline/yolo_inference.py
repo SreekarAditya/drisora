@@ -30,6 +30,7 @@ def load_model() -> Any:
         raise
 
     _DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"[YOLO] device={_DEVICE} weights={WEIGHTS_PATH}")
     try:
         model = YOLO(str(WEIGHTS_PATH))
     except Exception as e:

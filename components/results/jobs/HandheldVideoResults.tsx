@@ -127,6 +127,30 @@ function FramePanel({ frame, onClose }: { frame: FrameResult; onClose: () => voi
             <p className="text-gray-600">Recommendation</p>
             <p className="mt-0.5 text-gray-300">{ircRecommendation(frame.pci_score)}</p>
           </div>
+          <div>
+            <p className="text-gray-600">Detections</p>
+            <p className="mt-0.5 text-gray-300">
+              {frame.final_detection_count ?? frame.yolo_detection_count ?? 0}
+            </p>
+          </div>
+          <div>
+            <p className="text-gray-600">DepthPro</p>
+            <p className="mt-0.5 text-gray-300">
+              {frame.depth_available
+                ? frame.depth_estimate != null
+                  ? `${frame.depth_estimate.toFixed(2)} m`
+                  : "Available"
+                : frame.depth_attempted
+                  ? "Unavailable"
+                  : "Skipped"}
+            </p>
+          </div>
+          {frame.processing_ms != null && (
+            <div>
+              <p className="text-gray-600">Frame time</p>
+              <p className="mt-0.5 text-gray-300">{fmtTime(frame.processing_ms)}</p>
+            </div>
+          )}
           {frame.crack_types.length > 0 && (
             <div className="col-span-2">
               <p className="text-gray-600">Crack types</p>
@@ -238,7 +262,7 @@ export function HandheldVideoResults({ results, jobId, surveyDate, orgName }: Pr
               </LineChart>
             </ResponsiveContainer>
             <p className="mt-2 text-center text-[11px] text-gray-700">
-              Click any point to view crack overlay
+              Click any point to view frame diagnostics
             </p>
           </div>
 
