@@ -12,6 +12,7 @@ type GpsState =
 export function DroneFootagePanel() {
   const [video, setVideo] = useState<File | null>(null);
   const [srt, setSrt] = useState<File | null>(null);
+  const [enableDepthPro, setEnableDepthPro] = useState(false);
   const [gps, setGps] = useState<GpsState>({ kind: "unchecked" });
   const [videoDrag, setVideoDrag] = useState(false);
   const [srtDrag, setSrtDrag] = useState(false);
@@ -79,6 +80,7 @@ export function DroneFootagePanel() {
         gps_source: gps.kind === "found" ? "embedded" : "srt",
         has_srt: srt !== null,
         srt_name: srt?.name ?? null,
+        enable_depthpro: enableDepthPro,
       },
     });
   }
@@ -226,6 +228,21 @@ export function DroneFootagePanel() {
           )}
         </div>
       )}
+
+      <label className="mt-5 flex items-center justify-between gap-4 rounded-lg border border-[#242424] bg-[#0a0a0a] px-4 py-3">
+        <span>
+          <span className="block text-sm font-medium text-white">DepthPro analysis</span>
+          <span className="mt-0.5 block text-xs text-gray-600">
+            Optional depth and rut scoring. Adds significant processing time.
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          checked={enableDepthPro}
+          onChange={(e) => setEnableDepthPro(e.target.checked)}
+          className="h-4 w-4 shrink-0 accent-amber-500"
+        />
+      </label>
 
       {(isUploading || (phase === "error" && failedFiles.size > 0)) &&
         progress.size > 0 && (

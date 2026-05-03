@@ -150,18 +150,18 @@ export function HandheldVideoPanel() {
         </div>
       </div>
 
-      <label className="mt-5 flex items-center justify-between rounded-lg border border-[#242424] bg-[#0a0a0a] px-4 py-3">
+      <label className="mt-5 flex items-center justify-between gap-4 rounded-lg border border-[#242424] bg-[#0a0a0a] px-4 py-3">
         <span>
           <span className="block text-sm font-medium text-white">DepthPro analysis</span>
           <span className="mt-0.5 block text-xs text-gray-600">
-            Slower, adds depth/rut scoring to each sampled frame.
+            Optional depth and rut scoring. Adds significant processing time.
           </span>
         </span>
         <input
           type="checkbox"
           checked={enableDepthPro}
           onChange={(e) => setEnableDepthPro(e.target.checked)}
-          className="h-4 w-4 accent-amber-500"
+          className="h-4 w-4 shrink-0 accent-amber-500"
         />
       </label>
 
