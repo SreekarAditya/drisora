@@ -14,5 +14,10 @@ RUN pip install git+https://github.com/facebookresearch/sam2.git
 
 COPY . .
 COPY weights/ weights/
+COPY models/sam2.1_hiera_small.pt /app/models/sam2.1_hiera_small.pt
+COPY models/depth_pro.pt /app/models/depth_pro.pt
+
+ENV SAM2_MODEL_PATH=/app/models/sam2.1_hiera_small.pt
+ENV DEPTHPRO_MODEL_PATH=/app/models/depth_pro.pt
 
 CMD ["python", "handler.py"]

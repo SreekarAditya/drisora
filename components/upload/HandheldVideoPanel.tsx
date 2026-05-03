@@ -15,6 +15,7 @@ type Interval = (typeof INTERVALS)[number]["value"];
 export function HandheldVideoPanel() {
   const [video, setVideo] = useState<File | null>(null);
   const [interval, setInterval] = useState<Interval>(1);
+  const [enableDepthPro, setEnableDepthPro] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
   const { phase, progress, failedFiles, uploadError, startUpload, retryFile } =
@@ -45,7 +46,7 @@ export function HandheldVideoPanel() {
       mode: "handheld_video",
       file_names: [video.name],
       total_bytes: video.size,
-      options: { frame_interval_seconds: interval },
+      options: { frame_interval_seconds: interval, enable_depthpro: enableDepthPro },
     });
   }
 
@@ -148,6 +149,21 @@ export function HandheldVideoPanel() {
           })}
         </div>
       </div>
+
+      <label className="mt-5 flex items-center justify-between rounded-lg border border-[#242424] bg-[#0a0a0a] px-4 py-3">
+        <span>
+          <span className="block text-sm font-medium text-white">DepthPro analysis</span>
+          <span className="mt-0.5 block text-xs text-gray-600">
+            Slower, adds depth/rut scoring to each sampled frame.
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          checked={enableDepthPro}
+          onChange={(e) => setEnableDepthPro(e.target.checked)}
+          className="h-4 w-4 accent-amber-500"
+        />
+      </label>
 
       {(isUploading || (phase === "error" && failedFiles.size > 0)) &&
         progress.size > 0 && (

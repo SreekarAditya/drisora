@@ -19,6 +19,13 @@ interface RawDetection {
   lon?: number | null;
   alt_m?: number | null;
   depth_estimate?: number | null;
+  depth_available?: boolean | null;
+  depth_attempted?: boolean | null;
+  depth_skipped_reason?: string | null;
+  sam2_attempted?: boolean | null;
+  yolo_detection_count?: number | null;
+  final_detection_count?: number | null;
+  processing_ms?: number | null;
   [key: string]: unknown;
 }
 
@@ -87,6 +94,13 @@ export async function loadJobResults(
         lon: data.lon ?? data.frame?.lon ?? null,
         alt_m: data.alt_m ?? data.frame?.alt_m ?? data.frame?.alt ?? null,
         depth_estimate: data.depth_estimate ?? null,
+        depth_available: data.depth_available ?? null,
+        depth_attempted: data.depth_attempted ?? null,
+        depth_skipped_reason: data.depth_skipped_reason ?? null,
+        sam2_attempted: data.sam2_attempted ?? null,
+        yolo_detection_count: data.yolo_detection_count ?? null,
+        final_detection_count: data.final_detection_count ?? null,
+        processing_ms: data.processing_ms ?? null,
       });
     }
   }

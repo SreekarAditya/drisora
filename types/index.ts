@@ -70,6 +70,13 @@ export interface FrameResult {
   lon: number | null;
   alt_m: number | null;
   depth_estimate: number | null;
+  depth_available: boolean | null;
+  depth_attempted: boolean | null;
+  depth_skipped_reason: string | null;
+  sam2_attempted: boolean | null;
+  yolo_detection_count: number | null;
+  final_detection_count: number | null;
+  processing_ms: number | null;
 }
 
 export interface JobResultsSummary {

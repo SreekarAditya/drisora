@@ -25,6 +25,7 @@
 *.pem
 .claude/
 .superpowers/
+worker/models/*.pt
 
 # debug
 npm-debug.log*
