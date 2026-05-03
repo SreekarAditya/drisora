@@ -100,3 +100,15 @@
 .drisora-section-popup .leaflet-popup-close-button {
   color: #d4d4d4;
 }
+
+.drisora-map-tooltip {
+  background: rgba(11, 12, 13, 0.96);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 10px;
+  color: #f8fafc;
+  box-shadow: 0 18px 45px rgba(0,0,0,0.45);
+}
+
+.drisora-map-tooltip::before {
+  border-top-color: rgba(11, 12, 13, 0.96);
+}

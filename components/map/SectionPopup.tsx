@@ -46,6 +46,11 @@ export function SectionPopup({ properties }: SectionPopupProps) {
             {properties.avg_crack_width_mm == null ? "N/A" : `${properties.avg_crack_width_mm.toFixed(1)} mm`}
           </span>
         </div>
+        {properties.crack_metrics_estimated && properties.crack_count > 0 && (
+          <div className="rounded-md bg-amber-500/10 px-2 py-1 text-xs text-amber-300">
+            Width and length metrics estimated for a legacy section.
+          </div>
+        )}
       </div>
 
       <div>

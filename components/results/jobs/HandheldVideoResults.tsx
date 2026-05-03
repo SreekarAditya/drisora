@@ -13,6 +13,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { SummaryBar, PciChip, NoDetectionsState } from "./shared";
+import { crackWidthBandLabel } from "@/lib/crack-metrics";
 import { getPciBand, ircRecommendation } from "@/types";
 import type { JobResults, FrameResult } from "@/types";
 
@@ -81,10 +82,12 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
 function FramePanel({ frame, onClose }: { frame: FrameResult; onClose: () => void }) {
   const [imgError, setImgError] = useState(false);
   const band = getPciBand(frame.pci_score);
-  const hasMetricAnalysis =
-    frame.camera_surface_distance_m != null ||
-    frame.avg_crack_width_mm != null ||
-    frame.max_crack_width_mm != null;
+  const metricRows = Object.entries(frame.crack_type_lengths_m);
+  const hasCracks =
+    frame.crack_types.length > 0 ||
+    (frame.final_detection_count ?? frame.yolo_detection_count ?? 0) > 0 ||
+    frame.max_crack_width_mm != null ||
+    metricRows.length > 0;
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-xl border border-[#1a1a1a] bg-[#0f0f0f]">
@@ -140,11 +143,7 @@ function FramePanel({ frame, onClose }: { frame: FrameResult; onClose: () => voi
           <div>
             <p className="text-gray-600">Metric Analysis</p>
             <p className="mt-0.5 text-gray-300">
-              {hasMetricAnalysis
-                ? "Available"
-                : frame.depth_attempted
-                  ? "Unavailable"
-                  : "Skipped"}
+              {hasCracks ? (frame.crack_metrics_estimated ? "Legacy estimate" : "Measured") : "No cracks"}
             </p>
           </div>
           {frame.camera_surface_distance_m != null && (
@@ -155,29 +154,36 @@ function FramePanel({ frame, onClose }: { frame: FrameResult; onClose: () => voi
               </p>
             </div>
           )}
-          {frame.avg_crack_width_mm != null && (
-            <div>
-              <p className="text-gray-600">Width from pixels</p>
-              <p className="mt-0.5 text-gray-300">
-                {frame.avg_crack_width_mm.toFixed(1)} mm
-                {frame.max_crack_width_mm != null
-                  ? ` max ${frame.max_crack_width_mm.toFixed(1)}`
-                  : ""}
-              </p>
-            </div>
-          )}
-          {!hasMetricAnalysis && (
-            <div>
-              <p className="text-gray-600">Camera distance</p>
-              <p className="mt-0.5 text-gray-300">
-                {frame.depth_available
-                  ? "Not measured"
-                  : frame.depth_attempted
-                    ? "Unavailable"
-                    : "Skipped"}
-              </p>
-            </div>
-          )}
+          <div>
+            <p className="text-gray-600">Max width</p>
+            <p className="mt-0.5 text-gray-300">
+              {frame.max_crack_width_mm == null ? "N/A" : `${frame.max_crack_width_mm.toFixed(1)} mm`}
+            </p>
+          </div>
+          <div>
+            <p className="text-gray-600">Avg width</p>
+            <p className="mt-0.5 text-gray-300">
+              {frame.avg_crack_width_mm == null ? "N/A" : `${frame.avg_crack_width_mm.toFixed(1)} mm`}
+            </p>
+          </div>
+          <div className="col-span-2">
+            <p className="text-gray-600">Crack Metrics</p>
+            <p className="mt-0.5 text-gray-300">
+              {hasCracks
+                ? crackWidthBandLabel(frame.max_crack_width_mm ?? frame.avg_crack_width_mm)
+                : "No cracks detected in this frame."}
+            </p>
+            {metricRows.length > 0 && (
+              <div className="mt-2 grid gap-1 sm:grid-cols-2">
+                {metricRows.map(([type, length]) => (
+                  <div key={type} className="flex justify-between gap-2 rounded bg-black/25 px-2 py-1">
+                    <span className="text-gray-500">{type}</span>
+                    <span className="font-mono text-gray-300">{length.toFixed(2)} m</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           {frame.processing_ms != null && (
             <div>
               <p className="text-gray-600">Frame time</p>

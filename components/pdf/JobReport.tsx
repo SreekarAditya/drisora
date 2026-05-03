@@ -10,8 +10,12 @@ import {
   Svg,
 } from "@react-pdf/renderer";
 import { analyzeDistress } from "@/lib/civil-intelligence";
+import { CRACK_WIDTH_BANDS, crackWidthColor } from "@/lib/crack-metrics";
 import { getPciBand, JOB_MODE_LABELS, PCI_BANDS } from "@/types";
 import type { FrameResult, JobResults } from "@/types";
+
+const ROWS_PER_PAGE = 20;
+const MAX_SECTION_ROWS = 180;
 
 const C = {
   text: "#111827",
@@ -25,12 +29,15 @@ const C = {
   yellow: "#ca8a04",
   orange: "#ea580c",
   red: "#dc2626",
+  slate: "#0f172a",
 } as const;
 
 const s = StyleSheet.create({
   page: { padding: 34, backgroundColor: C.white, color: C.text, fontFamily: "Helvetica", fontSize: 8.5 },
   cover: { padding: 42, backgroundColor: C.white, color: C.text, fontFamily: "Helvetica" },
+  brandRow: { flexDirection: "row", alignItems: "center", gap: 9 },
   brand: { fontSize: 28, fontWeight: 700, color: C.dark },
+  brandSmall: { fontSize: 14, fontWeight: 700, color: C.dark },
   kicker: { fontSize: 9, color: C.amber, letterSpacing: 1.8, textTransform: "uppercase" },
   title: { marginTop: 74, fontSize: 30, fontWeight: 700, color: C.dark, lineHeight: 1.12 },
   subtitle: { marginTop: 10, fontSize: 11, color: C.muted, lineHeight: 1.5 },
@@ -52,15 +59,18 @@ const s = StyleSheet.create({
   row: { flexDirection: "row", borderBottom: `1px solid ${C.border}`, minHeight: 28 },
   th: { backgroundColor: C.light, fontSize: 7, fontWeight: 700, color: C.dark, padding: 5, borderRight: `1px solid ${C.border}` },
   td: { fontSize: 7, color: C.text, padding: 5, borderRight: `1px solid ${C.border}`, lineHeight: 1.25 },
-  colSection: { width: "7%" },
-  colGps: { width: "12%" },
-  colPci: { width: "7%" },
-  colCracks: { width: "15%" },
-  colWidth: { width: "10%" },
-  colCause: { width: "18%" },
-  colMitigation: { width: "23%" },
+  colSection: { width: "6%" },
+  colGps: { width: "11%" },
+  colPci: { width: "6%" },
+  colCracks: { width: "14%" },
+  colWidth: { width: "7%" },
+  colCause: { width: "17%" },
+  colMitigation: { width: "24%" },
   colPriority: { width: "8%" },
   mapPanel: { border: `1px solid ${C.border}`, padding: 10, backgroundColor: "#f9fafb" },
+  mapDark: { border: "1px solid #1f2937", padding: 12, backgroundColor: "#0b0c0d" },
+  mapCaptionGrid: { flexDirection: "row", gap: 10, marginTop: 10 },
+  mapCaption: { flex: 1, border: "1px solid #e5e7eb", padding: 8, backgroundColor: "#ffffff" },
   legend: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 10 },
   legendItem: { flexDirection: "row", alignItems: "center", gap: 4 },
   swatch: { width: 18, height: 8 },
@@ -76,22 +86,35 @@ interface Props {
   orgName: string;
 }
 
+function PdfLogo({ compact = false }: { compact?: boolean }) {
+  return (
+    <View style={s.brandRow}>
+      <Svg width={compact ? 24 : 32} height={compact ? 24 : 32} viewBox="0 0 36 36">
+        <Rect x="1" y="1" width="34" height="34" rx="8" fill="#111214" stroke="#e5e7eb" strokeWidth="0.8" />
+        <Rect x="10" y="7.5" width="15" height="21" rx="6" fill="none" stroke="#f8fafc" strokeWidth="2" />
+        <Line x1="18.4" y1="9.4" x2="18.4" y2="26.6" stroke="#f59e0b" strokeWidth="2.2" strokeLinecap="round" />
+        <Line x1="18.4" y1="13.6" x2="18.4" y2="15.8" stroke="#111214" strokeWidth="0.9" strokeLinecap="round" />
+        <Line x1="18.4" y1="20.1" x2="18.4" y2="22.3" stroke="#111214" strokeWidth="0.9" strokeLinecap="round" />
+      </Svg>
+      <Text style={compact ? s.brandSmall : s.brand}>Drisora</Text>
+    </View>
+  );
+}
+
 function formatGps(frame: FrameResult) {
   if (frame.lat == null || frame.lon == null) return "N/A";
   return `${frame.lat.toFixed(5)}, ${frame.lon.toFixed(5)}`;
 }
 
 function crackSummary(frame: FrameResult) {
-  const count = frame.final_detection_count ?? frame.yolo_detection_count ?? frame.crack_types.length;
+  const count = Math.max(
+    frame.final_detection_count ?? 0,
+    frame.yolo_detection_count ?? 0,
+    frame.crack_types.length,
+    frame.max_crack_width_mm != null || frame.avg_crack_width_mm != null ? 1 : 0,
+  );
   const types = frame.crack_types.length > 0 ? frame.crack_types.join(", ") : "None";
   return `${types}${count > 0 ? ` (${count})` : ""}`;
-}
-
-function widthSummary(frame: FrameResult) {
-  if (frame.max_crack_width_mm == null && frame.avg_crack_width_mm == null) return "N/A";
-  const max = frame.max_crack_width_mm == null ? "N/A" : `${frame.max_crack_width_mm.toFixed(1)} max`;
-  const avg = frame.avg_crack_width_mm == null ? "N/A" : `${frame.avg_crack_width_mm.toFixed(1)} avg`;
-  return `${max} / ${avg} mm`;
 }
 
 function chunks<T>(items: T[], size: number) {
@@ -136,6 +159,16 @@ function mapPoint(
 
 function ConditionMapPage({ frames, summary, jobId }: { frames: FrameResult[]; summary: JobResults["summary"]; jobId: string }) {
   const gpsFrames = frames.filter((frame) => frame.lat != null && frame.lon != null);
+  const start = gpsFrames[0] ?? null;
+  const end = gpsFrames.at(-1) ?? null;
+  const worst = frames.reduce<FrameResult | null>(
+    (current, frame) => (!current || frame.pci_score < current.pci_score ? frame : current),
+    null,
+  );
+  const maxWidth = frames
+    .map((frame) => frame.max_crack_width_mm ?? frame.avg_crack_width_mm)
+    .filter((value): value is number => value != null)
+    .sort((a, b) => b - a)[0] ?? null;
   const bounds = gpsFrames.length > 0
     ? {
         minLat: Math.min(...gpsFrames.map((frame) => frame.lat!)),
@@ -147,6 +180,8 @@ function ConditionMapPage({ frames, summary, jobId }: { frames: FrameResult[]; s
 
   return (
     <Page size="A4" style={s.page}>
+      <PdfLogo compact />
+      <Text style={[s.kicker, { marginTop: 8 }]}>Geospatial assessment</Text>
       <Text style={s.h2}>Pavement Condition Map</Text>
       <View style={s.kpiRow}>
         <View style={s.kpi}>
@@ -161,14 +196,26 @@ function ConditionMapPage({ frames, summary, jobId }: { frames: FrameResult[]; s
           <Text style={[s.kpiValue, { color: getPciBand(summary.average_pci).color }]}>{summary.average_pci.toFixed(1)}</Text>
           <Text style={s.kpiLabel}>Average PCI</Text>
         </View>
+        <View style={s.kpi}>
+          <Text style={[s.kpiValue, { color: maxWidth == null ? C.dark : crackWidthColor(maxWidth) }]}>{maxWidth == null ? "N/A" : `${maxWidth.toFixed(1)}`}</Text>
+          <Text style={s.kpiLabel}>Max crack width mm</Text>
+        </View>
       </View>
 
-      <View style={[s.mapPanel, { marginTop: 14 }]}>
+      <View style={[s.mapDark, { marginTop: 14 }]}>
         {bounds ? (
-          <Svg width="500" height="290" viewBox="0 0 500 290">
-            <Rect x="0" y="0" width="500" height="290" fill="#f9fafb" />
-            <Line x1="0" y1="80" x2="500" y2="20" stroke="#e5e7eb" strokeWidth="2" />
-            <Line x1="0" y1="210" x2="500" y2="255" stroke="#e5e7eb" strokeWidth="2" />
+          <Svg width="500" height="310" viewBox="0 0 500 310">
+            <Rect x="0" y="0" width="500" height="310" fill="#0b0c0d" />
+            {Array.from({ length: 8 }).map((_, index) => (
+              <Line key={`h-${index}`} x1="0" y1={30 + index * 35} x2="500" y2={30 + index * 35} stroke="#1f2937" strokeWidth="0.7" />
+            ))}
+            {Array.from({ length: 10 }).map((_, index) => (
+              <Line key={`v-${index}`} x1={30 + index * 48} y1="0" x2={30 + index * 48} y2="310" stroke="#1f2937" strokeWidth="0.7" />
+            ))}
+            <Rect x="12" y="12" width="476" height="286" rx="10" fill="none" stroke="#334155" strokeWidth="1" />
+            <Line x1="450" y1="34" x2="450" y2="64" stroke="#f8fafc" strokeWidth="1.4" />
+            <Line x1="450" y1="34" x2="444" y2="44" stroke="#f8fafc" strokeWidth="1.4" />
+            <Line x1="450" y1="34" x2="456" y2="44" stroke="#f8fafc" strokeWidth="1.4" />
             {gpsFrames.slice(0, -1).map((frame, index) => {
               const next = gpsFrames[index + 1];
               const a = mapPoint(frame, bounds);
@@ -181,22 +228,23 @@ function ConditionMapPage({ frames, summary, jobId }: { frames: FrameResult[]; s
                   x2={b.x}
                   y2={b.y}
                   stroke={getPciBand(frame.pci_score).color}
-                  strokeWidth="5"
+                  strokeWidth="7"
                   strokeLinecap="round"
                 />
               );
             })}
             {gpsFrames.map((frame) => {
               const point = mapPoint(frame, bounds);
+              const widthValue = frame.max_crack_width_mm ?? frame.avg_crack_width_mm;
               return (
                 <Circle
                   key={frame.stem}
                   cx={point.x}
                   cy={point.y}
-                  r="4"
-                  fill={getPciBand(frame.pci_score).color}
+                  r="4.6"
+                  fill={crackWidthColor(widthValue)}
                   stroke="#ffffff"
-                  strokeWidth="1"
+                  strokeWidth="0.8"
                 />
               );
             })}
@@ -215,6 +263,31 @@ function ConditionMapPage({ frames, summary, jobId }: { frames: FrameResult[]; s
             <Text style={s.small}>{band.label} {band.range}</Text>
           </View>
         ))}
+      </View>
+      <View style={s.legend}>
+        {CRACK_WIDTH_BANDS.map((band) => (
+          <View key={band.label} style={s.legendItem}>
+            <View style={[s.swatch, { backgroundColor: band.color }]} />
+            <Text style={s.small}>Width {band.label}</Text>
+          </View>
+        ))}
+      </View>
+
+      <View style={s.mapCaptionGrid}>
+        <View style={s.mapCaption}>
+          <Text style={s.metaLabel}>Start GPS</Text>
+          <Text style={s.metaValue}>{start ? formatGps(start) : "N/A"}</Text>
+        </View>
+        <View style={s.mapCaption}>
+          <Text style={s.metaLabel}>End GPS</Text>
+          <Text style={s.metaValue}>{end ? formatGps(end) : "N/A"}</Text>
+        </View>
+        <View style={s.mapCaption}>
+          <Text style={s.metaLabel}>Worst section</Text>
+          <Text style={[s.metaValue, { color: worst ? getPciBand(worst.pci_score).color : C.dark }]}>
+            {worst ? `#${worst.index + 1} PCI ${worst.pci_score.toFixed(0)}` : "N/A"}
+          </Text>
+        </View>
       </View>
 
       <Footer jobId={jobId} />
@@ -235,6 +308,8 @@ function SectionTablePage({
 }) {
   return (
     <Page size="A4" style={s.page}>
+      <PdfLogo compact />
+      <Text style={[s.kicker, { marginTop: 8 }]}>Section schedule</Text>
       <Text style={s.h2}>Section Summary Table</Text>
       <Text style={[s.small, { marginBottom: 8 }]}>
         10 m section summary. Page {pageIndex + 1} of {pageCount}.
@@ -245,7 +320,8 @@ function SectionTablePage({
           <Text style={[s.th, s.colGps]}>GPS</Text>
           <Text style={[s.th, s.colPci]}>PCI</Text>
           <Text style={[s.th, s.colCracks]}>Crack Types + Count</Text>
-          <Text style={[s.th, s.colWidth]}>Width</Text>
+          <Text style={[s.th, s.colWidth]}>Max Width mm</Text>
+          <Text style={[s.th, s.colWidth]}>Avg Width mm</Text>
           <Text style={[s.th, s.colCause]}>Possible Cause(s)</Text>
           <Text style={[s.th, s.colMitigation]}>Recommended Mitigation</Text>
           <Text style={[s.th, s.colPriority]}>Priority</Text>
@@ -256,18 +332,23 @@ function SectionTablePage({
             pci: frame.pci_score,
             avgWidthMm: frame.avg_crack_width_mm,
             maxWidthMm: frame.max_crack_width_mm,
-            crackCount: frame.final_detection_count ?? frame.crack_types.length,
+            crackCount: frame.final_detection_count ?? frame.yolo_detection_count ?? frame.crack_types.length,
             sectionLengthM: 10,
           });
           return (
             <View key={frame.stem} style={s.row}>
-              <Text style={[s.td, s.colSection]}>{pageIndex * 18 + index + 1}</Text>
+              <Text style={[s.td, s.colSection]}>{pageIndex * ROWS_PER_PAGE + index + 1}</Text>
               <Text style={[s.td, s.colGps]}>{formatGps(frame)}</Text>
               <Text style={[s.td, s.colPci, { color: getPciBand(frame.pci_score).color, fontWeight: 700 }]}>
                 {frame.pci_score.toFixed(0)}
               </Text>
               <Text style={[s.td, s.colCracks]}>{crackSummary(frame)}</Text>
-              <Text style={[s.td, s.colWidth]}>{widthSummary(frame)}</Text>
+              <Text style={[s.td, s.colWidth]}>
+                {frame.max_crack_width_mm == null ? "N/A" : `${frame.max_crack_width_mm.toFixed(1)}${frame.crack_metrics_estimated ? " est." : ""}`}
+              </Text>
+              <Text style={[s.td, s.colWidth]}>
+                {frame.avg_crack_width_mm == null ? "N/A" : `${frame.avg_crack_width_mm.toFixed(1)}${frame.crack_metrics_estimated ? " est." : ""}`}
+              </Text>
               <Text style={[s.td, s.colCause]}>{analysis.possibleCauses.slice(0, 2).join("; ")}</Text>
               <Text style={[s.td, s.colMitigation]}>{analysis.recommendedMitigation}</Text>
               <Text style={[s.td, s.colPriority]}>{analysis.priority}</Text>
@@ -284,7 +365,10 @@ function Footer({ jobId }: { jobId: string }) {
   return (
     <View style={s.footer} fixed>
       <Text style={s.footerText}>Drisora - IRC:82-2023</Text>
-      <Text style={s.footerText}>Job {jobId}</Text>
+      <Text
+        style={s.footerText}
+        render={({ pageNumber, totalPages }) => `Page ${pageNumber} of ${totalPages} - Job ${jobId.slice(0, 8)}`}
+      />
     </View>
   );
 }
@@ -292,8 +376,8 @@ function Footer({ jobId }: { jobId: string }) {
 export function JobReport({ results, surveyDate, orgName }: Props) {
   const { summary, frames, mode, job_id } = results;
   const avgBand = getPciBand(summary.average_pci);
-  const sampledRows = frames.slice(0, 216);
-  const rowPages = chunks(sampledRows, 18);
+  const sampledRows = frames.slice(0, MAX_SECTION_ROWS);
+  const rowPages = chunks(sampledRows, ROWS_PER_PAGE);
   const crackEntries = Object.entries(summary.crack_type_counts).sort((a, b) => b[1] - a[1]);
   const analyses = frames
     .map((frame) =>
@@ -302,7 +386,7 @@ export function JobReport({ results, surveyDate, orgName }: Props) {
         pci: frame.pci_score,
         avgWidthMm: frame.avg_crack_width_mm,
         maxWidthMm: frame.max_crack_width_mm,
-        crackCount: frame.final_detection_count ?? frame.crack_types.length,
+        crackCount: frame.final_detection_count ?? frame.yolo_detection_count ?? frame.crack_types.length,
         sectionLengthM: 10,
       }),
     )
@@ -316,7 +400,7 @@ export function JobReport({ results, surveyDate, orgName }: Props) {
   return (
     <Document>
       <Page size="A4" style={s.cover}>
-        <Text style={s.brand}>Drisora</Text>
+        <PdfLogo />
         <Text style={[s.kicker, { marginTop: 8 }]}>IRC:82-2023 Pavement Condition Assessment</Text>
         <Text style={s.title}>Road Condition Survey Report</Text>
         <Text style={s.subtitle}>
@@ -384,6 +468,8 @@ export function JobReport({ results, surveyDate, orgName }: Props) {
       </Page>
 
       <Page size="A4" style={s.page}>
+        <PdfLogo compact />
+        <Text style={[s.kicker, { marginTop: 8 }]}>Chief engineer brief</Text>
         <Text style={s.h2}>Executive Summary</Text>
         <View style={s.kpiRow}>
           <View style={s.kpi}>
@@ -440,6 +526,8 @@ export function JobReport({ results, surveyDate, orgName }: Props) {
       ))}
 
       <Page size="A4" style={s.page}>
+        <PdfLogo compact />
+        <Text style={[s.kicker, { marginTop: 8 }]}>Methodology</Text>
         <Text style={s.h2}>Methodology and Accuracy Note</Text>
         <Text style={{ fontSize: 9.5, lineHeight: 1.6, color: C.text }}>
           Drisora processes uploaded imagery or video through YOLOv12s distress detection, SAM2 mask refinement,

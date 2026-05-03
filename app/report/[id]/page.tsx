@@ -1,5 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { analyzeDistress } from "@/lib/civil-intelligence";
+import { crackTypeLabel } from "@/lib/crack-labels";
+import { deriveCrackMetrics } from "@/lib/crack-metrics";
 import { verifyReportToken } from "@/lib/report-token";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 
@@ -90,6 +92,15 @@ function conditionLabel(value: string | null | undefined) {
   return CONDITION_LABELS[value] ?? value.replaceAll("_", " ");
 }
 
+function pciColor(value: number | null | undefined) {
+  if (value == null) return "#9ca3af";
+  if (value >= 85) return "#22c55e";
+  if (value >= 70) return "#eab308";
+  if (value >= 55) return "#f97316";
+  if (value >= 40) return "#ef4444";
+  return "#7f1d1d";
+}
+
 function urgency(rank: number | null) {
   if (rank == null) return "Not ranked";
   if (rank <= 3) return "Immediate";
@@ -136,7 +147,7 @@ function conditionBreakdown(sections: RoadSectionRow[]) {
 function crackTypeCounts(detections: DetectionRow[]) {
   const counts = new Map<string, number>();
   for (const detection of detections) {
-    const crackType = detection.crack_type ?? "Unknown";
+    const crackType = detection.crack_type ? crackTypeLabel(detection.crack_type) : "Unknown";
     counts.set(crackType, (counts.get(crackType) ?? 0) + 1);
   }
   return Array.from(counts.entries())
@@ -147,7 +158,7 @@ function crackTypeCounts(detections: DetectionRow[]) {
 function crackSeverityCounts(detections: DetectionRow[]) {
   const counts = new Map<string, { crackType: string; severity: string; count: number }>();
   for (const detection of detections) {
-    const crackType = detection.crack_type ?? "Unknown";
+    const crackType = detection.crack_type ? crackTypeLabel(detection.crack_type) : "Unknown";
     const severity = detection.severity ?? "Unknown";
     const key = `${crackType}-${severity}`;
     const item = counts.get(key) ?? { crackType, severity, count: 0 };
@@ -181,7 +192,7 @@ function frameRangeCounts(detections: DetectionRow[]) {
 
 function sectionDetectionSummary(section: RoadSectionRow, detections: DetectionRow[]) {
   const rows = detections.filter((detection) => detection.section_id === section.id);
-  const crackTypes = Array.from(new Set(rows.map((row) => row.crack_type).filter((value): value is string => Boolean(value)))).sort();
+  const crackTypes = Array.from(new Set(rows.map((row) => row.crack_type ? crackTypeLabel(row.crack_type) : null).filter((value): value is string => Boolean(value)))).sort();
   const widths = rows
     .map((row) => row.max_width_mm ?? row.avg_width_mm)
     .filter((value): value is number => value != null);
@@ -189,7 +200,8 @@ function sectionDetectionSummary(section: RoadSectionRow, detections: DetectionR
 
   for (const row of rows) {
     if (row.crack_type && row.length_m != null) {
-      lengthByType[row.crack_type] = (lengthByType[row.crack_type] ?? 0) + row.length_m;
+      const label = crackTypeLabel(row.crack_type);
+      lengthByType[label] = (lengthByType[label] ?? 0) + row.length_m;
     }
   }
 
@@ -199,21 +211,31 @@ function sectionDetectionSummary(section: RoadSectionRow, detections: DetectionR
   const maxWidth =
     section.max_crack_width_mm ??
     (widths.length > 0 ? Math.max(...widths) : null);
-  const analysis = analyzeDistress({
+  const metrics = deriveCrackMetrics({
     crackTypes,
     pci: section.pci_score,
     avgWidthMm: avgWidth,
     maxWidthMm: maxWidth,
-    crackCount: rows.length,
+    crackTypeLengthsM: lengthByType,
+    finalDetectionCount: rows.length,
+    sectionLengthM: section.length_m,
+  });
+  const analysis = analyzeDistress({
+    crackTypes,
+    pci: section.pci_score,
+    avgWidthMm: metrics.avgWidthMm,
+    maxWidthMm: metrics.maxWidthMm,
+    crackCount: metrics.crackCount,
     sectionLengthM: section.length_m,
   });
 
   return {
     crackTypes,
-    count: rows.length,
-    avgWidth,
-    maxWidth,
-    lengthByType,
+    count: metrics.crackCount,
+    avgWidth: metrics.avgWidthMm,
+    maxWidth: metrics.maxWidthMm,
+    lengthByType: metrics.lengthByTypeM,
+    estimated: metrics.estimated,
     causes: section.possible_causes ?? analysis.possibleCauses,
     mitigation:
       section.recommended_mitigation ??
@@ -309,6 +331,13 @@ export default async function PrintableReportPage({
     .filter((section) => section.priority_rank != null)
     .sort((a, b) => (a.priority_rank ?? Number.MAX_SAFE_INTEGER) - (b.priority_rank ?? Number.MAX_SAFE_INTEGER))
     .slice(0, 10);
+  const sectionSummaries = new Map(
+    sections.map((section) => [section.id, sectionDetectionSummary(section, detections)]),
+  );
+  const maxCrackWidth = Math.max(
+    0,
+    ...Array.from(sectionSummaries.values()).map((summary) => summary.maxWidth ?? 0),
+  );
 
   return (
     <main>
@@ -328,7 +357,9 @@ export default async function PrintableReportPage({
         .page { min-height: 267mm; padding: 6mm 2mm; page-break-after: always; }
         .section { page-break-before: always; padding: 6mm 2mm; }
         .brand { display: flex; align-items: center; gap: 10px; color: #111; font-weight: 800; font-size: 28px; }
-        .mark { width: 34px; height: 34px; border-radius: 7px; background: #f59e0b; display: inline-block; }
+        .mark { position: relative; width: 34px; height: 34px; border-radius: 8px; background: #111214; border: 1px solid #d1d5db; display: inline-block; }
+        .mark:before { content: ""; position: absolute; left: 9px; top: 7px; width: 14px; height: 19px; border: 2px solid #f8fafc; border-radius: 7px; }
+        .mark:after { content: ""; position: absolute; left: 17px; top: 8px; width: 2px; height: 18px; border-radius: 999px; background: #f59e0b; }
         .cover { display: flex; min-height: 252mm; flex-direction: column; justify-content: space-between; }
         .cover-grid { display: grid; grid-template-columns: 1fr 170px; gap: 28px; align-items: center; }
         .muted { color: #555; }
@@ -338,10 +369,16 @@ export default async function PrintableReportPage({
         .meta { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 24px; margin-top: 26px; }
         .meta-label { color: #555; font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; }
         .meta-value { margin-top: 2px; font-size: 14px; font-weight: 700; }
-        .metric-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 18px; }
+        .metric-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 18px; }
         .metric { border: 1px solid #d1d5db; padding: 14px; }
         .metric-value { font-size: 24px; font-weight: 800; }
-        .map-placeholder { height: 135mm; border: 2px dashed #9ca3af; background: linear-gradient(135deg, #f9fafb 25%, #f3f4f6 25%, #f3f4f6 50%, #f9fafb 50%, #f9fafb 75%, #f3f4f6 75%); background-size: 28px 28px; display: flex; align-items: center; justify-content: center; text-align: center; color: #555; }
+        .map-panel { min-height: 135mm; border: 1px solid #d1d5db; background: #f8fafc; padding: 18px; }
+        .route-strip { display: flex; height: 18px; overflow: hidden; border-radius: 999px; border: 1px solid #d1d5db; background: #e5e7eb; }
+        .map-grid { margin-top: 18px; height: 88mm; border: 1px solid #e5e7eb; background-image: linear-gradient(#e5e7eb 1px, transparent 1px), linear-gradient(90deg, #e5e7eb 1px, transparent 1px); background-size: 26px 26px; position: relative; }
+        .map-line { position: absolute; left: 8%; right: 8%; top: 46%; height: 8px; border-radius: 999px; background: #111827; box-shadow: 0 0 0 4px rgba(17,24,39,0.08); }
+        .callout { position: absolute; border: 1px solid #d1d5db; background: #fff; padding: 8px 10px; font-size: 11px; }
+        .callout-a { left: 8%; top: 20%; }
+        .callout-b { right: 8%; bottom: 18%; }
         .legend { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 14px; }
         .legend-item { display: flex; align-items: center; gap: 6px; font-size: 11px; }
         .swatch { width: 16px; height: 16px; border-radius: 3px; display: inline-block; }
@@ -409,6 +446,10 @@ export default async function PrintableReportPage({
             <div className="muted">Total detections</div>
             <div className="metric-value">{detections.length}</div>
           </div>
+          <div className="metric">
+            <div className="muted">Max crack width</div>
+            <div className="metric-value">{maxCrackWidth > 0 ? `${formatNumber(maxCrackWidth)} mm` : "N/A"}</div>
+          </div>
         </div>
 
         <h3>Condition Breakdown</h3>
@@ -461,10 +502,40 @@ export default async function PrintableReportPage({
 
       <section className="section">
         <h2>3. Road Condition Map</h2>
-        <div className="map-placeholder">
-          Static map placeholder
-          <br />
-          Interactive Leaflet map is intentionally omitted from PDF rendering.
+        <div className="map-panel">
+          <p className="kicker">Static condition schematic</p>
+          <h3 style={{ marginTop: 8 }}>Section-by-section PCI and distress severity</h3>
+          <div className="route-strip" aria-label="Route condition strip">
+            {sections.map((section) => (
+              <span
+                key={section.id}
+                style={{
+                  width: `${100 / Math.max(sections.length, 1)}%`,
+                  background: pciColor(section.pci_score),
+                }}
+              />
+            ))}
+          </div>
+          <div className="map-grid">
+            <div className="map-line" />
+            <div className="callout callout-a">
+              <strong>Start</strong>
+              <br />
+              Section {sections[0]?.section_index ?? "N/A"}
+              <br />
+              PCI {formatPci(sections[0]?.pci_score)}
+            </div>
+            <div className="callout callout-b">
+              <strong>End</strong>
+              <br />
+              Section {sections.at(-1)?.section_index ?? "N/A"}
+              <br />
+              PCI {formatPci(sections.at(-1)?.pci_score)}
+            </div>
+          </div>
+          <p className="footer-note" style={{ marginTop: 10 }}>
+            Printable view uses a static route schematic. The live dashboard retains the interactive Leaflet map with PCI and width overlays.
+          </p>
         </div>
         <div className="legend">
           {[
@@ -491,7 +562,8 @@ export default async function PrintableReportPage({
               <th>GPS</th>
               <th>PCI</th>
               <th>Crack Types + Count</th>
-              <th>Max/Avg Width (mm)</th>
+              <th>Max Width (mm)</th>
+              <th>Avg Width (mm)</th>
               <th>Possible Cause(s)</th>
               <th>Recommended Mitigation</th>
               <th>Priority</th>
@@ -499,7 +571,7 @@ export default async function PrintableReportPage({
           </thead>
           <tbody>
             {sections.slice(0, 150).map((section) => {
-              const summary = sectionDetectionSummary(section, detections);
+              const summary = sectionSummaries.get(section.id) ?? sectionDetectionSummary(section, detections);
               return (
                 <tr key={section.id}>
                   <td>{section.section_index ?? "N/A"}</td>
@@ -508,9 +580,8 @@ export default async function PrintableReportPage({
                   <td>
                     {summary.crackTypes.length > 0 ? summary.crackTypes.join(", ") : "None"} ({summary.count})
                   </td>
-                  <td>
-                    {summary.maxWidth == null ? "N/A" : summary.maxWidth.toFixed(1)} / {summary.avgWidth == null ? "N/A" : summary.avgWidth.toFixed(1)}
-                  </td>
+                  <td>{summary.maxWidth == null ? "N/A" : summary.maxWidth.toFixed(1)}{summary.estimated ? " est." : ""}</td>
+                  <td>{summary.avgWidth == null ? "N/A" : summary.avgWidth.toFixed(1)}{summary.estimated ? " est." : ""}</td>
                   <td>{summary.causes.slice(0, 2).join("; ")}</td>
                   <td>{summary.mitigation}</td>
                   <td>{summary.priority}</td>

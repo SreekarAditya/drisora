@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Image from "next/image";
 import { SummaryBar, PciChip, NoDetectionsState } from "./shared";
+import { crackWidthBandLabel } from "@/lib/crack-metrics";
 import { getPciBand, PCI_BANDS } from "@/types";
 import type { JobResults, FrameResult } from "@/types";
 
@@ -36,6 +37,11 @@ function FrameCard({ frame }: { frame: FrameResult }) {
   const [imgError, setImgError] = useState(false);
   const band = getPciBand(frame.pci_score);
   const dominant = frame.crack_types[0] ?? null;
+  const hasCracks =
+    frame.crack_types.length > 0 ||
+    (frame.final_detection_count ?? frame.yolo_detection_count ?? 0) > 0 ||
+    frame.max_crack_width_mm != null ||
+    Object.keys(frame.crack_type_lengths_m).length > 0;
 
   return (
     <div className="group overflow-hidden rounded-xl border border-[#1a1a1a] bg-[#0f0f0f] transition-colors hover:border-[#2a2a2a]">
@@ -77,16 +83,30 @@ function FrameCard({ frame }: { frame: FrameResult }) {
         {dominant && (
           <p className="mt-1.5 text-xs text-gray-500">{dominant}</p>
         )}
-        {(frame.avg_crack_width_mm != null || frame.camera_surface_distance_m != null) && (
-          <div className="mt-2 space-y-0.5 border-t border-[#1a1a1a] pt-2 font-mono text-[10px] text-gray-600">
-            {frame.avg_crack_width_mm != null && (
-              <p>{frame.avg_crack_width_mm.toFixed(1)} mm avg width from pixels</p>
-            )}
-            {frame.camera_surface_distance_m != null && (
-              <p>{frame.camera_surface_distance_m.toFixed(2)} m camera-to-surface</p>
-            )}
-          </div>
-        )}
+        <div className="mt-2 space-y-1 border-t border-[#1a1a1a] pt-2 text-[11px] text-gray-500">
+          {hasCracks ? (
+            <>
+              <div className="flex justify-between gap-2">
+                <span>Max width</span>
+                <span className="font-mono text-gray-300">
+                  {frame.max_crack_width_mm == null ? "N/A" : `${frame.max_crack_width_mm.toFixed(1)} mm`}
+                </span>
+              </div>
+              <div className="flex justify-between gap-2">
+                <span>Avg width</span>
+                <span className="font-mono text-gray-300">
+                  {frame.avg_crack_width_mm == null ? "N/A" : `${frame.avg_crack_width_mm.toFixed(1)} mm`}
+                </span>
+              </div>
+              <p className="font-mono text-[10px] text-gray-600">
+                {crackWidthBandLabel(frame.max_crack_width_mm ?? frame.avg_crack_width_mm)}
+                {frame.crack_metrics_estimated ? " (legacy estimate)" : ""}
+              </p>
+            </>
+          ) : (
+            <p>No cracks detected</p>
+          )}
+        </div>
       </div>
     </div>
   );
