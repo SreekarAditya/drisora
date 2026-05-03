@@ -6,6 +6,7 @@ import type { JobMode } from "@/types";
 
 export interface UseUploadOptions {
   mode: JobMode;
+  project_id?: string | null;
   file_names: string[];
   total_bytes: number;
   options?: Record<string, unknown>;
@@ -56,6 +57,7 @@ export function useUpload() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           mode: jobOptions.mode,
+          project_id: jobOptions.project_id ?? null,
           file_count: files.length,
           file_names: jobOptions.file_names,
           total_bytes: jobOptions.total_bytes,

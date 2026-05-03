@@ -9,7 +9,7 @@ type GpsState =
   | { kind: "found" }
   | { kind: "not_found" };
 
-export function DroneFootagePanel() {
+export function DroneFootagePanel({ projectId }: { projectId?: string | null }) {
   const [video, setVideo] = useState<File | null>(null);
   const [srt, setSrt] = useState<File | null>(null);
   const [enableMetricAnalysis, setEnableMetricAnalysis] = useState(false);
@@ -74,6 +74,7 @@ export function DroneFootagePanel() {
     const files = [video, ...(srt ? [srt] : [])];
     await startUpload(files, {
       mode: "drone_footage",
+      project_id: projectId ?? null,
       file_names: files.map((f) => f.name),
       total_bytes: files.reduce((sum, f) => sum + f.size, 0),
       options: {

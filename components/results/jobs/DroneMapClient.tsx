@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FrameResult } from "@/types";
 import { getPciBand } from "@/types";
 
@@ -13,6 +13,8 @@ interface Props {
 export function DroneMapClient({ frames, onSelect, selectedStem }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<import("leaflet").Map | null>(null);
+  const layersRef = useRef<import("leaflet").LayerGroup | null>(null);
+  const [overlayMode, setOverlayMode] = useState<"pci" | "width">("pci");
 
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
@@ -44,33 +46,8 @@ export function DroneMapClient({ frames, onSelect, selectedStem }: Props) {
         { maxZoom: 22 },
       ).addTo(map);
 
-      // Draw polyline segments between consecutive GPS frames, colored by PCI band
-      for (let i = 0; i < gpsFrames.length - 1; i++) {
-        const a = gpsFrames[i];
-        const b = gpsFrames[i + 1];
-        const band = getPciBand(a.pci_score);
-
-        L.polyline([[a.lat!, a.lon!], [b.lat!, b.lon!]], {
-          color: band.color,
-          weight: 5,
-          opacity: 0.85,
-        }).addTo(map);
-      }
-
-      // Draw clickable circle markers at each frame
-      for (const frame of gpsFrames) {
-        const band = getPciBand(frame.pci_score);
-        const marker = L.circleMarker([frame.lat!, frame.lon!], {
-          radius: 6,
-          fillColor: band.color,
-          color: "#000",
-          weight: 1,
-          opacity: 1,
-          fillOpacity: 0.9,
-        }).addTo(map);
-
-        marker.on("click", () => onSelect(frame));
-      }
+      const layers = L.layerGroup().addTo(map);
+      layersRef.current = layers;
 
       // Fit bounds
       const bounds = L.latLngBounds(gpsFrames.map((f) => [f.lat!, f.lon!]));
@@ -81,7 +58,42 @@ export function DroneMapClient({ frames, onSelect, selectedStem }: Props) {
       mapRef.current?.remove();
       mapRef.current = null;
     };
-  }, [frames, onSelect]);
+  }, [frames]);
+
+  useEffect(() => {
+    if (!mapRef.current || !layersRef.current) return;
+
+    void (async () => {
+      const L = (await import("leaflet")).default;
+      const gpsFrames = frames.filter((f) => f.lat != null && f.lon != null);
+      const layers = layersRef.current!;
+      layers.clearLayers();
+
+      for (let i = 0; i < gpsFrames.length - 1; i++) {
+        const a = gpsFrames[i];
+        const b = gpsFrames[i + 1];
+
+        L.polyline([[a.lat!, a.lon!], [b.lat!, b.lon!]], {
+          color: overlayMode === "width" ? widthColor(a.max_crack_width_mm ?? a.avg_crack_width_mm) : getPciBand(a.pci_score).color,
+          weight: overlayMode === "width" ? 7 : 5,
+          opacity: 0.88,
+        }).addTo(layers);
+      }
+
+      for (const frame of gpsFrames) {
+        const marker = L.circleMarker([frame.lat!, frame.lon!], {
+          radius: 6,
+          fillColor: overlayMode === "width" ? widthColor(frame.max_crack_width_mm ?? frame.avg_crack_width_mm) : getPciBand(frame.pci_score).color,
+          color: "#000",
+          weight: 1,
+          opacity: 1,
+          fillOpacity: 0.9,
+        }).addTo(layers);
+
+        marker.on("click", () => onSelect(frame));
+      }
+    })();
+  }, [frames, onSelect, overlayMode]);
 
   // Highlight selected marker by panning — re-run when selection changes
   useEffect(() => {
@@ -102,5 +114,36 @@ export function DroneMapClient({ frames, onSelect, selectedStem }: Props) {
     );
   }
 
-  return <div ref={containerRef} className="h-full w-full rounded-xl" />;
+  return (
+    <div className="relative h-full w-full">
+      <div className="absolute right-3 top-3 z-[500] flex overflow-hidden rounded-md border border-white/10 bg-[#0b0c0d]/90 p-1 backdrop-blur">
+        {[
+          ["pci", "PCI"],
+          ["width", "Width mm"],
+        ].map(([mode, label]) => (
+          <button
+            key={mode}
+            type="button"
+            onClick={() => setOverlayMode(mode as "pci" | "width")}
+            className={`rounded px-3 py-1.5 text-xs font-semibold transition-colors ${
+              overlayMode === mode
+                ? "bg-amber-500 text-black"
+                : "text-gray-400 hover:bg-white/5 hover:text-white"
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div ref={containerRef} className="h-full w-full rounded-xl" />
+    </div>
+  );
+}
+
+function widthColor(value: number | null | undefined) {
+  if (value == null) return "#64748b";
+  if (value < 3) return "#22c55e";
+  if (value < 5) return "#eab308";
+  if (value < 8) return "#f97316";
+  return "#ef4444";
 }

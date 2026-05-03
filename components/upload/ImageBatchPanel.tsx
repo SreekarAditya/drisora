@@ -10,7 +10,7 @@ interface FilePreview {
   url: string;
 }
 
-export function ImageBatchPanel() {
+export function ImageBatchPanel({ projectId }: { projectId?: string | null }) {
   const [files, setFiles] = useState<FilePreview[]>([]);
   const [enableMetricAnalysis, setEnableMetricAnalysis] = useState(false);
   const [dragOver, setDragOver] = useState(false);
@@ -74,6 +74,7 @@ export function ImageBatchPanel() {
       files.map((f) => f.file),
       {
         mode: "image_batch",
+        project_id: projectId ?? null,
         file_names: files.map((f) => f.file.name),
         total_bytes: files.reduce((sum, f) => sum + f.file.size, 0),
         options: {

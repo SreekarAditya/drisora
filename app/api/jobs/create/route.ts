@@ -7,6 +7,7 @@ import type { JobMode, ProcessingJobRecord } from "@/types";
 
 interface CreateJobBody {
   mode: JobMode;
+  project_id?: string | null;
   file_count: number;
   file_names: string[];
   total_bytes: number;
@@ -80,6 +81,25 @@ export async function POST(request: NextRequest) {
   }
 
   const options = body.options ?? {};
+  const projectId =
+    typeof body.project_id === "string" && body.project_id.length > 0
+      ? body.project_id
+      : null;
+
+  if (projectId) {
+    const { data: project } = await supabase
+      .from("projects")
+      .select("id")
+      .eq("id", projectId)
+      .eq("user_id", user.id)
+      .is("deleted_at", null)
+      .single();
+
+    if (!project) {
+      return NextResponse.json({ error: "Project not found" }, { status: 404 });
+    }
+  }
+
   const gpsAvailable =
     body.mode === "image_batch"
       ? true
@@ -100,6 +120,7 @@ export async function POST(request: NextRequest) {
   const job: ProcessingJobRecord = {
     job_id: jobId,
     user_id: user.id,
+    project_id: projectId,
     runpod_job_id: null,
     mode: body.mode,
     status: "uploading",
@@ -118,6 +139,7 @@ export async function POST(request: NextRequest) {
   const { error: insertError } = await supabase.from("jobs").insert({
     id: jobId,
     user_id: user.id,
+    project_id: projectId,
     mode: body.mode,
     status: "uploading",
     frame_count: 0,

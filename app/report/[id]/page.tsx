@@ -1,4 +1,5 @@
 import { notFound, redirect } from "next/navigation";
+import { analyzeDistress } from "@/lib/civil-intelligence";
 import { verifyReportToken } from "@/lib/report-token";
 import { createClient, createServiceRoleClient } from "@/lib/supabase/server";
 
@@ -28,6 +29,13 @@ type RoadSectionRow = {
   recommended_intervention: string | null;
   priority_rank: number | null;
   length_m: number | null;
+  avg_crack_width_mm: number | null;
+  max_crack_width_mm: number | null;
+  crack_length_m_by_type: Record<string, number> | null;
+  possible_causes: string[] | null;
+  recommended_mitigation: string | null;
+  maintenance_priority: string | null;
+  civil_severity: string | null;
 };
 
 type DetectionRow = {
@@ -35,6 +43,9 @@ type DetectionRow = {
   frame_index: number | null;
   crack_type: string | null;
   severity: string | null;
+  avg_width_mm: number | null;
+  max_width_mm: number | null;
+  length_m: number | null;
 };
 
 interface ReportData {
@@ -168,6 +179,50 @@ function frameRangeCounts(detections: DetectionRow[]) {
     });
 }
 
+function sectionDetectionSummary(section: RoadSectionRow, detections: DetectionRow[]) {
+  const rows = detections.filter((detection) => detection.section_id === section.id);
+  const crackTypes = Array.from(new Set(rows.map((row) => row.crack_type).filter((value): value is string => Boolean(value)))).sort();
+  const widths = rows
+    .map((row) => row.max_width_mm ?? row.avg_width_mm)
+    .filter((value): value is number => value != null);
+  const lengthByType: Record<string, number> = { ...(section.crack_length_m_by_type ?? {}) };
+
+  for (const row of rows) {
+    if (row.crack_type && row.length_m != null) {
+      lengthByType[row.crack_type] = (lengthByType[row.crack_type] ?? 0) + row.length_m;
+    }
+  }
+
+  const avgWidth =
+    section.avg_crack_width_mm ??
+    (widths.length > 0 ? widths.reduce((sum, value) => sum + value, 0) / widths.length : null);
+  const maxWidth =
+    section.max_crack_width_mm ??
+    (widths.length > 0 ? Math.max(...widths) : null);
+  const analysis = analyzeDistress({
+    crackTypes,
+    pci: section.pci_score,
+    avgWidthMm: avgWidth,
+    maxWidthMm: maxWidth,
+    crackCount: rows.length,
+    sectionLengthM: section.length_m,
+  });
+
+  return {
+    crackTypes,
+    count: rows.length,
+    avgWidth,
+    maxWidth,
+    lengthByType,
+    causes: section.possible_causes ?? analysis.possibleCauses,
+    mitigation:
+      section.recommended_mitigation ??
+      section.recommended_intervention ??
+      analysis.recommendedMitigation,
+    priority: section.maintenance_priority ?? analysis.priority,
+  };
+}
+
 async function loadReportData(id: string, token: string | string[] | undefined): Promise<ReportData> {
   const tokenValue = Array.isArray(token) ? token[0] : token;
   const hasValidToken = verifyReportToken(tokenValue, id);
@@ -215,12 +270,12 @@ async function loadReportData(id: string, token: string | string[] | undefined):
       .maybeSingle(),
     supabase
       .from("road_sections")
-      .select("id, section_index, pci_score, condition_category, recommended_intervention, priority_rank, length_m")
+      .select("id, section_index, pci_score, condition_category, recommended_intervention, priority_rank, length_m, avg_crack_width_mm, max_crack_width_mm, crack_length_m_by_type, possible_causes, recommended_mitigation, maintenance_priority, civil_severity")
       .eq("survey_id", id)
       .order("section_index", { ascending: true }),
     supabase
       .from("detections")
-      .select("section_id, frame_index, crack_type, severity")
+      .select("section_id, frame_index, crack_type, severity, avg_width_mm, max_width_mm, length_m")
       .eq("survey_id", id)
       .order("frame_index", { ascending: true }),
   ]);
@@ -428,29 +483,47 @@ export default async function PrintableReportPage({
       </section>
 
       <section className="section">
-        <h2>4. PCI Scores by Section</h2>
+        <h2>4. Section Summary Table</h2>
         <table>
           <thead>
             <tr>
-              <th>Section</th>
-              <th>Length (m)</th>
+              <th>Section #</th>
+              <th>GPS</th>
               <th>PCI</th>
-              <th>Condition</th>
-              <th>Intervention</th>
+              <th>Crack Types + Count</th>
+              <th>Max/Avg Width (mm)</th>
+              <th>Possible Cause(s)</th>
+              <th>Recommended Mitigation</th>
+              <th>Priority</th>
             </tr>
           </thead>
           <tbody>
-            {sections.map((section) => (
-              <tr key={section.id}>
-                <td>{section.section_index ?? "N/A"}</td>
-                <td>{formatNumber(section.length_m)}</td>
-                <td>{formatPci(section.pci_score)}</td>
-                <td>{conditionLabel(section.condition_category)}</td>
-                <td>{section.recommended_intervention ?? "Not assigned"}</td>
-              </tr>
-            ))}
+            {sections.slice(0, 150).map((section) => {
+              const summary = sectionDetectionSummary(section, detections);
+              return (
+                <tr key={section.id}>
+                  <td>{section.section_index ?? "N/A"}</td>
+                  <td>Section geometry</td>
+                  <td>{formatPci(section.pci_score)}</td>
+                  <td>
+                    {summary.crackTypes.length > 0 ? summary.crackTypes.join(", ") : "None"} ({summary.count})
+                  </td>
+                  <td>
+                    {summary.maxWidth == null ? "N/A" : summary.maxWidth.toFixed(1)} / {summary.avgWidth == null ? "N/A" : summary.avgWidth.toFixed(1)}
+                  </td>
+                  <td>{summary.causes.slice(0, 2).join("; ")}</td>
+                  <td>{summary.mitigation}</td>
+                  <td>{summary.priority}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
+        {sections.length > 150 && (
+          <p className="footer-note" style={{ marginTop: 8 }}>
+            Table capped at 150 sections to keep the PDF concise. Full data remains available in Drisora.
+          </p>
+        )}
       </section>
 
       <section className="section">

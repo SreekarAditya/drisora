@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ImageBatchPanel } from "./ImageBatchPanel";
 import { HandheldVideoPanel } from "./HandheldVideoPanel";
 import { DroneFootagePanel } from "./DroneFootagePanel";
@@ -12,6 +12,12 @@ interface ModeCard {
   title: string;
   description: string;
   icon: React.ReactNode;
+}
+
+interface ProjectOption {
+  id: string;
+  name: string;
+  road_name: string | null;
 }
 
 const MODES: ModeCard[] = [
@@ -54,9 +60,57 @@ const MODES: ModeCard[] = [
 
 export function UploadClient() {
   const [activeMode, setActiveMode] = useState<UploadMode>("drone_footage");
+  const [projects, setProjects] = useState<ProjectOption[]>([]);
+  const [projectId, setProjectId] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProjects() {
+      try {
+        const response = await fetch("/api/projects");
+        if (!response.ok) return;
+        const data = (await response.json()) as { projects?: ProjectOption[] };
+        if (!cancelled) setProjects(data.projects ?? []);
+      } catch {
+        if (!cancelled) setProjects([]);
+      }
+    }
+
+    void loadProjects();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   return (
     <div className="space-y-8">
+      <section className="rounded-lg border border-white/10 bg-[#101113] p-5">
+        <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
+          <div>
+            <p className="font-mono text-[10px] uppercase tracking-widest text-gray-600">
+              Project assignment
+            </p>
+            <h2 className="mt-1 text-base font-semibold text-white">Assign this survey</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Optional. You can also attach this upload from a project dashboard later.
+            </p>
+          </div>
+          <select
+            value={projectId}
+            onChange={(event) => setProjectId(event.target.value)}
+            className="w-full rounded-md border border-white/10 bg-[#0b0c0d] px-3 py-2.5 text-sm text-white outline-none focus:border-amber-500/70 md:max-w-sm"
+          >
+            <option value="">No project</option>
+            {projects.map((project) => (
+              <option key={project.id} value={project.id}>
+                {project.name}{project.road_name ? ` - ${project.road_name}` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      </section>
+
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" role="tablist" aria-label="Survey mode">
         {MODES.map((mode) => {
           const isActive = activeMode === mode.id;
@@ -90,9 +144,9 @@ export function UploadClient() {
         })}
       </div>
 
-      {activeMode === "image_batch" && <ImageBatchPanel />}
-      {activeMode === "handheld_video" && <HandheldVideoPanel />}
-      {activeMode === "drone_footage" && <DroneFootagePanel />}
+      {activeMode === "image_batch" && <ImageBatchPanel projectId={projectId || null} />}
+      {activeMode === "handheld_video" && <HandheldVideoPanel projectId={projectId || null} />}
+      {activeMode === "drone_footage" && <DroneFootagePanel projectId={projectId || null} />}
     </div>
   );
 }

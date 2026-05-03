@@ -1,13 +1,9 @@
 import { redirect } from "next/navigation";
-import { createClient } from "@/lib/supabase/server";
 import { Navbar } from "@/components/dashboard/Navbar";
 import { Breadcrumbs } from "@/components/navigation/Breadcrumbs";
+import { createClient } from "@/lib/supabase/server";
 
-export default async function DashboardLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function JobsLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -29,9 +25,6 @@ export default async function DashboardLayout({
       <Navbar user={user} profile={profile} />
       <Breadcrumbs />
       {children}
-      <footer className="border-t border-white/10 px-6 py-5 text-center text-xs text-gray-600">
-        <a href="/about" className="transition-colors hover:text-gray-400">About Drisora</a>
-      </footer>
     </div>
   );
 }
