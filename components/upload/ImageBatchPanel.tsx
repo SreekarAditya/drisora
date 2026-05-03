@@ -12,7 +12,7 @@ interface FilePreview {
 
 export function ImageBatchPanel() {
   const [files, setFiles] = useState<FilePreview[]>([]);
-  const [enableDepthPro, setEnableDepthPro] = useState(false);
+  const [enableMetricAnalysis, setEnableMetricAnalysis] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [fileErrors, setFileErrors] = useState<Record<string, string>>({});
   const { phase, progress, failedFiles, uploadError, startUpload, retryFile } =
@@ -76,7 +76,10 @@ export function ImageBatchPanel() {
         mode: "image_batch",
         file_names: files.map((f) => f.file.name),
         total_bytes: files.reduce((sum, f) => sum + f.file.size, 0),
-        options: { enable_depthpro: enableDepthPro },
+        options: {
+          enable_metric_analysis: enableMetricAnalysis,
+          enable_depthpro: enableMetricAnalysis,
+        },
       },
     );
   }
@@ -206,15 +209,15 @@ export function ImageBatchPanel() {
 
       <label className="mt-5 flex items-center justify-between gap-4 rounded-lg border border-[#242424] bg-[#0a0a0a] px-4 py-3">
         <span>
-          <span className="block text-sm font-medium text-white">DepthPro analysis</span>
+          <span className="block text-sm font-medium text-white">Metric Analysis</span>
           <span className="mt-0.5 block text-xs text-gray-600">
-            Optional depth and rut scoring. Adds significant processing time.
+            Camera-to-surface distance and width from pixels. Adds processing time.
           </span>
         </span>
         <input
           type="checkbox"
-          checked={enableDepthPro}
-          onChange={(e) => setEnableDepthPro(e.target.checked)}
+          checked={enableMetricAnalysis}
+          onChange={(e) => setEnableMetricAnalysis(e.target.checked)}
           className="h-4 w-4 shrink-0 accent-amber-500"
         />
       </label>

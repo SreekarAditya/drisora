@@ -81,6 +81,10 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
 function FramePanel({ frame, onClose }: { frame: FrameResult; onClose: () => void }) {
   const [imgError, setImgError] = useState(false);
   const band = getPciBand(frame.pci_score);
+  const hasMetricAnalysis =
+    frame.camera_surface_distance_m != null ||
+    frame.avg_crack_width_mm != null ||
+    frame.max_crack_width_mm != null;
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-xl border border-[#1a1a1a] bg-[#0f0f0f]">
@@ -134,17 +138,46 @@ function FramePanel({ frame, onClose }: { frame: FrameResult; onClose: () => voi
             </p>
           </div>
           <div>
-            <p className="text-gray-600">DepthPro</p>
+            <p className="text-gray-600">Metric Analysis</p>
             <p className="mt-0.5 text-gray-300">
-              {frame.depth_available
-                ? frame.depth_estimate != null
-                  ? `${frame.depth_estimate.toFixed(2)} m`
-                  : "Available"
+              {hasMetricAnalysis
+                ? "Available"
                 : frame.depth_attempted
                   ? "Unavailable"
                   : "Skipped"}
             </p>
           </div>
+          {frame.camera_surface_distance_m != null && (
+            <div>
+              <p className="text-gray-600">Camera distance</p>
+              <p className="mt-0.5 text-gray-300">
+                {frame.camera_surface_distance_m.toFixed(2)} m
+              </p>
+            </div>
+          )}
+          {frame.avg_crack_width_mm != null && (
+            <div>
+              <p className="text-gray-600">Width from pixels</p>
+              <p className="mt-0.5 text-gray-300">
+                {frame.avg_crack_width_mm.toFixed(1)} mm
+                {frame.max_crack_width_mm != null
+                  ? ` max ${frame.max_crack_width_mm.toFixed(1)}`
+                  : ""}
+              </p>
+            </div>
+          )}
+          {!hasMetricAnalysis && (
+            <div>
+              <p className="text-gray-600">Camera distance</p>
+              <p className="mt-0.5 text-gray-300">
+                {frame.depth_available
+                  ? "Not measured"
+                  : frame.depth_attempted
+                    ? "Unavailable"
+                    : "Skipped"}
+              </p>
+            </div>
+          )}
           {frame.processing_ms != null && (
             <div>
               <p className="text-gray-600">Frame time</p>

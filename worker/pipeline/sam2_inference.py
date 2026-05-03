@@ -15,7 +15,7 @@ MODEL_URL = os.environ.get(
     "https://dl.fbaipublicfiles.com/segment_anything_v2/sam2.1_hiera_small.pt",
 )
 MODEL_PATH = Path(os.environ.get("SAM2_MODEL_PATH", "/tmp/models/sam2.1_hiera_small.pt"))
-MODEL_CFG = "sam2.1_hiera_s.yaml"
+MODEL_CFG = os.environ.get("SAM2_MODEL_CFG", "configs/sam2.1/sam2.1_hiera_s.yaml")
 
 
 def _download(url: str, path: Path) -> None:

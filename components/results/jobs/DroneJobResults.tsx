@@ -29,6 +29,10 @@ function SegmentSidebar({
 }) {
   const [imgError, setImgError] = useState(false);
   const band = getPciBand(frame.pci_score);
+  const hasMetricAnalysis =
+    frame.camera_surface_distance_m != null ||
+    frame.avg_crack_width_mm != null ||
+    frame.max_crack_width_mm != null;
 
   return (
     <div className="flex h-full flex-col overflow-hidden rounded-xl border border-[#1a1a1a] bg-[#0f0f0f]">
@@ -93,10 +97,24 @@ function SegmentSidebar({
             </div>
           )}
 
-          {frame.depth_estimate != null && (
+          {hasMetricAnalysis && (
             <div>
-              <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-gray-600">Depth estimate</p>
-              <p className="text-sm text-gray-300">{frame.depth_estimate.toFixed(2)} m</p>
+              <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-gray-600">Metric Analysis</p>
+              {frame.camera_surface_distance_m != null && (
+                <p className="text-sm text-gray-300">
+                  {frame.camera_surface_distance_m.toFixed(2)} m camera-to-surface
+                </p>
+              )}
+              {frame.avg_crack_width_mm != null && (
+                <p className="mt-1 text-sm text-gray-300">
+                  {frame.avg_crack_width_mm.toFixed(1)} mm avg width from pixels
+                </p>
+              )}
+              {frame.max_crack_width_mm != null && frame.max_crack_width_mm !== frame.avg_crack_width_mm && (
+                <p className="mt-1 text-xs text-gray-500">
+                  {frame.max_crack_width_mm.toFixed(1)} mm max estimated width
+                </p>
+              )}
             </div>
           )}
 

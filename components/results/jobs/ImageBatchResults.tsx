@@ -77,6 +77,16 @@ function FrameCard({ frame }: { frame: FrameResult }) {
         {dominant && (
           <p className="mt-1.5 text-xs text-gray-500">{dominant}</p>
         )}
+        {(frame.avg_crack_width_mm != null || frame.camera_surface_distance_m != null) && (
+          <div className="mt-2 space-y-0.5 border-t border-[#1a1a1a] pt-2 font-mono text-[10px] text-gray-600">
+            {frame.avg_crack_width_mm != null && (
+              <p>{frame.avg_crack_width_mm.toFixed(1)} mm avg width from pixels</p>
+            )}
+            {frame.camera_surface_distance_m != null && (
+              <p>{frame.camera_surface_distance_m.toFixed(2)} m camera-to-surface</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
