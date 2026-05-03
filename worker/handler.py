@@ -70,7 +70,7 @@ def _depth_enabled(mode: str, options: dict[str, Any]) -> bool:
     if env_default is not None:
         default = env_default.strip().lower() in {"1", "true", "yes", "on"}
     else:
-        default = mode == "drone_footage"
+        default = False
     return _option_enabled(options, "enable_depthpro", default)
 
 
