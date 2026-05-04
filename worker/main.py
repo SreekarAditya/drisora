@@ -163,14 +163,24 @@ def dequeue_job(redis: Redis) -> Dict[str, Any] | None:
 # R2 download / upload helpers
 # ---------------------------------------------------------------------------
 
+def safe_file_name(file_name: str) -> str:
+    if "/" in file_name or "\\" in file_name or ".." in file_name:
+        raise ValueError(f"Unsafe upload filename: {file_name!r}")
+    safe_name = Path(file_name).name
+    if safe_name in {"", ".", ".."} or safe_name != file_name:
+        raise ValueError(f"Unsafe upload filename: {file_name!r}")
+    return safe_name
+
+
 def download_raw_files(job: Dict[str, Any], work_dir: Path) -> None:
     user_id = job["user_id"]
     job_id = job["job_id"]
     file_names = job.get("file_names", [])
     work_dir.mkdir(parents=True, exist_ok=True)
     for name in file_names:
-        key = f"uploads/{user_id}/{job_id}/raw/{name}"
-        dest = work_dir / name
+        safe_name = safe_file_name(name)
+        key = f"uploads/{user_id}/{job_id}/raw/{safe_name}"
+        dest = work_dir / safe_name
         log.info("Downloading s3://%s/%s → %s", CLOUDFLARE_R2_BUCKET_NAME, key, dest)
         r2.download_file(CLOUDFLARE_R2_BUCKET_NAME, key, str(dest))
 

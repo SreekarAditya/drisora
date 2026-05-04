@@ -15,7 +15,7 @@ export function ImageBatchPanel({ projectId }: { projectId?: string | null }) {
   const [enableMetricAnalysis, setEnableMetricAnalysis] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [fileErrors, setFileErrors] = useState<Record<string, string>>({});
-  const { phase, progress, failedFiles, uploadError, startUpload, retryFile } =
+  const { phase, progress, failedFiles, fileLabels, uploadError, startUpload, retryFile } =
     useUpload();
 
   useEffect(() => {
@@ -224,11 +224,11 @@ export function ImageBatchPanel({ projectId }: { projectId?: string | null }) {
       </label>
 
       {isUploading && progress.size > 0 && (
-        <ProgressList progress={progress} failedFiles={failedFiles} onRetry={retryFile} />
+        <ProgressList progress={progress} failedFiles={failedFiles} fileLabels={fileLabels} onRetry={retryFile} />
       )}
 
       {phase === "error" && failedFiles.size > 0 && (
-        <ProgressList progress={progress} failedFiles={failedFiles} onRetry={retryFile} />
+        <ProgressList progress={progress} failedFiles={failedFiles} fileLabels={fileLabels} onRetry={retryFile} />
       )}
 
       {uploadError && failedFiles.size === 0 && (
@@ -260,10 +260,12 @@ export function ImageBatchPanel({ projectId }: { projectId?: string | null }) {
 function ProgressList({
   progress,
   failedFiles,
+  fileLabels,
   onRetry,
 }: {
   progress: Map<string, number>;
   failedFiles: Set<string>;
+  fileLabels: Map<string, string>;
   onRetry: (filename: string) => void;
 }) {
   return (
@@ -274,7 +276,7 @@ function ProgressList({
           <div key={filename}>
             <div className="mb-1 flex items-center justify-between gap-2">
               <span className="max-w-[70%] truncate text-xs text-gray-400">
-                {filename}
+                {fileLabels.get(filename) ?? filename}
               </span>
               <div className="flex items-center gap-2">
                 <span className={`text-xs ${failed ? "text-red-400" : "text-gray-500"}`}>

@@ -167,6 +167,15 @@ def _create_r2_client() -> Any:
     )
 
 
+def _safe_file_name(file_name: str) -> str:
+    if "/" in file_name or "\\" in file_name or ".." in file_name:
+        raise ValueError(f"Unsafe upload filename: {file_name!r}")
+    safe_name = Path(file_name).name
+    if safe_name in {"", ".", ".."} or safe_name != file_name:
+        raise ValueError(f"Unsafe upload filename: {file_name!r}")
+    return safe_name
+
+
 def _download_raw_files(
     r2_client: Any,
     bucket: str,
@@ -177,9 +186,10 @@ def _download_raw_files(
     raw_dir.mkdir(parents=True, exist_ok=True)
     local_files: list[Path] = []
     for file_name in file_names:
-        local_path = raw_dir / file_name
+        safe_name = _safe_file_name(file_name)
+        local_path = raw_dir / safe_name
         local_path.parent.mkdir(parents=True, exist_ok=True)
-        r2_client.download_file(bucket, f"{r2_prefix.rstrip('/')}/{file_name}", str(local_path))
+        r2_client.download_file(bucket, f"{r2_prefix.rstrip('/')}/{safe_name}", str(local_path))
         local_files.append(local_path)
     return local_files
 

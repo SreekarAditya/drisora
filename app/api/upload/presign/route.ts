@@ -14,6 +14,17 @@ interface PresignBody {
   files: FileInput[];
 }
 
+const SAFE_FILE_NAME = /^[A-Za-z0-9._-]+$/;
+
+function isSafeStorageName(name: string) {
+  return (
+    name.length > 0 &&
+    name.length <= 240 &&
+    SAFE_FILE_NAME.test(name) &&
+    !name.includes("..")
+  );
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const {
@@ -48,6 +59,22 @@ export async function POST(request: NextRequest) {
       { error: `Cannot upload files while job is ${job.status}` },
       { status: 409 },
     );
+  }
+
+  const allowedNames = new Set(job.file_names);
+  for (const file of body.files) {
+    if (
+      typeof file.name !== "string" ||
+      !isSafeStorageName(file.name) ||
+      !allowedNames.has(file.name) ||
+      !Number.isFinite(file.size) ||
+      file.size <= 0
+    ) {
+      return NextResponse.json(
+        { error: "files must match the job upload manifest" },
+        { status: 400 },
+      );
+    }
   }
 
   const urls = await Promise.all(

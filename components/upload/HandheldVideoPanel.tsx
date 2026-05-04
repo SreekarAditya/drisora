@@ -21,7 +21,7 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
   const [srtDragOver, setSrtDragOver] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
   const [srtError, setSrtError] = useState<string | null>(null);
-  const { phase, progress, failedFiles, uploadError, startUpload, retryFile } =
+  const { phase, progress, failedFiles, fileLabels, uploadError, startUpload, retryFile } =
     useUpload();
 
   function setSingleVideo(file: File | null) {
@@ -238,6 +238,7 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
           <ProgressList
             progress={progress}
             failedFiles={failedFiles}
+            fileLabels={fileLabels}
             onRetry={retryFile}
           />
         )}
@@ -271,10 +272,12 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
 function ProgressList({
   progress,
   failedFiles,
+  fileLabels,
   onRetry,
 }: {
   progress: Map<string, number>;
   failedFiles: Set<string>;
+  fileLabels: Map<string, string>;
   onRetry: (filename: string) => void;
 }) {
   return (
@@ -285,7 +288,7 @@ function ProgressList({
           <div key={filename}>
             <div className="mb-1 flex items-center justify-between gap-2">
               <span className="max-w-[70%] truncate text-xs text-gray-400">
-                {filename}
+                {fileLabels.get(filename) ?? filename}
               </span>
               <div className="flex items-center gap-2">
                 <span
