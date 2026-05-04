@@ -24,7 +24,7 @@ const MODES: ModeCard[] = [
   {
     id: "image_batch",
     title: "Image Batch",
-    description: "1 to 1,000 images · JPEG/PNG · GPS auto-detected from EXIF",
+    description: "Up to 1,000 JPEG/PNG images · maps geotags and EXIF GPS",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-6 w-6">
         <rect x="3" y="3" width="18" height="18" rx="2" />
@@ -36,7 +36,7 @@ const MODES: ModeCard[] = [
   {
     id: "handheld_video",
     title: "Handheld Video",
-    description: "Single MP4/MOV · No GPS needed · Frame interval picker",
+    description: "Single MP4/MOV · optional .SRT GPS log · frame interval picker",
     icon: (
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-6 w-6">
         <rect x="2" y="6" width="14" height="12" rx="2" />

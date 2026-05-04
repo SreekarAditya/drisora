@@ -2,8 +2,8 @@
 
 import { useState, useCallback } from "react";
 import dynamic from "next/dynamic";
-import Image from "next/image";
 import { SummaryBar, PciChip, NoDetectionsState } from "./shared";
+import { DetectionFrameImage } from "./DetectionFrameImage";
 import { analyzeDistress } from "@/lib/civil-intelligence";
 import { crackWidthBandLabel } from "@/lib/crack-metrics";
 import { getPciBand, ircRecommendation, PCI_BANDS } from "@/types";
@@ -29,7 +29,6 @@ function SegmentSidebar({
   frame: FrameResult;
   onClose: () => void;
 }) {
-  const [imgError, setImgError] = useState(false);
   const band = getPciBand(frame.pci_score);
   const analysis = analyzeDistress({
     crackTypes: frame.crack_types,
@@ -59,19 +58,13 @@ function SegmentSidebar({
 
       {/* Overlay thumbnail */}
       <div className="relative h-44 shrink-0 bg-[#080808]">
-        {frame.overlay_url && !imgError ? (
-          <Image
-            src={frame.overlay_url}
-            alt="Crack overlay"
-            fill
-            className="object-cover"
-            onError={() => setImgError(true)}
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-xs text-gray-700">
-            No overlay
-          </div>
-        )}
+        <DetectionFrameImage
+          frame={frame}
+          alt="Crack overlay"
+          objectFit="cover"
+          className="h-full w-full"
+          sizes="360px"
+        />
       </div>
 
       {/* Details */}

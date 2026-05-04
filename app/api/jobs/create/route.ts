@@ -66,9 +66,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (body.mode === "handheld_video" && body.file_count !== 1) {
+  if (body.mode === "handheld_video" && (body.file_count < 1 || body.file_count > 2)) {
     return NextResponse.json(
-      { error: "Video modes require exactly one video file" },
+      { error: "Handheld video accepts one video file and an optional .SRT GPS file" },
+      { status: 400 },
+    );
+  }
+
+  if (body.mode === "handheld_video" && body.file_count === 2 && !body.file_names.some((name) => /\.srt$/i.test(name))) {
+    return NextResponse.json(
+      { error: "Second handheld video file must be an .SRT GPS log" },
       { status: 400 },
     );
   }
@@ -104,7 +111,7 @@ export async function POST(request: NextRequest) {
     body.mode === "image_batch"
       ? true
       : body.mode === "handheld_video"
-        ? false
+        ? options.has_srt === true
         : options.gps_source === "embedded" || options.has_srt === true;
 
   if (body.mode === "drone_footage" && !gpsAvailable) {

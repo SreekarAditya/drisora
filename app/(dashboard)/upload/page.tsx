@@ -15,16 +15,6 @@ export default function UploadPage() {
             Upload capture media, lock the input set, then send it into the processing queue.
           </p>
         </div>
-        <div className="grid grid-cols-3 gap-2 text-right">
-          {["R2 upload", "AI scoring", "PDF report"].map((item) => (
-            <div key={item} className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-2">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-gray-600">
-                Ready
-              </p>
-              <p className="mt-0.5 whitespace-nowrap text-xs font-medium text-gray-300">{item}</p>
-            </div>
-          ))}
-        </div>
       </header>
 
       <UploadClient />

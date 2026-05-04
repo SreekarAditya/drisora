@@ -25,6 +25,7 @@ const NAV_LINKS = [
   { href: "/surveys", label: "Surveys" },
   { href: "/reports", label: "Reports" },
   { href: "/team", label: "Team" },
+  { href: "/about", label: "About" },
 ] as const;
 
 function isActive(pathname: string, href: string) {

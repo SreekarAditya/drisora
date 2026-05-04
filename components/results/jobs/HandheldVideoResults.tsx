@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import Image from "next/image";
 import {
   LineChart,
   Line,
@@ -13,6 +12,7 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { SummaryBar, PciChip, NoDetectionsState } from "./shared";
+import { DetectionFrameImage } from "./DetectionFrameImage";
 import { crackWidthBandLabel } from "@/lib/crack-metrics";
 import { getPciBand, ircRecommendation } from "@/types";
 import type { JobResults, FrameResult } from "@/types";
@@ -80,7 +80,6 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
 }
 
 function FramePanel({ frame, onClose }: { frame: FrameResult; onClose: () => void }) {
-  const [imgError, setImgError] = useState(false);
   const band = getPciBand(frame.pci_score);
   const metricRows = Object.entries(frame.crack_type_lengths_m);
   const hasCracks =
@@ -108,19 +107,14 @@ function FramePanel({ frame, onClose }: { frame: FrameResult; onClose: () => voi
 
       {/* Overlay image */}
       <div className="relative flex-1 bg-[#080808]">
-        {frame.overlay_url && !imgError ? (
-          <Image
-            src={frame.overlay_url}
-            alt={`Frame at ${frame.timestamp_ms ?? frame.index}`}
-            fill
-            className="object-contain"
-            onError={() => setImgError(true)}
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center text-sm text-gray-700">
-            No overlay available
-          </div>
-        )}
+        <DetectionFrameImage
+          frame={frame}
+          alt={`Frame at ${frame.timestamp_ms ?? frame.index}`}
+          objectFit="contain"
+          className="h-full w-full"
+          sizes="(max-width: 1024px) 100vw, 50vw"
+          placeholderClassName="text-sm text-gray-700"
+        />
       </div>
 
       {/* Detail */}
