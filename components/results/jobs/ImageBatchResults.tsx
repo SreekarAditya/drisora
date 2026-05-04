@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { SummaryBar, PciChip, NoDetectionsState } from "./shared";
+import { DetectionFrameImage } from "./DetectionFrameImage";
 import { crackWidthBandLabel } from "@/lib/crack-metrics";
 import { getPciBand, PCI_BANDS } from "@/types";
 import type { JobResults, FrameResult } from "@/types";
@@ -34,7 +34,6 @@ function bandKey(score: number): PciFilter {
 }
 
 function FrameCard({ frame }: { frame: FrameResult }) {
-  const [imgError, setImgError] = useState(false);
   const band = getPciBand(frame.pci_score);
   const dominant = frame.crack_types[0] ?? null;
   const hasCracks =
@@ -47,24 +46,14 @@ function FrameCard({ frame }: { frame: FrameResult }) {
     <div className="group overflow-hidden rounded-xl border border-[#1a1a1a] bg-[#0f0f0f] transition-colors hover:border-[#2a2a2a]">
       {/* Image */}
       <div className="relative aspect-video w-full bg-[#111] overflow-hidden">
-        {frame.overlay_url && !imgError ? (
-          <Image
-            src={frame.overlay_url}
-            alt={`Frame ${frame.index}`}
-            fill
-            className="object-cover"
-            sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
-            onError={() => setImgError(true)}
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" className="text-[#2a2a2a]">
-              <rect x="2" y="5" width="24" height="18" rx="2" stroke="currentColor" strokeWidth="1.5" />
-              <circle cx="10" cy="12" r="2.5" stroke="currentColor" strokeWidth="1.5" />
-              <path d="M2 20l6-5 5 4 4-3 9 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </div>
-        )}
+        <DetectionFrameImage
+          frame={frame}
+          alt={`Frame ${frame.index}`}
+          objectFit="cover"
+          className="h-full w-full"
+          sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+          placeholderClassName="text-[#2a2a2a]"
+        />
         {/* PCI overlay badge */}
         <div
           className="absolute right-2 top-2 rounded px-2 py-0.5 font-mono text-xs font-semibold"

@@ -1,6 +1,7 @@
 import { listR2Objects, getR2ObjectText, getPresignedGetUrl } from "@/lib/r2";
 import { crackTypeLabel, normalizeCrackTypes } from "@/lib/crack-labels";
 import { deriveCrackMetrics } from "@/lib/crack-metrics";
+import { parseDetectionAnnotations, parseImageSize } from "@/lib/detection-annotations";
 import type { FrameResult, JobResults, JobMode, JobResultsSummary } from "@/types";
 
 interface RawDetection {
@@ -89,6 +90,7 @@ export async function loadJobResults(
       const item = parsed[j];
       if (!item) continue;
       const { stem, data } = item;
+      const imageSize = parseImageSize(data);
       const crackTypes = normalizeCrackTypes(data.crack_types);
       const cameraSurfaceDistanceM = data.camera_surface_distance_m ?? data.depth_estimate ?? null;
       const metrics = deriveCrackMetrics({
@@ -126,6 +128,9 @@ export async function loadJobResults(
         yolo_detection_count: data.yolo_detection_count ?? null,
         final_detection_count: data.final_detection_count ?? null,
         processing_ms: data.processing_ms ?? null,
+        image_width: imageSize.width,
+        image_height: imageSize.height,
+        detection_annotations: parseDetectionAnnotations(data),
       });
     }
   }

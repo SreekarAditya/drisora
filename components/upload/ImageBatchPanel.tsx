@@ -89,7 +89,7 @@ export function ImageBatchPanel({ projectId }: { projectId?: string | null }) {
     <section className="rounded-lg border border-white/10 bg-[#101113] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
       <h2 className="text-lg font-semibold text-white">Image batch</h2>
       <p className="mt-1 text-sm text-gray-500">
-        Drop up to 1,000 JPEG/PNG images. GPS will be read from each file&apos;s EXIF.
+        Upload JPEG/PNG images as a batch. If the images include geotags or EXIF GPS, Drisora maps them automatically.
       </p>
 
       <label
@@ -124,7 +124,7 @@ export function ImageBatchPanel({ projectId }: { projectId?: string | null }) {
         <p className="mt-3 text-sm font-medium text-white">
           Drag &amp; drop images, or click to browse
         </p>
-        <p className="mt-1 text-xs text-gray-600">JPEG and PNG · up to 1,000 files</p>
+        <p className="mt-1 text-xs text-gray-600">JPEG and PNG · batch upload up to 1,000 files</p>
       </label>
 
       {Object.keys(fileErrors).length > 0 && (

@@ -14,10 +14,13 @@ type Interval = (typeof INTERVALS)[number]["value"];
 
 export function HandheldVideoPanel({ projectId }: { projectId?: string | null }) {
   const [video, setVideo] = useState<File | null>(null);
+  const [srt, setSrt] = useState<File | null>(null);
   const [interval, setInterval] = useState<Interval>(1);
   const [enableMetricAnalysis, setEnableMetricAnalysis] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [srtDragOver, setSrtDragOver] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
+  const [srtError, setSrtError] = useState<string | null>(null);
   const { phase, progress, failedFiles, uploadError, startUpload, retryFile } =
     useUpload();
 
@@ -31,10 +34,26 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
     setVideo(file);
   }
 
+  function setSingleSrt(file: File | null) {
+    if (!file) return;
+    setSrtError(null);
+    if (!/\.srt$/i.test(file.name)) {
+      setSrtError(`${file.name} — Upload an .SRT GPS log`);
+      return;
+    }
+    setSrt(file);
+  }
+
   function handleDrop(event: React.DragEvent<HTMLLabelElement>) {
     event.preventDefault();
     setDragOver(false);
     setSingleVideo(event.dataTransfer.files?.[0] ?? null);
+  }
+
+  function handleSrtDrop(event: React.DragEvent<HTMLLabelElement>) {
+    event.preventDefault();
+    setSrtDragOver(false);
+    setSingleSrt(event.dataTransfer.files?.[0] ?? null);
   }
 
   const isUploading =
@@ -42,13 +61,17 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
 
   async function handleSubmit() {
     if (!video) return;
-    await startUpload([video], {
+    const files = [video, ...(srt ? [srt] : [])];
+    await startUpload(files, {
       mode: "handheld_video",
       project_id: projectId ?? null,
-      file_names: [video.name],
-      total_bytes: video.size,
+      file_names: files.map((file) => file.name),
+      total_bytes: files.reduce((sum, file) => sum + file.size, 0),
       options: {
         frame_interval_seconds: interval,
+        gps_source: srt ? "srt" : "none",
+        has_srt: srt !== null,
+        srt_name: srt?.name ?? null,
         enable_metric_analysis: enableMetricAnalysis,
         enable_depthpro: enableMetricAnalysis,
       },
@@ -59,7 +82,7 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
     <section className="rounded-lg border border-white/10 bg-[#101113] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
       <h2 className="text-lg font-semibold text-white">Handheld video</h2>
       <p className="mt-1 text-sm text-gray-500">
-        Single MP4 or MOV. We&apos;ll sample frames at your chosen interval — no GPS needed.
+        Single MP4 or MOV. Add an optional .SRT GPS log when you want the handheld survey mapped.
       </p>
 
       <label
@@ -107,6 +130,46 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
           <button
             type="button"
             onClick={() => setVideoError(null)}
+            className="ml-2 text-xs text-gray-600 hover:text-gray-400"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      <label
+        onDragOver={(e) => {
+          e.preventDefault();
+          setSrtDragOver(true);
+        }}
+        onDragLeave={() => setSrtDragOver(false)}
+        onDrop={handleSrtDrop}
+        className={`mt-4 flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed p-5 transition-colors ${
+          srtDragOver
+            ? "border-amber-500 bg-amber-500/5"
+            : "border-[#2a2a2a] bg-[#0a0a0a] hover:border-[#3a3a3a]"
+        }`}
+      >
+        <input
+          type="file"
+          accept=".srt,application/x-subrip"
+          className="sr-only"
+          onChange={(e) => setSingleSrt(e.target.files?.[0] ?? null)}
+        />
+        <p className="text-sm font-medium text-white">
+          {srt ? srt.name : "Optional .SRT GPS log"}
+        </p>
+        <p className="mt-1 text-xs text-gray-600">
+          {srt ? `${formatBytes(srt.size)} · click to replace` : "Use when your phone or camera captured a GPS subtitle track"}
+        </p>
+      </label>
+
+      {srtError && (
+        <div className="mt-4 flex items-center justify-between rounded-md bg-red-500/10 px-3 py-2">
+          <span className="truncate text-xs text-red-300">{srtError}</span>
+          <button
+            type="button"
+            onClick={() => setSrtError(null)}
             className="ml-2 text-xs text-gray-600 hover:text-gray-400"
           >
             ✕
@@ -189,7 +252,7 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={isUploading || !video || !!videoError}
+          disabled={isUploading || !video || !!videoError || !!srtError}
           className="rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {phase === "creating_job"

@@ -86,6 +86,30 @@ export interface FrameResult {
   yolo_detection_count: number | null;
   final_detection_count: number | null;
   processing_ms: number | null;
+  image_width?: number | null;
+  image_height?: number | null;
+  detection_annotations?: DetectionAnnotation[];
+}
+
+export interface DetectionBox {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  normalized: boolean;
+}
+
+export interface DetectionMaskPolygon {
+  points: Array<[number, number]>;
+  normalized: boolean;
+}
+
+export interface DetectionAnnotation {
+  id: string;
+  label: string;
+  confidence: number | null;
+  box: DetectionBox | null;
+  mask_polygons: DetectionMaskPolygon[];
 }
 
 export interface JobResultsSummary {

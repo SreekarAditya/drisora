@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { DeleteJobButton } from "@/components/dashboard/DeleteJobButton";
 import type { JobRecord, JobStatus, JobMode } from "@/types";
 import { getPciBand, JOB_MODE_LABELS } from "@/types";
 
@@ -222,18 +223,25 @@ function JobRow({ job }: { job: JobRecord }) {
               >
                 PDF
               </a>
+              <DeleteJobButton job={job} />
             </>
           ) : isActive ? (
-            <Link
-              href={`/jobs/${job.id}`}
-              className="rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-1.5 text-xs font-medium text-amber-500 transition-colors hover:bg-amber-500/10"
-            >
-              Track
-            </Link>
+            <>
+              <Link
+                href={`/jobs/${job.id}`}
+                className="rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-1.5 text-xs font-medium text-amber-500 transition-colors hover:bg-amber-500/10"
+              >
+                Track
+              </Link>
+              <DeleteJobButton job={job} />
+            </>
           ) : job.status === "uploading" ? (
-            <span className="text-xs text-sky-500">Uploading</span>
+            <>
+              <span className="text-xs text-sky-500">Uploading</span>
+              <DeleteJobButton job={job} />
+            </>
           ) : (
-            <span className="text-xs text-gray-700">—</span>
+            <DeleteJobButton job={job} />
           )}
         </div>
       </td>
