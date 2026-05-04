@@ -15,6 +15,16 @@ interface CreateJobBody {
 }
 
 const VALID_MODES: JobMode[] = ["image_batch", "handheld_video", "drone_footage"];
+const SAFE_FILE_NAME = /^[A-Za-z0-9._-]+$/;
+
+function isSafeStorageName(name: string) {
+  return (
+    name.length > 0 &&
+    name.length <= 240 &&
+    SAFE_FILE_NAME.test(name) &&
+    !name.includes("..")
+  );
+}
 
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
@@ -43,6 +53,16 @@ export async function POST(request: NextRequest) {
 
   if (!Array.isArray(body.file_names) || body.file_names.length === 0) {
     return NextResponse.json({ error: "file_names is required" }, { status: 400 });
+  }
+
+  if (
+    body.file_names.some((name) => typeof name !== "string" || !isSafeStorageName(name)) ||
+    new Set(body.file_names).size !== body.file_names.length
+  ) {
+    return NextResponse.json(
+      { error: "file_names must be unique safe storage names" },
+      { status: 400 },
+    );
   }
 
   if (body.file_count !== body.file_names.length) {

@@ -81,6 +81,7 @@ export default function OnboardingPage() {
       user_id: user.id,
       full_name: fullName.trim(),
       org_name: orgName.trim(),
+      organization: orgName.trim(),
       role,
       phone: phone.trim() || null,
     });

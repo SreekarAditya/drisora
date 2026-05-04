@@ -19,15 +19,22 @@ export type UploadPhase =
   | "uploading"
   | "error";
 
+interface UploadItem {
+  file: File;
+  storageName: string;
+  label: string;
+}
+
 export function useUpload() {
   const router = useRouter();
   const [phase, setPhase] = useState<UploadPhase>("idle");
   const [progress, setProgress] = useState<Map<string, number>>(new Map());
   const [failedFiles, setFailedFiles] = useState<Set<string>>(new Set());
+  const [fileLabels, setFileLabels] = useState<Map<string, string>>(new Map());
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const jobIdRef = useRef<string | null>(null);
-  const pendingFilesRef = useRef<File[]>([]);
+  const pendingFilesRef = useRef<UploadItem[]>([]);
 
   const submitJob = useCallback(
     async (jobId: string) => {
@@ -50,7 +57,13 @@ export function useUpload() {
       setUploadError(null);
       setProgress(new Map());
       setFailedFiles(new Set());
-      pendingFilesRef.current = files;
+      const uploadItems = files.map((file, index) => ({
+        file,
+        storageName: storageFileName(file.name, index),
+        label: uploadLabel(file.name, index, files),
+      }));
+      pendingFilesRef.current = uploadItems;
+      setFileLabels(new Map(uploadItems.map((item) => [item.storageName, item.label])));
 
       const jobRes = await fetch("/api/jobs/create", {
         method: "POST",
@@ -59,9 +72,12 @@ export function useUpload() {
           mode: jobOptions.mode,
           project_id: jobOptions.project_id ?? null,
           file_count: files.length,
-          file_names: jobOptions.file_names,
+          file_names: uploadItems.map((item) => item.storageName),
           total_bytes: jobOptions.total_bytes,
-          options: jobOptions.options ?? {},
+          options: {
+            ...(jobOptions.options ?? {}),
+            original_file_names: jobOptions.file_names,
+          },
         }),
       });
 
@@ -89,7 +105,11 @@ export function useUpload() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           job_id,
-          files: files.map((f) => ({ name: f.name, size: f.size, type: f.type })),
+          files: uploadItems.map((item) => ({
+            name: item.storageName,
+            size: item.file.size,
+            type: item.file.type,
+          })),
         }),
       });
 
@@ -112,21 +132,22 @@ export function useUpload() {
       };
 
       setPhase("uploading");
-      setProgress(new Map(files.map((f) => [f.name, 0])));
+      setProgress(new Map(uploadItems.map((item) => [item.storageName, 0])));
+      const urlsByName = new Map(urls.map((url) => [url.filename, url]));
 
       const results = await Promise.allSettled(
-        files.map((file) => {
-          const entry = urls.find((u) => u.filename === file.name);
-          if (!entry) return Promise.reject(new Error(`No URL for ${file.name}`));
-          return xhrUpload(file, entry.presigned_url, (pct) =>
-            setProgress((prev) => new Map(prev).set(file.name, pct)),
+        uploadItems.map((item) => {
+          const entry = urlsByName.get(item.storageName);
+          if (!entry) return Promise.reject(new Error(`No URL for ${item.label}`));
+          return xhrUpload(item.file, entry.presigned_url, (pct) =>
+            setProgress((prev) => new Map(prev).set(item.storageName, pct)),
           );
         }),
       );
 
       const failed = new Set<string>();
       results.forEach((result, i) => {
-        if (result.status === "rejected") failed.add(files[i].name);
+        if (result.status === "rejected") failed.add(uploadItems[i].storageName);
       });
 
       if (failed.size > 0) {
@@ -151,8 +172,8 @@ export function useUpload() {
   const retryFile = useCallback(
     async (filename: string) => {
       if (!jobIdRef.current) return;
-      const file = pendingFilesRef.current.find((f) => f.name === filename);
-      if (!file) return;
+      const item = pendingFilesRef.current.find((f) => f.storageName === filename);
+      if (!item) return;
 
       setFailedFiles((prev) => {
         const next = new Set(prev);
@@ -166,7 +187,11 @@ export function useUpload() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           job_id: jobIdRef.current,
-          files: [{ name: file.name, size: file.size, type: file.type }],
+          files: [{
+            name: item.storageName,
+            size: item.file.size,
+            type: item.file.type,
+          }],
         }),
       });
 
@@ -178,14 +203,14 @@ export function useUpload() {
       const { urls } = (await presignRes.json()) as {
         urls: Array<{ filename: string; presigned_url: string }>;
       };
-      const url = urls[0]?.presigned_url;
+      const url = urls.find((entry) => entry.filename === item.storageName)?.presigned_url;
       if (!url) {
         setFailedFiles((prev) => new Set(prev).add(filename));
         return;
       }
 
       try {
-        await xhrUpload(file, url, (pct) =>
+        await xhrUpload(item.file, url, (pct) =>
           setProgress((prev) => new Map(prev).set(filename, pct)),
         );
         let shouldSubmit = false;
@@ -205,7 +230,26 @@ export function useUpload() {
     [submitJob],
   );
 
-  return { phase, progress, failedFiles, uploadError, startUpload, retryFile };
+  return { phase, progress, failedFiles, fileLabels, uploadError, startUpload, retryFile };
+}
+
+function storageFileName(name: string, index: number) {
+  const baseName = name.split(/[\\/]/).pop() ?? "file";
+  const cleaned = baseName
+    .replace(/[^A-Za-z0-9._-]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/\.\.+/g, ".")
+    .replace(/^\.+/, "")
+    .slice(0, 180);
+  const safeName = cleaned.length > 0 ? cleaned : "file";
+  return `${String(index + 1).padStart(4, "0")}-${safeName}`;
+}
+
+function uploadLabel(name: string, index: number, files: File[]) {
+  const occurrences = files.filter((file) => file.name === name);
+  if (occurrences.length <= 1) return name;
+  const duplicateIndex = files.slice(0, index + 1).filter((file) => file.name === name).length;
+  return `${name} (${duplicateIndex})`;
 }
 
 async function responseMessage(response: Response, fallback: string) {
