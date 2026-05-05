@@ -20,6 +20,7 @@ interface RawDetection {
   lat?: number | null;
   lon?: number | null;
   alt_m?: number | null;
+  alt?: number | null;
   depth_estimate?: number | null;
   camera_surface_distance_m?: number | null;
   avg_crack_width_mm?: number | null;
@@ -114,7 +115,7 @@ export async function loadJobResults(
         timestamp_ms: data.timestamp_ms ?? data.frame?.timestamp_ms ?? null,
         lat: data.lat ?? data.frame?.lat ?? null,
         lon: data.lon ?? data.frame?.lon ?? null,
-        alt_m: data.alt_m ?? data.frame?.alt_m ?? data.frame?.alt ?? null,
+        alt_m: data.alt_m ?? data.alt ?? data.frame?.alt_m ?? data.frame?.alt ?? null,
         depth_estimate: data.depth_estimate ?? null,
         camera_surface_distance_m: cameraSurfaceDistanceM,
         avg_crack_width_mm: metrics.avgWidthMm,

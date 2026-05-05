@@ -194,6 +194,45 @@ def _download_raw_files(
     return local_files
 
 
+def _uploaded_file_by_original_name(
+    local_files: list[Path],
+    options: dict[str, Any],
+    original_name: str,
+) -> Path | None:
+    original_file_names = options.get("original_file_names")
+    if not isinstance(original_file_names, list):
+        return None
+
+    for index, candidate in enumerate(original_file_names):
+        if candidate == original_name and index < len(local_files):
+            return local_files[index]
+    return None
+
+
+def _find_video_file(local_files: list[Path]) -> Path | None:
+    return next((path for path in local_files if path.suffix.lower() != ".srt"), None)
+
+
+def _find_srt_file(local_files: list[Path], options: dict[str, Any]) -> Path | None:
+    srt_storage_name = options.get("srt_storage_name")
+    if isinstance(srt_storage_name, str) and srt_storage_name:
+        storage_match = next((path for path in local_files if path.name == srt_storage_name), None)
+        if storage_match:
+            return storage_match
+
+    srt_name = options.get("srt_name")
+    if isinstance(srt_name, str) and srt_name:
+        direct_match = next((path for path in local_files if path.name == srt_name), None)
+        if direct_match:
+            return direct_match
+
+        original_match = _uploaded_file_by_original_name(local_files, options, srt_name)
+        if original_match and original_match.suffix.lower() == ".srt":
+            return original_match
+
+    return next((path for path in local_files if path.suffix.lower() == ".srt"), None)
+
+
 def _build_dispatch_files(
     mode: str,
     local_files: list[Path],
@@ -205,14 +244,21 @@ def _build_dispatch_files(
     if mode == "image_batch":
         files["images"] = [str(path) for path in local_files]
     elif mode == "handheld_video":
-        files["video"] = str(local_files[0])
+        video_path = _find_video_file(local_files)
+        if not video_path:
+            raise ValueError("handheld_video requires a video file")
+        files["video"] = str(video_path)
+        srt_path = _find_srt_file(local_files, options)
+        if srt_path:
+            files["srt"] = str(srt_path)
     elif mode == "drone_footage":
-        files["video"] = str(local_files[0])
-        srt_name = options.get("srt_name")
-        if srt_name:
-            srt_path = next((path for path in local_files if path.name == srt_name), None)
-            if srt_path:
-                files["srt"] = str(srt_path)
+        video_path = _find_video_file(local_files)
+        if not video_path:
+            raise ValueError("drone_footage requires a video file")
+        files["video"] = str(video_path)
+        srt_path = _find_srt_file(local_files, options)
+        if srt_path:
+            files["srt"] = str(srt_path)
     else:
         raise ValueError(f"Unknown job mode: {mode!r}")
     return files
@@ -333,6 +379,8 @@ def _process_frame(frame: dict[str, Any], use_depth: bool) -> dict[str, Any]:
     )
 
     return {
+        "index": frame.get("index"),
+        "timestamp_ms": frame.get("timestamp_ms"),
         "pci_score": pci_result["pci"],
         "condition": pci_result["condition"],
         "recommendation": pci_result["recommendation"],
@@ -340,7 +388,8 @@ def _process_frame(frame: dict[str, Any], use_depth: bool) -> dict[str, Any]:
         "dominant_crack": pci_result["dominant_crack"],
         "lat": frame.get("lat"),
         "lon": frame.get("lon"),
-        "alt": frame.get("alt_m", frame.get("alt")),
+        "alt_m": frame.get("alt_m", frame.get("alt")),
+        "gimbal_yaw": frame.get("gimbal_yaw"),
         "detections": detections,
         "pci_details": pci_result,
         "depth_available": depth_available,

@@ -62,6 +62,12 @@ export function useUpload() {
         storageName: storageFileName(file.name, index),
         label: uploadLabel(file.name, index, files),
       }));
+      const uploadOptions = {
+        ...(jobOptions.options ?? {}),
+        original_file_names: jobOptions.file_names,
+        storage_file_names: uploadItems.map((item) => item.storageName),
+        srt_storage_name: srtStorageName(jobOptions.options, jobOptions.file_names, uploadItems),
+      };
       pendingFilesRef.current = uploadItems;
       setFileLabels(new Map(uploadItems.map((item) => [item.storageName, item.label])));
 
@@ -74,10 +80,7 @@ export function useUpload() {
           file_count: files.length,
           file_names: uploadItems.map((item) => item.storageName),
           total_bytes: jobOptions.total_bytes,
-          options: {
-            ...(jobOptions.options ?? {}),
-            original_file_names: jobOptions.file_names,
-          },
+          options: uploadOptions,
         }),
       });
 
@@ -250,6 +253,18 @@ function uploadLabel(name: string, index: number, files: File[]) {
   if (occurrences.length <= 1) return name;
   const duplicateIndex = files.slice(0, index + 1).filter((file) => file.name === name).length;
   return `${name} (${duplicateIndex})`;
+}
+
+function srtStorageName(
+  options: Record<string, unknown> | undefined,
+  originalNames: string[],
+  uploadItems: UploadItem[],
+) {
+  const srtName = options?.srt_name;
+  if (typeof srtName !== "string" || srtName.length === 0) return null;
+
+  const index = originalNames.findIndex((name) => name === srtName && /\.srt$/i.test(name));
+  return index >= 0 ? uploadItems[index]?.storageName ?? null : null;
 }
 
 async function responseMessage(response: Response, fallback: string) {
