@@ -53,25 +53,31 @@ export function Navbar({ user, profile }: NavbarProps) {
   const initials = displayName.charAt(0).toUpperCase();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-[#0a0a0a]/95 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-white/[0.07] bg-[#07080a]/90 backdrop-blur-xl backdrop-saturate-150">
+      {/* Subtle top shimmer line */}
+      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
         <div className="flex min-w-0 items-center gap-7">
           <DrisoraLogo href="/dashboard" size="sm" />
 
-          <nav className="hidden items-center gap-1 lg:flex" aria-label="Primary">
+          <nav className="hidden items-center gap-0.5 lg:flex" aria-label="Primary">
             {NAV_LINKS.map((link) => {
               const active = isActive(pathname, link.href);
               return (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                  className={`relative rounded-md px-3 py-2 text-sm font-medium transition-all duration-150 ${
                     active
-                      ? "bg-white/10 text-white"
-                      : "text-gray-400 hover:bg-white/5 hover:text-white"
+                      ? "text-white"
+                      : "text-gray-500 hover:text-gray-200"
                   }`}
                 >
-                  {link.label}
+                  {active && (
+                    <span className="absolute inset-0 rounded-md bg-white/[0.07] ring-1 ring-inset ring-white/[0.08]" />
+                  )}
+                  <span className="relative">{link.label}</span>
                 </Link>
               );
             })}
@@ -80,14 +86,14 @@ export function Navbar({ user, profile }: NavbarProps) {
 
         <div className="flex items-center gap-3">
           {profile?.org_name && (
-            <span className="hidden max-w-[180px] truncate text-xs text-gray-500 md:block">
+            <span className="hidden max-w-[160px] truncate text-xs text-gray-600 md:block">
               {profile.org_name}
             </span>
           )}
 
           <Link
             href="/upload"
-            className="hidden rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-black transition-colors hover:bg-amber-400 md:inline-flex"
+            className="hidden items-center gap-1.5 rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-black shadow-[0_2px_8px_rgba(245,158,11,0.25)] transition-all duration-150 hover:bg-amber-400 hover:shadow-[0_4px_16px_rgba(245,158,11,0.35)] active:scale-[0.98] md:inline-flex"
           >
             New Survey
           </Link>
@@ -96,7 +102,7 @@ export function Navbar({ user, profile }: NavbarProps) {
             <button
               type="button"
               onClick={() => setAvatarOpen((open) => !open)}
-              className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-[#111] text-xs font-bold text-white transition-colors hover:border-white/20"
+              className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-[#111] text-xs font-bold text-white transition-all duration-150 hover:border-white/20 hover:shadow-[0_0_0_3px_rgba(255,255,255,0.06)]"
               aria-label="Open user menu"
               aria-expanded={avatarOpen}
             >
@@ -109,30 +115,30 @@ export function Navbar({ user, profile }: NavbarProps) {
             </button>
 
             {avatarOpen && (
-              <div className="absolute right-0 mt-2 w-64 overflow-hidden rounded-lg border border-white/10 bg-[#101113] shadow-[0_24px_80px_rgba(0,0,0,0.45)]">
-                <div className="border-b border-white/10 px-4 py-3">
-                  <p className="truncate text-sm font-semibold text-white">{displayName}</p>
-                  <p className="truncate text-xs text-gray-500">{user.email}</p>
-                  {profile?.role && <p className="mt-1 text-xs text-amber-400">{profile.role}</p>}
+              <div className="animate-fade-scale absolute right-0 mt-2 w-64 overflow-hidden rounded-xl border border-white/[0.09] bg-[#0f1012] shadow-[0_8px_40px_rgba(0,0,0,0.55),inset_0_0.5px_0_rgba(255,255,255,0.06)]">
+                <div className="border-b border-white/[0.07] px-4 py-3.5">
+                  <p className="truncate text-sm font-semibold tracking-tight text-white">{displayName}</p>
+                  <p className="truncate text-xs text-gray-600">{user.email}</p>
+                  {profile?.role && <p className="mt-1 text-xs font-medium text-amber-400/80">{profile.role}</p>}
                 </div>
                 <Link
                   href="/profile"
                   onClick={() => setAvatarOpen(false)}
-                  className="block px-4 py-3 text-sm text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
+                  className="flex items-center px-4 py-3 text-sm text-gray-400 transition-colors duration-100 hover:bg-white/[0.04] hover:text-white"
                 >
                   Edit Profile
                 </Link>
                 <Link
                   href="/about"
                   onClick={() => setAvatarOpen(false)}
-                  className="block px-4 py-3 text-sm text-gray-300 transition-colors hover:bg-white/5 hover:text-white"
+                  className="flex items-center px-4 py-3 text-sm text-gray-400 transition-colors duration-100 hover:bg-white/[0.04] hover:text-white"
                 >
                   About Drisora
                 </Link>
                 <button
                   type="button"
                   onClick={handleSignOut}
-                  className="block w-full border-t border-white/10 px-4 py-3 text-left text-sm text-red-300 transition-colors hover:bg-red-500/10 hover:text-red-200"
+                  className="flex w-full items-center border-t border-white/[0.07] px-4 py-3 text-left text-sm text-red-400/90 transition-colors duration-100 hover:bg-red-500/[0.08] hover:text-red-300"
                 >
                   Sign out
                 </button>
@@ -143,18 +149,18 @@ export function Navbar({ user, profile }: NavbarProps) {
           <button
             type="button"
             onClick={() => setMenuOpen((open) => !open)}
-            className="flex h-9 w-9 items-center justify-center rounded-md border border-white/10 text-gray-400 transition-colors hover:bg-white/5 hover:text-white lg:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-md border border-white/10 text-gray-500 transition-colors duration-150 hover:border-white/15 hover:bg-white/[0.04] hover:text-white lg:hidden"
             aria-label={menuOpen ? "Close menu" : "Open menu"}
           >
             {menuOpen ? (
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <path d="M2 2l12 12M14 2L2 14" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                <path d="M1.5 1.5l12 12M13.5 1.5l-12 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               </svg>
             ) : (
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                <line x1="2" y1="4" x2="14" y2="4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                <line x1="2" y1="8" x2="14" y2="8" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                <line x1="2" y1="12" x2="10" y2="12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+              <svg width="15" height="15" viewBox="0 0 15 15" fill="none">
+                <line x1="1.5" y1="4" x2="13.5" y2="4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                <line x1="1.5" y1="7.5" x2="13.5" y2="7.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                <line x1="1.5" y1="11" x2="9" y2="11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
               </svg>
             )}
           </button>
@@ -162,17 +168,17 @@ export function Navbar({ user, profile }: NavbarProps) {
       </div>
 
       {menuOpen && (
-        <div className="w-full border-t border-white/10 bg-[#0f0f0f] px-6 py-3 lg:hidden">
-          <nav className="space-y-1" aria-label="Mobile primary">
+        <div className="animate-slide-down w-full border-t border-white/[0.07] bg-[#0b0c0e] px-6 py-3 lg:hidden">
+          <nav className="space-y-0.5" aria-label="Mobile primary">
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 onClick={() => setMenuOpen(false)}
-                className={`block rounded-md px-3 py-2.5 text-sm font-medium transition-colors ${
+                className={`block rounded-md px-3 py-2.5 text-sm font-medium transition-colors duration-100 ${
                   isActive(pathname, link.href)
-                    ? "bg-white/10 text-white"
-                    : "text-gray-300 hover:bg-white/5 hover:text-white"
+                    ? "bg-white/[0.07] text-white ring-1 ring-inset ring-white/[0.08]"
+                    : "text-gray-400 hover:bg-white/[0.04] hover:text-white"
                 }`}
               >
                 {link.label}
@@ -181,9 +187,9 @@ export function Navbar({ user, profile }: NavbarProps) {
             <Link
               href="/upload"
               onClick={() => setMenuOpen(false)}
-              className="block rounded-md px-3 py-2.5 text-sm font-medium text-amber-400 transition-colors hover:bg-amber-500/10"
+              className="block rounded-md px-3 py-2.5 text-sm font-semibold text-amber-400 transition-colors duration-100 hover:bg-amber-500/10"
             >
-              New Survey
+              + New Survey
             </Link>
           </nav>
         </div>

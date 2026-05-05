@@ -124,20 +124,20 @@ function StatsCards({ jobs }: { jobs: JobRecord[] }) {
   ];
 
   return (
-    <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <div className="grid gap-3.5 sm:grid-cols-2 xl:grid-cols-4">
       {stats.map((s) => (
         <div
           key={s.label}
-          className="rounded-lg border border-white/10 bg-[#101113] px-5 py-4 shadow-[0_12px_30px_rgba(0,0,0,0.18)]"
+          className="group rounded-xl border border-white/[0.07] bg-[#0f1012] px-5 py-4 shadow-[0_4px_16px_rgba(0,0,0,0.2)] transition-all duration-200 hover:border-white/[0.12] hover:shadow-[0_8px_32px_rgba(0,0,0,0.3)]"
         >
-          <p className="font-mono text-[10px] uppercase tracking-widest text-gray-600">{s.label}</p>
+          <p className="font-mono text-[9px] uppercase tracking-[0.12em] text-gray-600">{s.label}</p>
           <p
-            className="mt-1 text-2xl font-semibold"
+            className="mt-1.5 text-[26px] font-semibold leading-none tracking-tight"
             style={{ color: s.color ?? "#ffffff" }}
           >
             {s.value}
           </p>
-          <p className="mt-0.5 text-xs text-gray-600">{s.sub}</p>
+          <p className="mt-1.5 text-[11px] text-gray-600">{s.sub}</p>
         </div>
       ))}
     </div>
@@ -184,7 +184,7 @@ function JobRow({ job }: { job: JobRecord }) {
   const isActive = !["complete", "failed", "uploading"].includes(job.status);
 
   return (
-    <tr className="group border-b border-[#141414] transition-colors hover:bg-[#0d0d0d]">
+    <tr className="group border-b border-[#141516] transition-colors duration-100 hover:bg-[#0e0f11]">
       <td className="py-3.5 pl-6 pr-4">
         <p className="text-sm text-gray-300">{date}</p>
         <p className="font-mono text-[10px] text-gray-700">{job.id.slice(0, 8)}…</p>
@@ -213,13 +213,13 @@ function JobRow({ job }: { job: JobRecord }) {
             <>
               <Link
                 href={`/jobs/${job.id}/results`}
-                className="rounded-md border border-[#222] bg-[#111] px-3 py-1.5 text-xs font-medium text-gray-300 transition-colors hover:border-amber-500/40 hover:text-amber-400"
+                className="rounded-md border border-[#222] bg-[#111] px-3 py-1.5 text-xs font-medium text-gray-400 transition-all duration-100 hover:border-amber-500/30 hover:bg-amber-500/[0.06] hover:text-amber-400"
               >
                 View
               </Link>
               <a
                 href={`/api/jobs/${job.id}/report`}
-                className="rounded-md border border-[#222] bg-[#111] px-3 py-1.5 text-xs font-medium text-gray-300 transition-colors hover:border-amber-500/40 hover:text-amber-400"
+                className="rounded-md border border-[#222] bg-[#111] px-3 py-1.5 text-xs font-medium text-gray-400 transition-all duration-100 hover:border-amber-500/30 hover:bg-amber-500/[0.06] hover:text-amber-400"
               >
                 PDF
               </a>
@@ -229,7 +229,7 @@ function JobRow({ job }: { job: JobRecord }) {
             <>
               <Link
                 href={`/jobs/${job.id}`}
-                className="rounded-md border border-amber-500/20 bg-amber-500/5 px-3 py-1.5 text-xs font-medium text-amber-500 transition-colors hover:bg-amber-500/10"
+                className="rounded-md border border-amber-500/25 bg-amber-500/[0.07] px-3 py-1.5 text-xs font-medium text-amber-400 transition-all duration-100 hover:border-amber-500/40 hover:bg-amber-500/[0.12]"
               >
                 Track
               </Link>
@@ -263,26 +263,26 @@ export function JobList({ jobs }: Props) {
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-10">
-      <div className="mb-8 flex flex-col justify-between gap-5 border-b border-white/10 pb-6 md:flex-row md:items-end">
+      <div className="mb-8 flex flex-col justify-between gap-5 border-b border-white/[0.07] pb-6 md:flex-row md:items-end">
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-widest text-gray-600">
+          <p className="font-mono text-[9px] uppercase tracking-[0.14em] text-gray-600">
             Pavement intelligence
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Survey operations</h1>
-          <p className="mt-2 text-sm text-gray-500">
+          <h1 className="mt-2 text-[28px] font-semibold leading-tight tracking-[-0.02em] text-white">Survey operations</h1>
+          <p className="mt-2 text-sm text-gray-600">
             {jobs.length} total surveys · latest activity {latestDate}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <Link
             href="/dashboard"
-            className="rounded-md border border-white/10 px-4 py-2.5 text-sm font-semibold text-gray-300 transition-colors hover:border-white/20 hover:bg-white/5 hover:text-white"
+            className="rounded-lg border border-white/[0.08] px-4 py-2.5 text-sm font-medium text-gray-400 transition-all duration-150 hover:border-white/[0.14] hover:bg-white/[0.04] hover:text-white"
           >
             Refresh
           </Link>
           <Link
             href="/upload"
-            className="rounded-md bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400"
+            className="rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black shadow-[0_2px_8px_rgba(245,158,11,0.25)] transition-all duration-150 hover:bg-amber-400 hover:shadow-[0_4px_16px_rgba(245,158,11,0.35)] active:scale-[0.98]"
           >
             New Survey
           </Link>
@@ -295,26 +295,26 @@ export function JobList({ jobs }: Props) {
         {jobs.length === 0 ? (
           <EmptyState />
         ) : (
-          <div className="overflow-x-auto overflow-hidden rounded-lg border border-white/10 bg-[#0b0c0d] shadow-[0_20px_60px_rgba(0,0,0,0.28)]">
+          <div className="overflow-x-auto overflow-hidden rounded-xl border border-white/[0.07] bg-[#0b0c0d] shadow-[0_4px_32px_rgba(0,0,0,0.32)]">
             <table className="w-full min-w-[640px]">
               <thead>
-                <tr className="border-b border-white/10 bg-[#111315]">
-                  <th className="py-3 pl-6 pr-4 text-left font-mono text-[10px] uppercase tracking-widest text-gray-600">
+                <tr className="border-b border-white/[0.07] bg-[#0f1012]">
+                  <th className="py-3 pl-6 pr-4 text-left font-mono text-[9px] uppercase tracking-[0.12em] text-gray-600">
                     Date
                   </th>
-                  <th className="px-4 py-3 text-left font-mono text-[10px] uppercase tracking-widest text-gray-600">
+                  <th className="px-4 py-3 text-left font-mono text-[9px] uppercase tracking-[0.12em] text-gray-600">
                     Mode
                   </th>
-                  <th className="hidden px-4 py-3 text-left font-mono text-[10px] uppercase tracking-widest text-gray-600 sm:table-cell">
+                  <th className="hidden px-4 py-3 text-left font-mono text-[9px] uppercase tracking-[0.12em] text-gray-600 sm:table-cell">
                     Frames
                   </th>
-                  <th className="px-4 py-3 text-left font-mono text-[10px] uppercase tracking-widest text-gray-600">
+                  <th className="px-4 py-3 text-left font-mono text-[9px] uppercase tracking-[0.12em] text-gray-600">
                     Avg PCI
                   </th>
-                  <th className="px-4 py-3 text-left font-mono text-[10px] uppercase tracking-widest text-gray-600">
+                  <th className="px-4 py-3 text-left font-mono text-[9px] uppercase tracking-[0.12em] text-gray-600">
                     Status
                   </th>
-                  <th className="py-3 pl-4 pr-6 text-right font-mono text-[10px] uppercase tracking-widest text-gray-600">
+                  <th className="py-3 pl-4 pr-6 text-right font-mono text-[9px] uppercase tracking-[0.12em] text-gray-600">
                     Actions
                   </th>
                 </tr>
