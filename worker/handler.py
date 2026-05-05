@@ -365,14 +365,26 @@ def _post_webhook(
     app_url: str,
     webhook_secret: str,
     payload: dict[str, Any],
-) -> None:
-    with httpx.Client(timeout=20) as client:
-        response = client.post(
-            f"{app_url.rstrip('/')}/api/webhooks/job-complete",
-            json=payload,
-            headers={"X-Webhook-Secret": webhook_secret},
-        )
-    response.raise_for_status()
+) -> tuple[bool, str | None]:
+    try:
+        with httpx.Client(timeout=20) as client:
+            response = client.post(
+                f"{app_url.rstrip('/')}/api/webhooks/job-complete",
+                json=payload,
+                headers={"X-Webhook-Secret": webhook_secret},
+            )
+    except httpx.HTTPError as exc:
+        message = str(exc)
+        print(f"[WEBHOOK_ERROR] request failed: {message}", flush=True)
+        return False, message
+
+    if response.status_code >= 400:
+        detail = response.text[:500]
+        message = f"Webhook returned {response.status_code}: {detail}"
+        print(f"[WEBHOOK_ERROR] {message}", flush=True)
+        return False, message
+
+    return True, None
 
 
 def handler(job: dict[str, Any]) -> dict[str, Any]:
@@ -464,7 +476,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             f"[DONE] processed {processed} frames, avg_pci={average_pci:.1f}, detections={total_detections}",
             flush=True,
         )
-        _post_webhook(
+        webhook_ok, webhook_error = _post_webhook(
             app_url,
             webhook_secret,
             {
@@ -472,8 +484,18 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 "user_id": user_id,
                 "status": "complete",
                 "average_pci": average_pci,
+                "frame_count": len(frames),
+                "processed_count": processed,
+                "output_r2_prefix": output_r2_prefix,
             },
         )
+        if not webhook_ok:
+            _update_job(
+                redis_url,
+                redis_token,
+                job_id,
+                webhook_error=webhook_error,
+            )
         return {"job_id": job_id, "status": "complete", "average_pci": average_pci}
     except Exception as exc:
         error_message = str(exc)

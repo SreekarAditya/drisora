@@ -7,6 +7,9 @@ interface WebhookBody {
   status: "complete" | "failed";
   error_message?: string;
   average_pci?: number;
+  frame_count?: number;
+  processed_count?: number;
+  output_r2_prefix?: string;
 }
 
 const VALID_STATUSES = new Set(["complete", "failed"]);
@@ -34,7 +37,10 @@ export async function POST(request: NextRequest) {
     typeof body.user_id !== "string" ||
     body.user_id.length === 0 ||
     !VALID_STATUSES.has(body.status) ||
-    (body.average_pci != null && !Number.isFinite(body.average_pci));
+    (body.average_pci != null && !Number.isFinite(body.average_pci)) ||
+    (body.frame_count != null && (!Number.isInteger(body.frame_count) || body.frame_count < 0)) ||
+    (body.processed_count != null && (!Number.isInteger(body.processed_count) || body.processed_count < 0)) ||
+    (body.output_r2_prefix != null && typeof body.output_r2_prefix !== "string");
 
   if (invalidBody) {
     return NextResponse.json({ error: "Invalid webhook payload" }, { status: 400 });
@@ -64,6 +70,9 @@ async function updateSupabase(body: WebhookBody) {
     error_message: body.error_message ?? null,
   };
   if (body.average_pci != null) update.average_pci = body.average_pci;
+  if (body.frame_count != null) update.frame_count = body.frame_count;
+  if (body.processed_count != null) update.processed_count = body.processed_count;
+  if (body.output_r2_prefix) update.r2_prefix = body.output_r2_prefix;
 
   const { data, error } = await supabase
     .from("jobs")

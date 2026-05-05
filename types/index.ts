@@ -57,6 +57,8 @@ export interface ProcessingJobRecord {
   last_updated: string;
   created_at: string;
   error_message: string | null;
+  average_pci?: number | null;
+  completed_at?: string | null;
   options: Record<string, unknown>;
   file_names: string[];
   total_bytes: number;
