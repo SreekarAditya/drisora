@@ -185,6 +185,46 @@ def download_raw_files(job: Dict[str, Any], work_dir: Path) -> None:
         r2.download_file(CLOUDFLARE_R2_BUCKET_NAME, key, str(dest))
 
 
+def uploaded_file_by_original_name(job: Dict[str, Any], original_name: str, work_dir: Path) -> Path | None:
+    original_file_names = job.get("options", {}).get("original_file_names")
+    file_names = job.get("file_names", [])
+    if not isinstance(original_file_names, list):
+        return None
+
+    for index, candidate in enumerate(original_file_names):
+        if candidate == original_name and index < len(file_names):
+            return work_dir / safe_file_name(file_names[index])
+    return None
+
+
+def find_video_file(job: Dict[str, Any], work_dir: Path) -> Path | None:
+    for name in job.get("file_names", []):
+        path = work_dir / safe_file_name(name)
+        if path.suffix.lower() != ".srt":
+            return path
+    return None
+
+
+def find_srt_file(job: Dict[str, Any], work_dir: Path) -> Path | None:
+    options = job.get("options", {})
+    srt_storage_name = options.get("srt_storage_name")
+    if isinstance(srt_storage_name, str) and srt_storage_name:
+        path = work_dir / safe_file_name(srt_storage_name)
+        if path.exists():
+            return path
+
+    srt_name = options.get("srt_name")
+    if isinstance(srt_name, str) and srt_name:
+        path = work_dir / safe_file_name(srt_name)
+        if path.exists():
+            return path
+        original_match = uploaded_file_by_original_name(job, srt_name, work_dir)
+        if original_match and original_match.suffix.lower() == ".srt" and original_match.exists():
+            return original_match
+
+    return next((work_dir / safe_file_name(name) for name in job.get("file_names", []) if safe_file_name(name).lower().endswith(".srt")), None)
+
+
 def upload_result(local_path: Path, r2_key: str) -> None:
     log.info("Uploading %s → s3://%s/%s", local_path, CLOUDFLARE_R2_BUCKET_NAME, r2_key)
     r2.upload_file(str(local_path), CLOUDFLARE_R2_BUCKET_NAME, r2_key)
@@ -301,12 +341,21 @@ def run_job(redis: Redis, job: Dict[str, Any]) -> None:
         if mode == "image_batch":
             files["images"] = [str(work_dir / n) for n in job["file_names"]]
         elif mode == "handheld_video":
-            files["video"] = str(work_dir / job["file_names"][0])
+            video_path = find_video_file(job, work_dir)
+            if not video_path:
+                raise ValueError("handheld_video requires a video file")
+            files["video"] = str(video_path)
+            srt_path = find_srt_file(job, work_dir)
+            if srt_path:
+                files["srt"] = str(srt_path)
         elif mode == "drone_footage":
-            files["video"] = str(work_dir / job["file_names"][0])
-            srt_name = job["options"].get("srt_name")
-            if srt_name:
-                files["srt"] = str(work_dir / srt_name)
+            video_path = find_video_file(job, work_dir)
+            if not video_path:
+                raise ValueError("drone_footage requires a video file")
+            files["video"] = str(video_path)
+            srt_path = find_srt_file(job, work_dir)
+            if srt_path:
+                files["srt"] = str(srt_path)
 
         frame_batch = dispatch_job(job_id, mode, files)
 

@@ -98,27 +98,32 @@ def _dispatch_handheld_video(job_id: str, files: Dict[str, Any]) -> FrameBatch:
     video = files.get("video")
     if not video:
         raise ValueError("handheld_video requires 'video'")
+    srt_path = files.get("srt")
     interval = float(files.get("frame_interval_seconds", 1.0))
 
     raw_frames = extract_frames(video, interval_seconds=interval)
+    srt_entries = parse_srt(srt_path) if srt_path else []
+    enriched = attach_gps_to_frames(raw_frames, srt_entries) if srt_entries else raw_frames
 
     frames: List[FrameBatchItem] = [
         {
             "index": f["index"],
             "path": f["path"],
             "timestamp_ms": f["timestamp_ms"],
-            "lat": None,
-            "lon": None,
-            "alt_m": None,
-            "gimbal_yaw": None,
+            "lat": f.get("lat"),
+            "lon": f.get("lon"),
+            "alt_m": f.get("alt_m"),
+            "gimbal_yaw": f.get("gimbal_yaw"),
         }
-        for f in raw_frames
+        for f in enriched
     ]
+
+    gps_available = any(f["lat"] is not None and f["lon"] is not None for f in frames)
 
     return {
         "job_id": job_id,
         "mode": "handheld_video",
-        "gps_available": False,
+        "gps_available": gps_available,
         "frame_count": len(frames),
         "frames": frames,
     }
