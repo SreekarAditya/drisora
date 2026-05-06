@@ -37,6 +37,23 @@ interface RawDetection {
   [key: string]: unknown;
 }
 
+interface SrtGpsEntry {
+  timestamp_ms: number;
+  lat: number;
+  lon: number;
+  alt_m: number | null;
+}
+
+const SRT_TIMECODE_RE =
+  /(\d{2}):(\d{2}):(\d{2})[,.](\d{3})\s*-->\s*(\d{2}):(\d{2}):(\d{2})[,.](\d{3})/;
+const SRT_LAT_RE = /latitude\s*[:=]\s*(-?\d+(?:\.\d+)?)/i;
+const SRT_LON_RE = /longitude\s*[:=]\s*(-?\d+(?:\.\d+)?)/i;
+const SRT_GPS_TUPLE_RE =
+  /GPS\s*\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*(?:,\s*(-?\d+(?:\.\d+)?))?\s*\)/i;
+const SRT_ABS_ALT_RE = /abs_alt\s*[:=]\s*(-?\d+(?:\.\d+)?)/i;
+const SRT_REL_ALT_RE = /rel_alt\s*[:=]\s*(-?\d+(?:\.\d+)?)/i;
+const SRT_ALT_RE = /(?:^|\s|\[)alt(?:itude)?\s*[:=]\s*(-?\d+(?:\.\d+)?)/i;
+
 export async function loadJobResults(
   jobId: string,
   userId: string,
@@ -137,10 +154,119 @@ export async function loadJobResults(
   }
 
   frames.sort((a, b) => a.index - b.index);
+  await hydrateGpsFromUploadedSrt(jobId, userId, mode, frames);
 
   const summary = computeSummary(frames);
 
   return { job_id: jobId, mode, summary, frames };
+}
+
+async function hydrateGpsFromUploadedSrt(
+  jobId: string,
+  userId: string,
+  mode: JobMode,
+  frames: FrameResult[],
+) {
+  if (mode !== "drone_footage" && mode !== "handheld_video") return;
+  if (frames.length === 0) return;
+  if (frames.some((frame) => frame.lat != null && frame.lon != null)) return;
+
+  let rawKeys: string[];
+  try {
+    rawKeys = await listR2Objects(`uploads/${userId}/${jobId}/raw/`);
+  } catch {
+    return;
+  }
+
+  const srtKey = rawKeys.find((key) => key.toLowerCase().endsWith(".srt"));
+  if (!srtKey) return;
+
+  let entries: SrtGpsEntry[];
+  try {
+    entries = parseSrtGps(await getR2ObjectText(srtKey));
+  } catch {
+    return;
+  }
+  if (entries.length === 0) return;
+
+  for (const frame of frames) {
+    const timestamp = frame.timestamp_ms ?? frame.index * 1000;
+    const entry = nearestSrtGps(entries, timestamp);
+    frame.timestamp_ms = frame.timestamp_ms ?? timestamp;
+    frame.lat = entry.lat;
+    frame.lon = entry.lon;
+    frame.alt_m = frame.alt_m ?? entry.alt_m;
+  }
+}
+
+function parseSrtGps(text: string): SrtGpsEntry[] {
+  const entries: SrtGpsEntry[] = [];
+  for (const block of text.trim().split(/\r?\n\r?\n/)) {
+    const timecode = SRT_TIMECODE_RE.exec(block);
+    if (!timecode) continue;
+
+    const timestamp_ms = timecodeToMs(
+      timecode[1],
+      timecode[2],
+      timecode[3],
+      timecode[4],
+    );
+
+    const tupleMatch = SRT_GPS_TUPLE_RE.exec(block);
+    const latMatch = SRT_LAT_RE.exec(block);
+    const lonMatch = SRT_LON_RE.exec(block);
+
+    let lat: number;
+    let lon: number;
+    let alt_m: number | null = null;
+
+    if (tupleMatch) {
+      lon = Number(tupleMatch[1]);
+      lat = Number(tupleMatch[2]);
+      alt_m = tupleMatch[3] == null ? null : Number(tupleMatch[3]);
+    } else if (latMatch && lonMatch) {
+      lat = Number(latMatch[1]);
+      lon = Number(lonMatch[1]);
+    } else {
+      continue;
+    }
+
+    for (const pattern of [SRT_ABS_ALT_RE, SRT_REL_ALT_RE, SRT_ALT_RE]) {
+      const match = pattern.exec(block);
+      if (match) {
+        alt_m = Number(match[1]);
+        break;
+      }
+    }
+
+    if (Number.isFinite(lat) && Number.isFinite(lon)) {
+      entries.push({
+        timestamp_ms,
+        lat,
+        lon,
+        alt_m: alt_m != null && Number.isFinite(alt_m) ? alt_m : null,
+      });
+    }
+  }
+
+  return entries.sort((a, b) => a.timestamp_ms - b.timestamp_ms);
+}
+
+function timecodeToMs(hours: string, minutes: string, seconds: string, ms: string) {
+  return ((Number(hours) * 3600) + (Number(minutes) * 60) + Number(seconds)) * 1000 + Number(ms);
+}
+
+function nearestSrtGps(entries: SrtGpsEntry[], timestamp_ms: number) {
+  let nearest = entries[0];
+  let bestDistance = Math.abs(nearest.timestamp_ms - timestamp_ms);
+  for (const entry of entries) {
+    const distance = Math.abs(entry.timestamp_ms - timestamp_ms);
+    if (distance < bestDistance) {
+      nearest = entry;
+      bestDistance = distance;
+    }
+  }
+  return nearest;
 }
 
 function computeSummary(frames: FrameResult[]): JobResultsSummary {
