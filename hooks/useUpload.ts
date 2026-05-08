@@ -67,6 +67,18 @@ export function useUpload() {
         original_file_names: jobOptions.file_names,
         storage_file_names: uploadItems.map((item) => item.storageName),
         srt_storage_name: srtStorageName(jobOptions.options, jobOptions.file_names, uploadItems),
+        video_storage_filenames: storageNamesForList(
+          jobOptions.options,
+          "video_filenames",
+          jobOptions.file_names,
+          uploadItems,
+        ),
+        srt_storage_filenames: storageNamesForList(
+          jobOptions.options,
+          "srt_filenames",
+          jobOptions.file_names,
+          uploadItems,
+        ),
       };
       pendingFilesRef.current = uploadItems;
       setFileLabels(new Map(uploadItems.map((item) => [item.storageName, item.label])));
@@ -265,6 +277,22 @@ function srtStorageName(
 
   const index = originalNames.findIndex((name) => name === srtName && /\.srt$/i.test(name));
   return index >= 0 ? uploadItems[index]?.storageName ?? null : null;
+}
+
+function storageNamesForList(
+  options: Record<string, unknown> | undefined,
+  field: string,
+  originalNames: string[],
+  uploadItems: UploadItem[],
+) {
+  const names = options?.[field];
+  if (!Array.isArray(names)) return null;
+
+  return names.map((name) => {
+    if (typeof name !== "string" || name.length === 0) return null;
+    const index = originalNames.findIndex((candidate) => candidate === name);
+    return index >= 0 ? uploadItems[index]?.storageName ?? null : null;
+  });
 }
 
 async function responseMessage(response: Response, fallback: string) {

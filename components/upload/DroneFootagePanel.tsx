@@ -534,6 +534,8 @@ function MultiVideoPanel({
       options: {
         mode: "multi_drone_survey",
         is_multi_video: true,
+        gps_source: srts.length > 0 ? "srt" : "none",
+        has_srt: srts.length > 0,
         video_count: pairs.length,
         video_filenames: pairs.map((p) => p.video!.name),
         srt_filenames: pairs.map((p) => p.srt?.name ?? null),

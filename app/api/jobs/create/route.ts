@@ -26,6 +26,16 @@ function isSafeStorageName(name: string) {
   );
 }
 
+function hasMultiVideoSrt(options: Record<string, unknown>) {
+  const srtFilenames = Array.isArray(options.srt_filenames) ? options.srt_filenames : [];
+  const videoCount = typeof options.video_count === "number" ? options.video_count : 0;
+  return (
+    videoCount > 0 &&
+    srtFilenames.length === videoCount &&
+    srtFilenames.every((name) => typeof name === "string" && name.length > 0)
+  );
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const {
@@ -144,7 +154,9 @@ export async function POST(request: NextRequest) {
       ? true
       : body.mode === "handheld_video"
         ? options.has_srt === true
-        : options.gps_source === "embedded" || options.has_srt === true;
+        : options.gps_source === "embedded" ||
+          options.has_srt === true ||
+          (options.is_multi_video === true && hasMultiVideoSrt(options));
 
   if (body.mode === "drone_footage" && !gpsAvailable) {
     return NextResponse.json(

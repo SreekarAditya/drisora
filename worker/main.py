@@ -225,6 +225,61 @@ def find_srt_file(job: Dict[str, Any], work_dir: Path) -> Path | None:
     return next((work_dir / safe_file_name(name) for name in job.get("file_names", []) if safe_file_name(name).lower().endswith(".srt")), None)
 
 
+def build_multi_video_files(job: Dict[str, Any], work_dir: Path) -> list[Dict[str, str]] | None:
+    options = job.get("options", {})
+    if options.get("is_multi_video") is not True:
+        return None
+
+    video_names = options.get("video_filenames")
+    if not isinstance(video_names, list) or len(video_names) == 0:
+        return None
+
+    video_storage = options.get("video_storage_filenames")
+    if not isinstance(video_storage, list):
+        video_storage = [None] * len(video_names)
+
+    srt_names = options.get("srt_filenames")
+    if not isinstance(srt_names, list):
+        srt_names = [None] * len(video_names)
+
+    srt_storage = options.get("srt_storage_filenames")
+    if not isinstance(srt_storage, list):
+        srt_storage = [None] * len(video_names)
+
+    entries: list[Dict[str, str]] = []
+    for index, video_name in enumerate(video_names):
+        if not isinstance(video_name, str) or not video_name:
+            continue
+
+        storage_name = video_storage[index] if index < len(video_storage) else None
+        video_path = (
+            work_dir / safe_file_name(storage_name)
+            if isinstance(storage_name, str) and storage_name
+            else uploaded_file_by_original_name(job, video_name, work_dir)
+        )
+        if not video_path or not video_path.exists():
+            raise ValueError(f"Missing uploaded video for multi-video survey: {video_name}")
+
+        entry: Dict[str, str] = {"video": str(video_path)}
+        srt_name = srt_names[index] if index < len(srt_names) else None
+        srt_storage_name = srt_storage[index] if index < len(srt_storage) else None
+        srt_path = None
+        if isinstance(srt_storage_name, str) and srt_storage_name:
+            candidate = work_dir / safe_file_name(srt_storage_name)
+            if candidate.exists():
+                srt_path = candidate
+        if srt_path is None and isinstance(srt_name, str) and srt_name:
+            candidate = uploaded_file_by_original_name(job, srt_name, work_dir)
+            if candidate and candidate.suffix.lower() == ".srt" and candidate.exists():
+                srt_path = candidate
+        if srt_path is not None:
+            entry["srt"] = str(srt_path)
+
+        entries.append(entry)
+
+    return entries
+
+
 def upload_result(local_path: Path, r2_key: str) -> None:
     log.info("Uploading %s → s3://%s/%s", local_path, CLOUDFLARE_R2_BUCKET_NAME, r2_key)
     r2.upload_file(str(local_path), CLOUDFLARE_R2_BUCKET_NAME, r2_key)
@@ -349,13 +404,17 @@ def run_job(redis: Redis, job: Dict[str, Any]) -> None:
             if srt_path:
                 files["srt"] = str(srt_path)
         elif mode == "drone_footage":
-            video_path = find_video_file(job, work_dir)
-            if not video_path:
-                raise ValueError("drone_footage requires a video file")
-            files["video"] = str(video_path)
-            srt_path = find_srt_file(job, work_dir)
-            if srt_path:
-                files["srt"] = str(srt_path)
+            multi_videos = build_multi_video_files(job, work_dir)
+            if multi_videos:
+                files["videos"] = multi_videos
+            else:
+                video_path = find_video_file(job, work_dir)
+                if not video_path:
+                    raise ValueError("drone_footage requires a video file")
+                files["video"] = str(video_path)
+                srt_path = find_srt_file(job, work_dir)
+                if srt_path:
+                    files["srt"] = str(srt_path)
 
         frame_batch = dispatch_job(job_id, mode, files)
 
