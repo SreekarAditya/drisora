@@ -130,6 +130,10 @@ def _dispatch_handheld_video(job_id: str, files: Dict[str, Any]) -> FrameBatch:
 
 
 def _dispatch_drone_footage(job_id: str, files: Dict[str, Any]) -> FrameBatch:
+    multi_video_entries = files.get("videos")
+    if isinstance(multi_video_entries, list) and len(multi_video_entries) > 0:
+        return _dispatch_multi_drone_footage(job_id, files)
+
     video = files.get("video")
     if not video:
         raise ValueError("drone_footage requires 'video'")
@@ -153,6 +157,51 @@ def _dispatch_drone_footage(job_id: str, files: Dict[str, Any]) -> FrameBatch:
         }
         for f in enriched
     ]
+
+    gps_available = any(f["lat"] is not None and f["lon"] is not None for f in frames)
+
+    return {
+        "job_id": job_id,
+        "mode": "drone_footage",
+        "gps_available": gps_available,
+        "frame_count": len(frames),
+        "frames": frames,
+    }
+
+
+def _dispatch_multi_drone_footage(job_id: str, files: Dict[str, Any]) -> FrameBatch:
+    entries = files.get("videos")
+    if not isinstance(entries, list) or len(entries) == 0:
+        raise ValueError("multi-video drone_footage requires 'videos'")
+
+    interval = float(files.get("frame_interval_seconds", 1.0))
+    frames: List[FrameBatchItem] = []
+
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+
+        video = entry.get("video")
+        if not video:
+            raise ValueError("multi-video drone_footage requires a video for each entry")
+
+        srt_path = entry.get("srt")
+        raw_frames = extract_frames(video, interval_seconds=interval)
+        srt_entries = parse_srt(srt_path) if srt_path else []
+        enriched = attach_gps_to_frames(raw_frames, srt_entries) if srt_entries else raw_frames
+
+        for frame in enriched:
+            frames.append(
+                {
+                    "index": len(frames),
+                    "path": frame["path"],
+                    "timestamp_ms": frame["timestamp_ms"],
+                    "lat": frame.get("lat"),
+                    "lon": frame.get("lon"),
+                    "alt_m": frame.get("alt_m"),
+                    "gimbal_yaw": frame.get("gimbal_yaw"),
+                }
+            )
 
     gps_available = any(f["lat"] is not None and f["lon"] is not None for f in frames)
 

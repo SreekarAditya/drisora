@@ -252,16 +252,105 @@ def _build_dispatch_files(
         if srt_path:
             files["srt"] = str(srt_path)
     elif mode == "drone_footage":
-        video_path = _find_video_file(local_files)
-        if not video_path:
-            raise ValueError("drone_footage requires a video file")
-        files["video"] = str(video_path)
-        srt_path = _find_srt_file(local_files, options)
-        if srt_path:
-            files["srt"] = str(srt_path)
+        multi_videos = _build_multi_video_files(local_files, options)
+        if multi_videos:
+            files["videos"] = multi_videos
+        else:
+            video_path = _find_video_file(local_files)
+            if not video_path:
+                raise ValueError("drone_footage requires a video file")
+            files["video"] = str(video_path)
+            srt_path = _find_srt_file(local_files, options)
+            if srt_path:
+                files["srt"] = str(srt_path)
     else:
         raise ValueError(f"Unknown job mode: {mode!r}")
     return files
+
+
+def _storage_name_map(local_files: list[Path]) -> dict[str, Path]:
+    return {path.name: path for path in local_files}
+
+
+def _path_from_storage_name(
+    local_files: list[Path],
+    storage_by_name: dict[str, Path],
+    options: dict[str, Any],
+    original_name: str | None,
+    storage_name: str | None,
+    *,
+    expect_srt: bool,
+) -> Path | None:
+    if isinstance(storage_name, str) and storage_name:
+        storage_match = storage_by_name.get(storage_name)
+        if storage_match:
+            return storage_match
+
+    if isinstance(original_name, str) and original_name:
+        original_match = _uploaded_file_by_original_name(local_files, options, original_name)
+        if original_match:
+            if not expect_srt or original_match.suffix.lower() == ".srt":
+                return original_match
+
+    return None
+
+
+def _build_multi_video_files(
+    local_files: list[Path],
+    options: dict[str, Any],
+) -> list[dict[str, str]] | None:
+    if not _option_enabled(options, "is_multi_video"):
+        return None
+
+    video_names = options.get("video_filenames")
+    if not isinstance(video_names, list) or len(video_names) == 0:
+        return None
+
+    video_storage = options.get("video_storage_filenames")
+    if not isinstance(video_storage, list):
+        video_storage = [None] * len(video_names)
+
+    srt_names = options.get("srt_filenames")
+    if not isinstance(srt_names, list):
+        srt_names = [None] * len(video_names)
+
+    srt_storage = options.get("srt_storage_filenames")
+    if not isinstance(srt_storage, list):
+        srt_storage = [None] * len(video_names)
+
+    storage_by_name = _storage_name_map(local_files)
+    video_entries: list[dict[str, str]] = []
+
+    for index, video_name in enumerate(video_names):
+        if not isinstance(video_name, str) or not video_name:
+            continue
+
+        video_path = _path_from_storage_name(
+            local_files,
+            storage_by_name,
+            options,
+            video_name,
+            video_storage[index] if index < len(video_storage) else None,
+            expect_srt=False,
+        )
+        if not video_path:
+            raise ValueError(f"Missing uploaded video for multi-video survey: {video_name}")
+
+        entry: dict[str, str] = {"video": str(video_path)}
+        srt_path = _path_from_storage_name(
+            local_files,
+            storage_by_name,
+            options,
+            srt_names[index] if index < len(srt_names) else None,
+            srt_storage[index] if index < len(srt_storage) else None,
+            expect_srt=True,
+        )
+        if srt_path:
+            entry["srt"] = str(srt_path)
+
+        video_entries.append(entry)
+
+    return video_entries
 
 
 def _frame_area_px(image_path: Path) -> int:
