@@ -100,11 +100,23 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (body.mode === "drone_footage" && (body.file_count < 1 || body.file_count > 2)) {
-    return NextResponse.json(
-      { error: "Drone footage requires one video file and an optional SRT file" },
-      { status: 400 },
-    );
+  if (body.mode === "drone_footage") {
+    const isMultiVideo = body.options?.is_multi_video === true;
+    if (isMultiVideo) {
+      const videoCount = typeof body.options?.video_count === "number" ? body.options.video_count : 0;
+      const srtFilenames = Array.isArray(body.options?.srt_filenames) ? body.options.srt_filenames : [];
+      if (videoCount < 1 || srtFilenames.some((s: unknown) => s === null)) {
+        return NextResponse.json(
+          { error: "Drone footage requires one video file and an optional SRT file" },
+          { status: 400 },
+        );
+      }
+    } else if (body.file_count < 1 || body.file_count > 2) {
+      return NextResponse.json(
+        { error: "Drone footage requires one video file and an optional SRT file" },
+        { status: 400 },
+      );
+    }
   }
 
   const options = body.options ?? {};
