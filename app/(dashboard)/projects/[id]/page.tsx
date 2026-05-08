@@ -1,13 +1,15 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import ProjectMap from "@/components/map/ProjectMap";
 import { ProjectAssignForm } from "@/components/projects/ProjectAssignForm";
 import { analyzeDistress } from "@/lib/civil-intelligence";
+import { loadJobResults } from "@/lib/jobs/results";
+import { buildProjectMapCollection, type ProjectMapFeatureCollection, type SurveySectionRow } from "@/lib/project-map";
 import { createClient } from "@/lib/supabase/server";
 import {
   getPciBand,
   JOB_MODE_LABELS,
   PCI_BANDS,
-  type GeoJsonGeometry,
   type JobRecord,
   type ProjectRecord,
   type Survey,
@@ -29,20 +31,6 @@ type DetectionRow = {
   severity: string | null;
 };
 
-type SectionFeature = {
-  type: "Feature";
-  geometry: GeoJsonGeometry | null;
-  properties: {
-    pci_score?: number | null;
-    section_index?: number | null;
-  };
-};
-
-type FeatureCollection = {
-  type: "FeatureCollection";
-  features: SectionFeature[];
-};
-
 function formatDate(value: string | null | undefined) {
   if (!value) return "Not recorded";
   return new Date(value).toLocaleDateString("en-IN", {
@@ -50,72 +38,6 @@ function formatDate(value: string | null | undefined) {
     month: "short",
     year: "numeric",
   });
-}
-
-function lineCoordinates(feature: SectionFeature): Array<[number, number]> {
-  if (!feature.geometry || feature.geometry.type !== "LineString") return [];
-  return (feature.geometry.coordinates as number[][])
-    .filter((coordinate) => coordinate.length >= 2)
-    .map(([lng, lat]) => [lng, lat]);
-}
-
-function ProjectStaticMap({ collection }: { collection: FeatureCollection | null }) {
-  const lines = (collection?.features ?? [])
-    .map((feature) => ({ feature, coordinates: lineCoordinates(feature) }))
-    .filter((item) => item.coordinates.length > 0);
-
-  if (lines.length === 0) {
-    return (
-      <div className="flex h-80 items-center justify-center rounded-lg border border-white/10 bg-[#0b0c0d] text-center">
-        <div className="px-6">
-          <p className="text-sm font-semibold text-white">No geospatial sections linked yet</p>
-          <p className="mt-1 text-xs leading-5 text-gray-600">
-            Link a completed survey with road sections to build the combined project map.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  const points = lines.flatMap((line) => line.coordinates);
-  const minLng = Math.min(...points.map(([lng]) => lng));
-  const maxLng = Math.max(...points.map(([lng]) => lng));
-  const minLat = Math.min(...points.map(([, lat]) => lat));
-  const maxLat = Math.max(...points.map(([, lat]) => lat));
-  const width = 720;
-  const height = 320;
-  const pad = 32;
-  const lngRange = maxLng - minLng || 1;
-  const latRange = maxLat - minLat || 1;
-  const project = ([lng, lat]: [number, number]) => {
-    const x = pad + ((lng - minLng) / lngRange) * (width - pad * 2);
-    const y = pad + (1 - (lat - minLat) / latRange) * (height - pad * 2);
-    return `${x.toFixed(1)},${y.toFixed(1)}`;
-  };
-
-  return (
-    <div className="overflow-hidden rounded-lg border border-white/10 bg-[#050607]">
-      <svg viewBox={`0 0 ${width} ${height}`} className="h-80 w-full">
-        <rect width={width} height={height} fill="#050607" />
-        <path d="M0 80 L720 20 M0 190 L720 250 M120 0 L80 320 M650 0 L600 320" stroke="#111827" strokeWidth="2" />
-        {lines.map(({ feature, coordinates }, index) => {
-          const pci = feature.properties.pci_score ?? 0;
-          return (
-            <polyline
-              key={`${feature.properties.section_index ?? index}-${index}`}
-              points={coordinates.map(project).join(" ")}
-              fill="none"
-              stroke={getPciBand(pci).color}
-              strokeWidth="7"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              opacity="0.92"
-            />
-          );
-        })}
-      </svg>
-    </div>
-  );
 }
 
 function TrendChart({ records }: { records: LinkedRecord[] }) {
@@ -246,21 +168,40 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const jobs = (linkedJobs ?? []) as JobRecord[];
   const surveys = (linkedSurveys ?? []) as Survey[];
   const surveyIds = surveys.map((survey) => survey.id);
+  const surveyMetaById = new Map(
+    surveys.map((survey) => [
+      survey.id,
+      { id: survey.id, label: survey.name, created_at: survey.created_at },
+    ]),
+  );
+  const completedGpsJobs = jobs.filter(
+    (job) => job.status === "complete" && job.gps_available === true,
+  );
 
-  const [{ data: sectionsGeojson }, { data: detections }] = await Promise.all([
+  const [{ data: sectionRows }, { data: detections }, jobResultsSettled] = await Promise.all([
     surveyIds.length > 0
       ? supabase
           .from("road_sections")
-          .select("id, survey_id, geom, section_index, pci_score")
+          .select("id, survey_id, geom, section_index, pci_score, condition_category, recommended_intervention, priority_rank, length_m, avg_crack_width_mm, max_crack_width_mm, crack_length_m_by_type, possible_causes, recommended_mitigation, maintenance_priority, civil_severity")
           .in("survey_id", surveyIds)
-          .geojson()
-      : Promise.resolve({ data: null }),
+      : Promise.resolve({ data: [] }),
     surveyIds.length > 0
       ? supabase
           .from("detections")
           .select("crack_type, severity")
           .in("survey_id", surveyIds)
       : Promise.resolve({ data: [] }),
+    Promise.allSettled(
+      completedGpsJobs.map(async (job) => ({
+        meta: {
+          id: job.id,
+          label: JOB_MODE_LABELS[job.mode],
+          created_at: job.created_at,
+          mode: job.mode,
+        },
+        results: await loadJobResults(job.id, user.id, job.mode),
+      })),
+    ),
   ]);
 
   const linkedRecords: LinkedRecord[] = [
@@ -285,9 +226,21 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
     })),
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
-  const pciValues = linkedRecords
-    .map((record) => record.average_pci)
+  const projectMapCollection = buildProjectMapCollection({
+    surveySections: (sectionRows ?? []) as SurveySectionRow[],
+    surveyMetaById,
+    jobResults: jobResultsSettled
+      .flatMap((result) => (result.status === "fulfilled" ? [result.value] : [])),
+  });
+
+  const sectionPciValues = projectMapCollection.features
+    .map((feature) => feature.properties.pci_score)
     .filter((value): value is number => value != null);
+  const pciValues = sectionPciValues.length > 0
+    ? sectionPciValues
+    : linkedRecords
+        .map((record) => record.average_pci)
+        .filter((value): value is number => value != null);
   const averagePci =
     pciValues.length > 0 ? pciValues.reduce((sum, value) => sum + value, 0) / pciValues.length : null;
   const completed = linkedRecords.filter((record) => record.status === "complete").length;
@@ -310,6 +263,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const topCauses = rankedEntries(analyses.flatMap((analysis) => analysis.possibleCauses));
   const topTreatments = rankedEntries(analyses.map((analysis) => analysis.recommendedMitigation));
   const typedProject = project as ProjectRecord;
+  const mapHasGeometry = projectMapCollection.features.length > 0;
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-10">
@@ -368,9 +322,20 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           <section className="rounded-lg border border-white/10 bg-[#101113] p-5">
             <div className="mb-4 flex items-center justify-between gap-4">
               <h2 className="text-lg font-semibold text-white">Combined pavement map</h2>
-              <span className="text-xs text-gray-600">All linked geospatial sections</span>
+              <span className="text-xs text-gray-600">Campus-wide linked sections and 100 m PCI segments</span>
             </div>
-            <ProjectStaticMap collection={sectionsGeojson as FeatureCollection | null} />
+            {mapHasGeometry ? (
+              <ProjectMap geojson={projectMapCollection as ProjectMapFeatureCollection} />
+            ) : (
+              <div className="flex h-[520px] items-center justify-center rounded-lg border border-white/10 bg-[#0b0c0d] text-center">
+                <div className="px-6">
+                  <p className="text-sm font-semibold text-white">No geospatial sections linked yet</p>
+                  <p className="mt-1 text-xs leading-5 text-gray-600">
+                    Link a completed GPS-backed survey or upload job to build the combined campus map.
+                  </p>
+                </div>
+              </div>
+            )}
             <div className="mt-4 flex flex-wrap gap-3">
               {PCI_BANDS.map((band) => (
                 <span key={band.label} className="inline-flex items-center gap-2 text-xs text-gray-500">
@@ -378,6 +343,12 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                   {band.label} ({conditionCounts.find((item) => item.band.label === band.label)?.count ?? 0})
                 </span>
               ))}
+              {projectMapCollection.features.some((feature) => feature.properties.is_relative) && (
+                <span className="inline-flex items-center gap-2 text-xs text-gray-500">
+                  <span className="h-0.5 w-7 border-t-2 border-dashed border-gray-400" />
+                  Relative PCI (&lt;100 m)
+                </span>
+              )}
             </div>
           </section>
         </div>
