@@ -584,6 +584,13 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             total_detections += len(frame_result.get("detections") or [])
             pci_scores.append(float(frame_result["pci_score"]))
 
+            _upload_file(
+                r2_client,
+                bucket,
+                frame_path,
+                f"{output_r2_prefix}frames/{frame_path.name}",
+            )
+
             detection_path = detection_dir / f"{frame_path.stem}.json"
             detection_path.parent.mkdir(parents=True, exist_ok=True)
             detection_path.write_text(json.dumps(frame_result))

@@ -47,6 +47,7 @@ export function DetectionFrameImage({
 
   const annotations = frame.detection_annotations ?? [];
   const hasDetections = annotations.length > 0;
+  const imageSrc = frame.overlay_url ?? frame.image_url ?? null;
   const sourceWidth = frame.image_width ?? naturalSize?.width ?? 1;
   const sourceHeight = frame.image_height ?? naturalSize?.height ?? 1;
   const sourceSize = useMemo(
@@ -75,9 +76,9 @@ export function DetectionFrameImage({
 
   return (
     <div ref={containerRef} className={`relative overflow-hidden ${className}`}>
-      {frame.overlay_url && !imgError ? (
+      {imageSrc && !imgError ? (
         <Image
-          src={frame.overlay_url}
+          src={imageSrc}
           alt={alt}
           fill
           sizes={sizes}

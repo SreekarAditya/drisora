@@ -62,16 +62,32 @@ export async function loadJobResults(
   const prefix = `results/${userId}/${jobId}`;
   const detectionPrefix = `${prefix}/detections/`;
   const overlayPrefix = `${prefix}/overlays/`;
+  const framePrefix = `${prefix}/frames/`;
+  const rawPrefix = `uploads/${userId}/${jobId}/raw/`;
 
   const detectionKeys = await listR2Objects(detectionPrefix);
   if (detectionKeys.length === 0) {
     return emptyResults(jobId, mode);
   }
   let overlayKeys = new Set<string>();
+  let frameKeys = new Set<string>();
+  let rawKeys = new Set<string>();
   try {
     overlayKeys = new Set(await listR2Objects(overlayPrefix));
   } catch {
     overlayKeys = new Set();
+  }
+  try {
+    frameKeys = new Set(await listR2Objects(framePrefix));
+  } catch {
+    frameKeys = new Set();
+  }
+  if (mode === "image_batch") {
+    try {
+      rawKeys = new Set(await listR2Objects(rawPrefix));
+    } catch {
+      rawKeys = new Set();
+    }
   }
 
   // Fetch all detection JSONs in parallel (batched to avoid overwhelming R2)
@@ -103,6 +119,20 @@ export async function loadJobResults(
         }
       }),
     );
+    const framePresigns = await Promise.all(
+      batch.map(async (key) => {
+        const stem = key.replace(detectionPrefix, "").replace(/\.json$/, "");
+        const frameKey =
+          findFrameKeyForStem(frameKeys, framePrefix, stem) ??
+          (mode === "image_batch" ? findFrameKeyForStem(rawKeys, rawPrefix, stem) : null);
+        if (!frameKey) return null;
+        try {
+          return await getPresignedGetUrl(frameKey, 3600);
+        } catch {
+          return null;
+        }
+      }),
+    );
 
     for (let j = 0; j < parsed.length; j++) {
       const item = parsed[j];
@@ -129,6 +159,7 @@ export async function loadJobResults(
         crack_types: crackTypes,
         crack_type_lengths_m: metrics.lengthByTypeM,
         overlay_url: overlayPresigns[j],
+        image_url: framePresigns[j],
         timestamp_ms: data.timestamp_ms ?? data.frame?.timestamp_ms ?? null,
         lat: data.lat ?? data.frame?.lat ?? null,
         lon: data.lon ?? data.frame?.lon ?? null,
@@ -159,6 +190,16 @@ export async function loadJobResults(
   const summary = computeSummary(frames);
 
   return { job_id: jobId, mode, summary, frames };
+}
+
+function findFrameKeyForStem(frameKeys: Set<string>, framePrefix: string, stem: string) {
+  for (const key of frameKeys) {
+    const filename = key.replace(framePrefix, "");
+    if (filename.replace(/\.[^.]+$/, "") === stem) {
+      return key;
+    }
+  }
+  return null;
 }
 
 async function hydrateGpsFromUploadedSrt(
