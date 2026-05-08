@@ -71,6 +71,7 @@ export interface FrameResult {
   crack_types: string[];
   crack_type_lengths_m: Record<string, number>;
   overlay_url: string | null;
+  image_url?: string | null;
   timestamp_ms: number | null;
   lat: number | null;
   lon: number | null;
