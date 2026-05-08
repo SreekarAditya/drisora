@@ -80,10 +80,41 @@ const s = StyleSheet.create({
   stampText: { fontSize: 11, fontWeight: 700, color: C.amber, textAlign: "center" },
 });
 
+interface PciSegmentData {
+  segment_index: number;
+  start_distance_m: number;
+  end_distance_m: number;
+  total_length_m: number;
+  pci_score: number | null;
+  pci_grade: string | null;
+  is_relative: boolean;
+  detection_count: number;
+}
+
 interface Props {
   results: JobResults;
   surveyDate: string;
   orgName: string;
+  pciSegments?: PciSegmentData[];
+  surveySummary?: {
+    weighted_pci: number;
+    total_length_m: number;
+    segment_count: number;
+    rpci_segment_count: number;
+  };
+}
+
+function pciGradeColor(grade: string | null): string {
+  switch (grade) {
+    case "Good": return "#16a34a";
+    case "Satisfactory": return "#ca8a04";
+    case "Fair": return "#ea580c";
+    case "Poor": return "#dc2626";
+    case "Very Poor": return "#991b1b";
+    case "Serious": return "#7f1d1d";
+    case "Failed": return "#450a0a";
+    default: return "#374151";
+  }
 }
 
 function PdfLogo({ compact = false }: { compact?: boolean }) {
@@ -361,6 +392,86 @@ function SectionTablePage({
   );
 }
 
+function PciSegmentPage({
+  segments,
+  surveySummary,
+  jobId,
+  pageIndex,
+  pageCount,
+}: {
+  segments: PciSegmentData[];
+  surveySummary: Props["surveySummary"];
+  jobId: string;
+  pageIndex: number;
+  pageCount: number;
+}) {
+  return (
+    <Page size="A4" style={s.page}>
+      <PdfLogo compact />
+      <Text style={[s.kicker, { marginTop: 8 }]}>IRC:82-2023 PCI Segment Schedule</Text>
+      <Text style={s.h2}>PCI Segment Schedule</Text>
+      {surveySummary && (
+        <View style={s.kpiRow}>
+          <View style={s.kpi}>
+            <Text style={[s.kpiValue, { color: pciGradeColor(null) }]}>{surveySummary.weighted_pci.toFixed(1)}</Text>
+            <Text style={s.kpiLabel}>Weighted PCI</Text>
+          </View>
+          <View style={s.kpi}>
+            <Text style={s.kpiValue}>{formatLength(surveySummary.total_length_m)}</Text>
+            <Text style={s.kpiLabel}>Total length</Text>
+          </View>
+          <View style={s.kpi}>
+            <Text style={s.kpiValue}>{surveySummary.segment_count}</Text>
+            <Text style={s.kpiLabel}>Segments</Text>
+          </View>
+          <View style={s.kpi}>
+            <Text style={s.kpiValue}>{surveySummary.rpci_segment_count}</Text>
+            <Text style={s.kpiLabel}>RPCI segments</Text>
+          </View>
+        </View>
+      )}
+      <Text style={[s.small, { marginBottom: 8, marginTop: surveySummary ? 8 : 0 }]}>
+        Segment table. Page {pageIndex + 1} of {pageCount}.
+      </Text>
+      <View style={s.table}>
+        <View style={s.row} fixed>
+          <Text style={[s.th, { width: "7%" }]}>Seg #</Text>
+          <Text style={[s.th, { width: "18%" }]}>Distance Range</Text>
+          <Text style={[s.th, { width: "10%" }]}>Coverage</Text>
+          <Text style={[s.th, { width: "10%" }]}>PCI Score</Text>
+          <Text style={[s.th, { width: "12%" }]}>Grade</Text>
+          <Text style={[s.th, { width: "15%" }]}>Status</Text>
+          <Text style={[s.th, { width: "10%" }]}>Detections</Text>
+        </View>
+        {segments.map((seg) => {
+          const color = pciGradeColor(seg.pci_grade);
+          return (
+            <View key={seg.segment_index} style={s.row}>
+              <Text style={[s.td, { width: "7%" }]}>{seg.segment_index + 1}</Text>
+              <Text style={[s.td, { width: "18%" }]}>
+                {seg.start_distance_m.toFixed(0)}m – {seg.end_distance_m.toFixed(0)}m
+              </Text>
+              <Text style={[s.td, { width: "10%" }]}>{seg.total_length_m.toFixed(0)}m</Text>
+              <Text style={[s.td, { width: "10%", color, fontWeight: 700 }]}>
+                {seg.pci_score == null ? "N/A" : seg.pci_score.toFixed(1)}
+              </Text>
+              <Text style={[s.td, { width: "12%", color }]}>{seg.pci_grade ?? "N/A"}</Text>
+              <Text style={[s.td, { width: "15%" }]}>{seg.is_relative ? "RPCI *" : "Standard"}</Text>
+              <Text style={[s.td, { width: "10%" }]}>{seg.detection_count}</Text>
+            </View>
+          );
+        })}
+      </View>
+      {pageIndex === pageCount - 1 && (
+        <Text style={[s.small, { marginTop: 10 }]}>
+          * RPCI: Relative PCI computed for road section {"<"} 100m coverage. Not directly comparable to standard IRC:82-2023 PCI values.
+        </Text>
+      )}
+      <Footer jobId={jobId} />
+    </Page>
+  );
+}
+
 function Footer({ jobId }: { jobId: string }) {
   return (
     <View style={s.footer} fixed>
@@ -373,7 +484,7 @@ function Footer({ jobId }: { jobId: string }) {
   );
 }
 
-export function JobReport({ results, surveyDate, orgName }: Props) {
+export function JobReport({ results, surveyDate, orgName, pciSegments, surveySummary }: Props) {
   const { summary, frames, mode, job_id } = results;
   const avgBand = getPciBand(summary.average_pci);
   const sampledRows = frames.slice(0, MAX_SECTION_ROWS);
@@ -444,6 +555,12 @@ export function JobReport({ results, surveyDate, orgName }: Props) {
             <Text style={s.kpiValue}>{immediate}</Text>
             <Text style={s.kpiLabel}>Immediate priority sections</Text>
           </View>
+          {surveySummary && (
+            <View style={s.kpi}>
+              <Text style={[s.kpiValue, { color: pciGradeColor(null) }]}>{surveySummary.weighted_pci.toFixed(1)}</Text>
+              <Text style={s.kpiLabel}>Weighted PCI</Text>
+            </View>
+          )}
         </View>
 
         <View style={s.pills}>
@@ -520,6 +637,17 @@ export function JobReport({ results, surveyDate, orgName }: Props) {
       </Page>
 
       {mode === "drone_footage" && <ConditionMapPage frames={frames} summary={summary} jobId={job_id} />}
+
+      {pciSegments && pciSegments.length > 0 && chunks(pciSegments, ROWS_PER_PAGE).map((segPage, index, all) => (
+        <PciSegmentPage
+          key={index}
+          segments={segPage}
+          surveySummary={surveySummary}
+          jobId={job_id}
+          pageIndex={index}
+          pageCount={all.length}
+        />
+      ))}
 
       {rowPages.map((rows, index) => (
         <SectionTablePage key={index} rows={rows} pageIndex={index} pageCount={rowPages.length} jobId={job_id} />
