@@ -10,6 +10,27 @@ type GpsState =
   | { kind: "not_found" };
 
 type SurveyMode = "single" | "multi";
+type FrameProfile = "all_frames" | "0.25s" | "0.5s" | "1s";
+
+const FRAME_PROFILES: Array<{ value: FrameProfile; label: string; hint: string }> = [
+  { value: "all_frames", label: "All frames", hint: "60 fps x 2 min ~= 7,200 frames" },
+  { value: "0.25s", label: "Every 0.25s", hint: "Dense review" },
+  { value: "0.5s", label: "Every 0.5s", hint: "Detailed survey" },
+  { value: "1s", label: "Every 1s", hint: "Fast preview" },
+];
+
+function frameProfileOptions(profile: FrameProfile) {
+  if (profile === "all_frames") {
+    return {
+      frame_extraction_mode: "all_frames",
+      frame_interval_seconds: null,
+    };
+  }
+  return {
+    frame_extraction_mode: "interval",
+    frame_interval_seconds: Number(profile.replace("s", "")),
+  };
+}
 
 interface VideoPair {
   id: string;
@@ -41,6 +62,7 @@ function SingleVideoPanel({
 }) {
   const [video, setVideo] = useState<File | null>(null);
   const [srt, setSrt] = useState<File | null>(null);
+  const [frameProfile, setFrameProfile] = useState<FrameProfile>("all_frames");
   const [enableMetricAnalysis, setEnableMetricAnalysis] = useState(false);
   const [gps, setGps] = useState<GpsState>({ kind: "unchecked" });
   const [videoDrag, setVideoDrag] = useState(false);
@@ -108,6 +130,7 @@ function SingleVideoPanel({
         gps_source: gps.kind === "found" ? "embedded" : "srt",
         has_srt: srt !== null,
         srt_name: srt?.name ?? null,
+        ...frameProfileOptions(frameProfile),
         enable_metric_analysis: enableMetricAnalysis,
         enable_depthpro: enableMetricAnalysis,
       },
@@ -256,6 +279,30 @@ function SingleVideoPanel({
           )}
         </div>
       )}
+
+      <div className="mt-5 rounded-lg border border-[#242424] bg-[#0a0a0a] p-4">
+        <p className="text-sm font-medium text-white">Frame extraction</p>
+        <p className="mt-0.5 text-xs text-gray-600">
+          Use all frames when PCI reproducibility matters. A 4K60 two-minute video should produce about 7,200 frames.
+        </p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {FRAME_PROFILES.map((profile) => (
+            <button
+              key={profile.value}
+              type="button"
+              onClick={() => setFrameProfile(profile.value)}
+              className={`rounded-md border px-3 py-2 text-left transition-colors ${
+                frameProfile === profile.value
+                  ? "border-amber-500/60 bg-amber-500/10 text-amber-300"
+                  : "border-[#1f1f1f] bg-[#101010] text-gray-500 hover:border-[#333] hover:text-gray-300"
+              }`}
+            >
+              <span className="block text-xs font-semibold">{profile.label}</span>
+              <span className="mt-0.5 block text-[11px]">{profile.hint}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       <label className="mt-5 flex items-center justify-between gap-4 rounded-lg border border-[#242424] bg-[#0a0a0a] px-4 py-3">
         <span>
@@ -478,6 +525,7 @@ function MultiVideoPanel({
   const [pairs, setPairs] = useState<VideoPair[]>([
     { id: crypto.randomUUID(), video: null, srt: null, videoError: null },
   ]);
+  const [frameProfile, setFrameProfile] = useState<FrameProfile>("all_frames");
   const [enableMetricAnalysis, setEnableMetricAnalysis] = useState(false);
 
   function addPair() {
@@ -539,6 +587,7 @@ function MultiVideoPanel({
         video_count: pairs.length,
         video_filenames: pairs.map((p) => p.video!.name),
         srt_filenames: pairs.map((p) => p.srt?.name ?? null),
+        ...frameProfileOptions(frameProfile),
         enable_metric_analysis: enableMetricAnalysis,
         enable_depthpro: enableMetricAnalysis,
       },
@@ -574,6 +623,30 @@ function MultiVideoPanel({
         </svg>
         Add another video
       </button>
+
+      <div className="mt-5 rounded-lg border border-[#242424] bg-[#0a0a0a] p-4">
+        <p className="text-sm font-medium text-white">Frame extraction</p>
+        <p className="mt-0.5 text-xs text-gray-600">
+          All frames is the reproducible mode for dense PCI review. Interval modes are previews.
+        </p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          {FRAME_PROFILES.map((profile) => (
+            <button
+              key={profile.value}
+              type="button"
+              onClick={() => setFrameProfile(profile.value)}
+              className={`rounded-md border px-3 py-2 text-left transition-colors ${
+                frameProfile === profile.value
+                  ? "border-amber-500/60 bg-amber-500/10 text-amber-300"
+                  : "border-[#1f1f1f] bg-[#101010] text-gray-500 hover:border-[#333] hover:text-gray-300"
+              }`}
+            >
+              <span className="block text-xs font-semibold">{profile.label}</span>
+              <span className="mt-0.5 block text-[11px]">{profile.hint}</span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       <label className="mt-5 flex items-center justify-between gap-4 rounded-lg border border-[#242424] bg-[#0a0a0a] px-4 py-3">
         <span>

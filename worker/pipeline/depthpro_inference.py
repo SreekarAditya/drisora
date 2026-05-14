@@ -18,7 +18,6 @@ _LOAD_FAILED = False
 MODEL_URL = os.environ.get("DEPTHPRO_MODEL_URL", "https://ml-site.cdn-apple.com/models/depth-pro/depth_pro.pt")
 MODEL_PATH = Path(os.environ.get("DEPTHPRO_MODEL_PATH", "/tmp/models/depth_pro.pt"))
 DEFAULT_DEPTH_M = 1.0
-FALLBACK_AREA_SCALE_M2_PER_PX = 0.0001
 FOV_RADIANS = 1.0
 
 
@@ -103,9 +102,11 @@ def _fallback(detections: list[dict[str, Any]]) -> dict[str, Any]:
     updated: list[dict[str, Any]] = []
     for detection in detections or []:
         item = dict(detection)
-        area_px = float(item.get("mask_area_px") or item.get("area_px") or 0.0)
-        item["depth_m"] = DEFAULT_DEPTH_M
-        item["mask_area_m2"] = area_px * FALLBACK_AREA_SCALE_M2_PER_PX
+        item["depth_m"] = None
+        item["camera_surface_distance_m"] = None
+        item["pixel_size_m"] = None
+        item["mask_area_m2"] = None
+        item["metric_error"] = "depthpro_unavailable"
         updated.append(item)
     return {"depth_map": np.array([], dtype=np.float32), "detections": updated}
 

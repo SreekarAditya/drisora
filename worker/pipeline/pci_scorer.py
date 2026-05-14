@@ -10,6 +10,7 @@ CRACK_CLASSES = {"D00", "D10", "D20"}
 POTHOLE_CLASS = "D40"
 IRC_STANDARD = "IRC:82-2023"
 BASELINE_IRI = 2.5
+SCORING_VERSION = "drisora_pci_v1"
 
 
 def pci_cracking(ce: float) -> float:
@@ -36,11 +37,7 @@ def pci_ravelling(re: float) -> float:
 def pci_pothole(pn: float) -> float:
     if pn <= 0:
         return 100.0
-    num = -80.32 * pn**3 + 1129.0 * pn**2 - 3524.0 * pn + 3566.0
-    den = pn**3 + 5.791 * pn**2 - 28.67 * pn + 35.72
-    if den <= 0:
-        return 0.0
-    return min(100.0, max(0.0, num / den))
+    return min(100.0, max(0.0, 100.0 - 28.0 * pn))
 
 
 def pci_patch(pe: float) -> float:
@@ -108,6 +105,7 @@ def _safe_fallback() -> dict[str, Any]:
         "crack_types": [],
         "dominant_crack": None,
         "irc_standard": IRC_STANDARD,
+        "scoring_version": SCORING_VERSION,
     }
 
 
@@ -145,13 +143,30 @@ def _crack_extent_pct(detections: list[dict[str, Any]], frame_area_px: float) ->
 
 
 def _pothole_count(detections: list[dict[str, Any]]) -> int:
-    count = 0
-    for detection in detections:
-        if _class_name(detection) != POTHOLE_CLASS:
-            continue
-        if detection.get("mask_area_m2") is None or float(detection.get("mask_area_m2") or 0.0) > 0.1:
-            count += 1
-    return count
+    return sum(1 for detection in detections if _class_name(detection) == POTHOLE_CLASS)
+
+
+def _pothole_extent_pct(detections: list[dict[str, Any]], frame_area_px: float) -> float:
+    potholes = [det for det in detections if _class_name(det) == POTHOLE_CLASS]
+    if not potholes:
+        return 0.0
+    pothole_area_px = sum(_area_px(det) for det in potholes)
+    return min(100.0, max(0.0, pothole_area_px / max(float(frame_area_px), 1.0) * 100.0))
+
+
+def _pothole_cap(count: int, extent_pct: float) -> float:
+    if count <= 0 and extent_pct <= 0:
+        return 100.0
+    cap = 78.0
+    if count >= 2 or extent_pct >= 1.0:
+        cap = 65.0
+    if count >= 4 or extent_pct >= 3.0:
+        cap = 50.0
+    if count >= 8 or extent_pct >= 6.0:
+        cap = 35.0
+    if count >= 12 or extent_pct >= 10.0:
+        cap = 25.0
+    return cap
 
 
 def _rut_depth_mm(depth_map: Any) -> float:
@@ -183,17 +198,18 @@ def score(
         ce = _crack_extent_pct(detections, frame_area_px)
         re = 0.0
         pn = _pothole_count(detections)
+        pothole_extent_pct = _pothole_extent_pct(detections, frame_area_px)
         pe = 0.0
         rd = _rut_depth_mm(depth_map)
-        iri = BASELINE_IRI
+        iri = None
 
         individual_scores = {
             "cracking": pci_cracking(ce),
             "ravelling": pci_ravelling(re),
-            "pothole": pci_pothole(float(pn)),
+            "pothole": min(pci_pothole(float(pn)), 100.0 - min(85.0, pothole_extent_pct * 12.0)),
             "patching": pci_patch(pe),
             "rut": pci_rut(rd),
-            "roughness": pci_roughness(iri),
+            "roughness": 100.0,
         }
         pci = (
             0.40 * individual_scores["roughness"]
@@ -203,6 +219,7 @@ def score(
             + 0.10 * individual_scores["ravelling"]
             + 0.08 * individual_scores["patching"]
         )
+        pci = min(pci, _pothole_cap(pn, pothole_extent_pct))
         pci = min(100.0, max(0.0, pci))
         condition, recommendation = _condition_and_recommendation(pci)
 
@@ -216,6 +233,7 @@ def score(
             "recommendation": recommendation,
             "crack_extent_pct": round(ce, 4),
             "pothole_count": pn,
+            "pothole_extent_pct": round(pothole_extent_pct, 4),
             "rut_depth_mm": round(rd, 4),
             "iri": iri,
             "individual_scores": {
@@ -224,6 +242,7 @@ def score(
             "crack_types": crack_types,
             "dominant_crack": dominant_crack,
             "irc_standard": IRC_STANDARD,
+            "scoring_version": SCORING_VERSION,
         }
     except Exception as e:
         print(f"[PCI] scoring failed: {e}")

@@ -33,6 +33,7 @@ interface RawDetection {
   sam2_attempted?: boolean | null;
   yolo_detection_count?: number | null;
   final_detection_count?: number | null;
+  detections?: Array<{ class?: string | null; crack_type?: string | null }>;
   processing_ms?: number | null;
   [key: string]: unknown;
 }
@@ -140,6 +141,7 @@ export async function loadJobResults(
       const { stem, data } = item;
       const imageSize = parseImageSize(data);
       const crackTypes = normalizeCrackTypes(data.crack_types);
+      const crackDetectionCount = countCrackDetections(data.detections);
       const cameraSurfaceDistanceM = data.camera_surface_distance_m ?? data.depth_estimate ?? null;
       const metrics = deriveCrackMetrics({
         crackTypes,
@@ -147,6 +149,7 @@ export async function loadJobResults(
         avgWidthMm: data.avg_crack_width_mm ?? null,
         maxWidthMm: data.max_crack_width_mm ?? null,
         crackTypeLengthsM: data.crack_type_lengths_m ?? data.crack_lengths_m_by_type ?? {},
+        crackDetectionCount,
         finalDetectionCount: data.final_detection_count ?? null,
         yoloDetectionCount: data.yolo_detection_count ?? null,
         cameraSurfaceDistanceM,
@@ -190,6 +193,18 @@ export async function loadJobResults(
   const summary = computeSummary(frames);
 
   return { job_id: jobId, mode, summary, frames };
+}
+
+function countCrackDetections(detections: RawDetection["detections"]) {
+  if (!Array.isArray(detections)) return null;
+  let count = 0;
+  for (const detection of detections) {
+    const label = crackTypeLabel(String(detection.class ?? detection.crack_type ?? ""));
+    if (label && !label.toLowerCase().includes("pothole")) {
+      count += 1;
+    }
+  }
+  return count;
 }
 
 function findFrameKeyForStem(frameKeys: Set<string>, framePrefix: string, stem: string) {

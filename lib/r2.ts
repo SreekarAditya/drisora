@@ -45,7 +45,7 @@ export async function listR2Objects(prefix: string): Promise<string[]> {
     }
     continuationToken = res.IsTruncated ? res.NextContinuationToken : undefined;
   } while (continuationToken);
-  return keys;
+  return keys.sort();
 }
 
 export async function getR2ObjectText(key: string): Promise<string> {

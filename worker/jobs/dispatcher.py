@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional, Sequence, TypedDict
 
 from ingest.image_batch import process_image_batch
 from ingest.srt_parser import parse_srt
-from ingest.video_handler import attach_gps_to_frames, extract_frames
+from ingest.video_handler import attach_gps_to_frames, extract_frames, last_extraction_metadata
 
 # --- Public types -----------------------------------------------------------
 
@@ -31,6 +31,7 @@ class FrameBatch(TypedDict):
     gps_available: bool
     frame_count: int
     frames: List[FrameBatchItem]
+    ingest_metadata: dict[str, Any]
 
 
 # --- Dispatch ---------------------------------------------------------------
@@ -91,6 +92,7 @@ def _dispatch_image_batch(job_id: str, files: Dict[str, Any]) -> FrameBatch:
         "gps_available": gps_available,
         "frame_count": len(frames),
         "frames": frames,
+        "ingest_metadata": {"input_type": "image_batch"},
     }
 
 
@@ -99,9 +101,12 @@ def _dispatch_handheld_video(job_id: str, files: Dict[str, Any]) -> FrameBatch:
     if not video:
         raise ValueError("handheld_video requires 'video'")
     srt_path = files.get("srt")
-    interval = float(files.get("frame_interval_seconds", 1.0))
+    mode = str(files.get("frame_extraction_mode") or "all_frames")
+    interval_value = files.get("frame_interval_seconds", 1.0)
+    interval = None if mode == "all_frames" else float(interval_value or 1.0)
 
-    raw_frames = extract_frames(video, interval_seconds=interval)
+    raw_frames = extract_frames(video, interval_seconds=interval, extraction_mode=mode)
+    ingest_metadata = last_extraction_metadata()
     srt_entries = parse_srt(srt_path) if srt_path else []
     enriched = attach_gps_to_frames(raw_frames, srt_entries) if srt_entries else raw_frames
 
@@ -126,6 +131,7 @@ def _dispatch_handheld_video(job_id: str, files: Dict[str, Any]) -> FrameBatch:
         "gps_available": gps_available,
         "frame_count": len(frames),
         "frames": frames,
+        "ingest_metadata": ingest_metadata,
     }
 
 
@@ -138,9 +144,12 @@ def _dispatch_drone_footage(job_id: str, files: Dict[str, Any]) -> FrameBatch:
     if not video:
         raise ValueError("drone_footage requires 'video'")
     srt_path = files.get("srt")
-    interval = float(files.get("frame_interval_seconds", 1.0))
+    mode = str(files.get("frame_extraction_mode") or "all_frames")
+    interval_value = files.get("frame_interval_seconds", 1.0)
+    interval = None if mode == "all_frames" else float(interval_value or 1.0)
 
-    raw_frames = extract_frames(video, interval_seconds=interval)
+    raw_frames = extract_frames(video, interval_seconds=interval, extraction_mode=mode)
+    ingest_metadata = last_extraction_metadata()
 
     srt_entries = parse_srt(srt_path) if srt_path else []
     enriched = attach_gps_to_frames(raw_frames, srt_entries) if srt_entries else raw_frames
@@ -166,6 +175,7 @@ def _dispatch_drone_footage(job_id: str, files: Dict[str, Any]) -> FrameBatch:
         "gps_available": gps_available,
         "frame_count": len(frames),
         "frames": frames,
+        "ingest_metadata": ingest_metadata,
     }
 
 
@@ -174,8 +184,11 @@ def _dispatch_multi_drone_footage(job_id: str, files: Dict[str, Any]) -> FrameBa
     if not isinstance(entries, list) or len(entries) == 0:
         raise ValueError("multi-video drone_footage requires 'videos'")
 
-    interval = float(files.get("frame_interval_seconds", 1.0))
+    mode = str(files.get("frame_extraction_mode") or "all_frames")
+    interval_value = files.get("frame_interval_seconds", 1.0)
+    interval = None if mode == "all_frames" else float(interval_value or 1.0)
     frames: List[FrameBatchItem] = []
+    extraction_runs: list[dict[str, Any]] = []
 
     for entry in entries:
         if not isinstance(entry, dict):
@@ -186,7 +199,8 @@ def _dispatch_multi_drone_footage(job_id: str, files: Dict[str, Any]) -> FrameBa
             raise ValueError("multi-video drone_footage requires a video for each entry")
 
         srt_path = entry.get("srt")
-        raw_frames = extract_frames(video, interval_seconds=interval)
+        raw_frames = extract_frames(video, interval_seconds=interval, extraction_mode=mode)
+        extraction_runs.append(last_extraction_metadata())
         srt_entries = parse_srt(srt_path) if srt_path else []
         enriched = attach_gps_to_frames(raw_frames, srt_entries) if srt_entries else raw_frames
 
@@ -211,4 +225,10 @@ def _dispatch_multi_drone_footage(job_id: str, files: Dict[str, Any]) -> FrameBa
         "gps_available": gps_available,
         "frame_count": len(frames),
         "frames": frames,
+        "ingest_metadata": {
+            "input_type": "multi_video",
+            "extraction_mode": mode,
+            "frame_interval_seconds": interval,
+            "videos": extraction_runs,
+        },
     }

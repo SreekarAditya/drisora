@@ -20,5 +20,9 @@ COPY models/depth_pro.pt /app/models/depth_pro.pt
 
 ENV SAM2_MODEL_PATH=/app/models/sam2.1_hiera_small.pt
 ENV DEPTHPRO_MODEL_PATH=/app/models/depth_pro.pt
+ENV DRISORA_DETERMINISTIC_SEED=1337
+ENV DRISORA_DETERMINISTIC_EXTRACTOR=1
+ENV PYTHONHASHSEED=1337
+ENV CUBLAS_WORKSPACE_CONFIG=:4096:8
 
 CMD ["python", "handler.py"]

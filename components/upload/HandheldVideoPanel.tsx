@@ -3,19 +3,32 @@
 import { useState } from "react";
 import { useUpload } from "@/hooks/useUpload";
 
-const INTERVALS = [
-  { value: 0.5, label: "Every 0.5s", hint: "Highest detail" },
-  { value: 1, label: "Every 1s", hint: "Recommended" },
-  { value: 2, label: "Every 2s", hint: "Balanced" },
-  { value: 5, label: "Every 5s", hint: "Fast / overview" },
+const FRAME_PROFILES = [
+  { value: "all_frames", label: "All frames", hint: "60 fps x 2 min ~= 7,200 frames" },
+  { value: "0.25s", label: "Every 0.25s", hint: "Dense review" },
+  { value: "0.5s", label: "Every 0.5s", hint: "Detailed survey" },
+  { value: "1s", label: "Every 1s", hint: "Fast preview" },
 ] as const;
 
-type Interval = (typeof INTERVALS)[number]["value"];
+type FrameProfile = (typeof FRAME_PROFILES)[number]["value"];
+
+function frameProfileOptions(profile: FrameProfile) {
+  if (profile === "all_frames") {
+    return {
+      frame_extraction_mode: "all_frames",
+      frame_interval_seconds: null,
+    };
+  }
+  return {
+    frame_extraction_mode: "interval",
+    frame_interval_seconds: Number(profile.replace("s", "")),
+  };
+}
 
 export function HandheldVideoPanel({ projectId }: { projectId?: string | null }) {
   const [video, setVideo] = useState<File | null>(null);
   const [srt, setSrt] = useState<File | null>(null);
-  const [interval, setInterval] = useState<Interval>(1);
+  const [frameProfile, setFrameProfile] = useState<FrameProfile>("all_frames");
   const [enableMetricAnalysis, setEnableMetricAnalysis] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [srtDragOver, setSrtDragOver] = useState(false);
@@ -68,7 +81,7 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
       file_names: files.map((file) => file.name),
       total_bytes: files.reduce((sum, file) => sum + file.size, 0),
       options: {
-        frame_interval_seconds: interval,
+        ...frameProfileOptions(frameProfile),
         gps_source: srt ? "srt" : "none",
         has_srt: srt !== null,
         srt_name: srt?.name ?? null,
@@ -178,10 +191,10 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
       )}
 
       <div className="mt-6">
-        <label className="text-xs font-medium text-gray-400">Frame interval</label>
+        <label className="text-xs font-medium text-gray-400">Frame extraction</label>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-          {INTERVALS.map((opt) => {
-            const isActive = interval === opt.value;
+          {FRAME_PROFILES.map((opt) => {
+            const isActive = frameProfile === opt.value;
             return (
               <label
                 key={opt.value}
@@ -193,10 +206,10 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
               >
                 <input
                   type="radio"
-                  name="frame-interval"
+                  name="frame-extraction"
                   value={opt.value}
                   checked={isActive}
-                  onChange={() => setInterval(opt.value)}
+                  onChange={() => setFrameProfile(opt.value)}
                   className="sr-only"
                 />
                 <div className="flex items-center gap-2">

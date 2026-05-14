@@ -8,6 +8,7 @@ export interface CrackMetricInput {
   avgWidthMm?: number | null;
   maxWidthMm?: number | null;
   crackTypeLengthsM?: Record<string, number> | null;
+  crackDetectionCount?: number | null;
   finalDetectionCount?: number | null;
   yoloDetectionCount?: number | null;
   cameraSurfaceDistanceM?: number | null;
@@ -33,16 +34,23 @@ export const CRACK_WIDTH_BANDS = [
 ] as const;
 
 export function deriveCrackMetrics(input: CrackMetricInput): DerivedCrackMetrics {
-  const crackTypes = input.crackTypes.map(crackTypeLabel);
+  const distressTypes = input.crackTypes.map(crackTypeLabel);
+  const crackTypes = distressTypes.filter(isCrackWidthApplicable);
   const normalizedLengths = normalizeLengths(input.crackTypeLengthsM);
-  const rawCount = input.finalDetectionCount ?? input.yoloDetectionCount ?? null;
+  const measuredAvgWidthMm = crackTypes.length > 0 ? input.avgWidthMm : null;
+  const measuredMaxWidthMm = crackTypes.length > 0 ? input.maxWidthMm : null;
+  const rawCount =
+    input.crackDetectionCount ??
+    (crackTypes.length === 0 && distressTypes.length > 0
+      ? 0
+      : input.finalDetectionCount ?? input.yoloDetectionCount ?? null);
   const evidenceCount = Math.max(rawCount ?? 0, crackTypes.length, Object.keys(normalizedLengths).length);
   const hasCracks =
     evidenceCount > 0 ||
     crackTypes.length > 0 ||
     Object.values(normalizedLengths).some((value) => value > 0) ||
-    input.avgWidthMm != null ||
-    input.maxWidthMm != null;
+    measuredAvgWidthMm != null ||
+    measuredMaxWidthMm != null;
 
   if (!hasCracks) {
     return {
@@ -59,17 +67,17 @@ export function deriveCrackMetrics(input: CrackMetricInput): DerivedCrackMetrics
 
   const crackCount = Math.max(1, evidenceCount);
   const estimatedWidths = estimateWidths(crackTypes, input.pci, crackCount);
-  const avgWidthMm = finiteOrNull(input.avgWidthMm) ?? estimatedWidths.avgWidthMm;
+  const avgWidthMm = finiteOrNull(measuredAvgWidthMm) ?? estimatedWidths.avgWidthMm;
   const maxWidthMm =
-    finiteOrNull(input.maxWidthMm) ??
+    finiteOrNull(measuredMaxWidthMm) ??
     Math.max(avgWidthMm, estimatedWidths.maxWidthMm);
   const lengthByTypeM =
     Object.keys(normalizedLengths).length > 0
       ? normalizedLengths
       : estimateLengths(crackTypes, crackCount, input.sectionLengthM);
   const estimated =
-    input.avgWidthMm == null ||
-    input.maxWidthMm == null ||
+    measuredAvgWidthMm == null ||
+    measuredMaxWidthMm == null ||
     Object.keys(normalizedLengths).length === 0;
 
   return {
@@ -100,6 +108,7 @@ function normalizeLengths(value: Record<string, number> | null | undefined) {
   for (const [rawType, rawLength] of Object.entries(value ?? {})) {
     if (!Number.isFinite(rawLength) || rawLength <= 0) continue;
     const label = crackTypeLabel(rawType);
+    if (!isCrackWidthApplicable(label)) continue;
     out[label] = round2((out[label] ?? 0) + rawLength);
   }
   return out;
@@ -132,11 +141,15 @@ function estimateLengths(crackTypes: string[], crackCount: number, sectionLength
 
 function typeWidth(type: string) {
   const value = type.toLowerCase();
-  if (value.includes("pothole")) return { avgWidthMm: 12, maxWidthMm: 18, lengthM: 0.8 };
   if (value.includes("alligator") || value.includes("fatigue")) return { avgWidthMm: 4.5, maxWidthMm: 7, lengthM: 5.4 };
   if (value.includes("transverse")) return { avgWidthMm: 2.8, maxWidthMm: 4.2, lengthM: 2.6 };
   if (value.includes("longitudinal")) return { avgWidthMm: 2.4, maxWidthMm: 3.6, lengthM: 4.2 };
   return { avgWidthMm: 2.5, maxWidthMm: 3.8, lengthM: 2.2 };
+}
+
+function isCrackWidthApplicable(type: string) {
+  const value = type.toLowerCase();
+  return !value.includes("pothole");
 }
 
 function finiteOrNull(value: number | null | undefined) {

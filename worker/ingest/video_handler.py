@@ -1,14 +1,15 @@
-"""Video frame extraction (OpenCV) and GPS attachment from SRT data."""
+"""Video frame extraction and GPS attachment from SRT data."""
 
 from __future__ import annotations
 
 import bisect
+import json
 import os
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
-from typing import List, Optional, Sequence, TypedDict
+from typing import Any, List, Optional, Sequence, TypedDict
 
 import cv2  # type: ignore[import-untyped]
 
@@ -25,45 +26,73 @@ class Frame(TypedDict):
     gimbal_yaw: Optional[float]
 
 
+_LAST_EXTRACTION_METADATA: dict[str, Any] = {}
+
+
+def last_extraction_metadata() -> dict[str, Any]:
+    return dict(_LAST_EXTRACTION_METADATA)
+
+
 def extract_frames(
     video_path: str | Path,
-    interval_seconds: float,
+    interval_seconds: float | None = 1.0,
     output_dir: Optional[str | Path] = None,
     image_format: str = "jpg",
     jpeg_quality: int = 92,
+    extraction_mode: str = "interval",
 ) -> List[Frame]:
-    """Sample frames from a video at a fixed time interval.
+    """Extract frames from a video.
 
-    Saves frames to `output_dir` (a fresh tempdir if omitted) and returns
-    a list of Frame dicts. GPS fields default to None — call
-    `attach_gps_to_frames()` afterwards to populate them from SRT data.
+    `extraction_mode="all_frames"` preserves every decoded frame. Interval
+    mode samples frames at a fixed time step. GPS fields default to None;
+    call `attach_gps_to_frames()` afterwards to populate them from SRT data.
     """
-    if interval_seconds <= 0:
+    global _LAST_EXTRACTION_METADATA
+    mode = (extraction_mode or "interval").strip().lower()
+    if mode not in {"interval", "all_frames"}:
+        raise ValueError("extraction_mode must be 'interval' or 'all_frames'")
+    if mode == "interval" and (interval_seconds is None or interval_seconds <= 0):
         raise ValueError("interval_seconds must be > 0")
 
     path = str(video_path)
     if not os.path.isfile(path):
         raise FileNotFoundError(path)
 
+    _LAST_EXTRACTION_METADATA = {
+        "video_path": Path(path).name,
+        "extraction_mode": mode,
+        "frame_interval_seconds": interval_seconds if mode == "interval" else None,
+        "image_format": image_format,
+        "jpeg_quality": jpeg_quality,
+    }
+
     if os.environ.get("DRISORA_USE_FFMPEG_EXTRACTOR", "1").strip().lower() in {"1", "true", "yes", "on"}:
         try:
-            return _extract_frames_ffmpeg(
+            frames = _extract_frames_ffmpeg(
                 path,
                 interval_seconds=interval_seconds,
                 output_dir=output_dir,
                 image_format=image_format,
                 jpeg_quality=jpeg_quality,
+                extraction_mode=mode,
             )
+            _LAST_EXTRACTION_METADATA["actual_frame_count"] = len(frames)
+            return frames
         except Exception as exc:
+            if mode == "all_frames":
+                raise
             print(f"[FRAMES] ffmpeg extraction failed, falling back to OpenCV: {exc}", flush=True)
 
-    return _extract_frames_opencv(
+    frames = _extract_frames_opencv(
         path,
-        interval_seconds=interval_seconds,
+        interval_seconds=float(interval_seconds or 1.0),
         output_dir=output_dir,
         image_format=image_format,
         jpeg_quality=jpeg_quality,
     )
+    _LAST_EXTRACTION_METADATA["extractor_backend"] = "opencv"
+    _LAST_EXTRACTION_METADATA["actual_frame_count"] = len(frames)
+    return frames
 
 
 def _frame_record(index: int, timestamp_ms: int, path: Path) -> Frame:
@@ -90,47 +119,152 @@ def _run_ffmpeg(command: list[str]) -> None:
         raise RuntimeError(stderr or f"ffmpeg exited with code {result.returncode}")
 
 
+def _parse_rate(value: str | None) -> float | None:
+    if not value or value in {"0/0", "N/A"}:
+        return None
+    try:
+        if "/" in value:
+            num, den = value.split("/", 1)
+            den_value = float(den)
+            return float(num) / den_value if den_value else None
+        return float(value)
+    except Exception:
+        return None
+
+
+def _probe_video(path: str) -> dict[str, Any]:
+    ffprobe = shutil.which("ffprobe")
+    if not ffprobe:
+        return {}
+    command = [
+        ffprobe,
+        "-v",
+        "error",
+        "-select_streams",
+        "v:0",
+        "-show_entries",
+        "stream=avg_frame_rate,r_frame_rate,nb_frames,duration",
+        "-of",
+        "json",
+        path,
+    ]
+    result = subprocess.run(command, capture_output=True, text=True, check=False)
+    if result.returncode != 0:
+        return {}
+    try:
+        data = json.loads(result.stdout or "{}")
+        stream = (data.get("streams") or [{}])[0]
+        fps = _parse_rate(stream.get("avg_frame_rate")) or _parse_rate(stream.get("r_frame_rate"))
+        duration = float(stream["duration"]) if stream.get("duration") not in {None, "N/A"} else None
+        nb_frames = int(stream["nb_frames"]) if str(stream.get("nb_frames") or "").isdigit() else None
+        return {
+            "fps": fps,
+            "duration_seconds": duration,
+            "reported_frame_count": nb_frames,
+        }
+    except Exception:
+        return {}
+
+
+def _expected_count(metadata: dict[str, Any], interval_seconds: float | None, mode: str) -> int | None:
+    if mode == "all_frames":
+        if isinstance(metadata.get("reported_frame_count"), int):
+            return int(metadata["reported_frame_count"])
+        fps = metadata.get("fps")
+        duration = metadata.get("duration_seconds")
+        if isinstance(fps, (int, float)) and isinstance(duration, (int, float)):
+            return max(1, int(round(float(fps) * float(duration))))
+        return None
+    duration = metadata.get("duration_seconds")
+    if isinstance(duration, (int, float)) and interval_seconds:
+        return max(1, int(float(duration) / float(interval_seconds)) + 1)
+    return None
+
+
+def _validate_extracted_count(actual: int, expected: int | None, mode: str) -> None:
+    if expected is None or expected < 10:
+        return
+    tolerance = 0.90 if mode == "all_frames" else 0.80
+    minimum = max(1, int(expected * tolerance))
+    if actual < minimum:
+        raise RuntimeError(
+            f"Frame extraction produced {actual} frames, expected about {expected} "
+            f"for mode={mode}. Refusing to score an under-sampled video."
+        )
+
+
 def _extract_frames_ffmpeg(
     path: str,
-    interval_seconds: float,
+    interval_seconds: float | None,
     output_dir: Optional[str | Path] = None,
     image_format: str = "jpg",
     jpeg_quality: int = 92,
+    extraction_mode: str = "interval",
 ) -> List[Frame]:
+    global _LAST_EXTRACTION_METADATA
     ffmpeg = shutil.which("ffmpeg")
     if not ffmpeg:
         raise RuntimeError("ffmpeg not found")
+
+    mode = (extraction_mode or "interval").strip().lower()
+    probe = _probe_video(path)
+    expected = _expected_count(probe, interval_seconds, mode)
+    _LAST_EXTRACTION_METADATA.update(
+        {
+            **probe,
+            "expected_frame_count": expected,
+        }
+    )
 
     out_dir = Path(output_dir) if output_dir else Path(tempfile.mkdtemp(prefix="drisora_frames_"))
     out_dir.mkdir(parents=True, exist_ok=True)
 
     extension = "jpg" if image_format.lower() in {"jpg", "jpeg"} else image_format.lower()
     pattern = str(out_dir / f"frame_%06d.{extension}")
-    sample_fps = 1.0 / interval_seconds
-    vf = f"fps={sample_fps:.6f}"
     base = [ffmpeg, "-hide_banner", "-loglevel", "error", "-y"]
-    output_args = ["-vf", vf, "-start_number", "0"]
+    output_args: list[str] = []
+    if mode == "interval":
+        sample_fps = 1.0 / float(interval_seconds or 1.0)
+        vf = f"fps={sample_fps:.6f}"
+        output_args.extend(["-vf", vf])
+    else:
+        output_args.extend(["-fps_mode", "passthrough"])
+    output_args.extend(["-start_number", "0"])
     if extension in {"jpg", "jpeg"}:
         output_args.extend(["-q:v", str(_ffmpeg_quality(jpeg_quality))])
     output_args.append(pattern)
 
-    gpu_command = base + ["-hwaccel", "cuda", "-i", path] + output_args
     cpu_command = base + ["-i", path] + output_args
-
-    try:
-        _run_ffmpeg(gpu_command)
-        print("[FRAMES] extracted with ffmpeg cuda hwaccel", flush=True)
-    except Exception as exc:
-        print(f"[FRAMES] ffmpeg cuda extraction unavailable: {exc}", flush=True)
+    deterministic = os.environ.get("DRISORA_DETERMINISTIC_EXTRACTOR", "1").strip().lower() in {"1", "true", "yes", "on"}
+    if deterministic or mode == "all_frames":
         _run_ffmpeg(cpu_command)
-        print("[FRAMES] extracted with ffmpeg cpu fallback", flush=True)
+        _LAST_EXTRACTION_METADATA["extractor_backend"] = "ffmpeg_cpu"
+        print("[FRAMES] extracted with deterministic ffmpeg cpu", flush=True)
+    else:
+        gpu_command = base + ["-hwaccel", "cuda", "-i", path] + output_args
+
+        try:
+            _run_ffmpeg(gpu_command)
+            _LAST_EXTRACTION_METADATA["extractor_backend"] = "ffmpeg_cuda"
+            print("[FRAMES] extracted with ffmpeg cuda hwaccel", flush=True)
+        except Exception as exc:
+            print(f"[FRAMES] ffmpeg cuda extraction unavailable: {exc}", flush=True)
+            _run_ffmpeg(cpu_command)
+            _LAST_EXTRACTION_METADATA["extractor_backend"] = "ffmpeg_cpu_fallback"
+            print("[FRAMES] extracted with ffmpeg cpu fallback", flush=True)
 
     paths = sorted(out_dir.glob(f"frame_*.{extension}"))
     if not paths:
         raise RuntimeError("ffmpeg produced no frames")
+    _validate_extracted_count(len(paths), expected, mode)
     print(f"[FRAMES] extracted {len(paths)} sampled frames", flush=True)
+    fps = probe.get("fps")
     return [
-        _frame_record(index, int(round(index * interval_seconds * 1000.0)), frame_path)
+        _frame_record(
+            index,
+            int(round((index / float(fps)) * 1000.0)) if mode == "all_frames" and isinstance(fps, (int, float)) and fps > 0 else int(round(index * float(interval_seconds or 1.0) * 1000.0)),
+            frame_path,
+        )
         for index, frame_path in enumerate(paths)
     ]
 

@@ -1,6 +1,9 @@
+import hashlib
 import json
 import math
 import os
+import platform
+import random
 import shutil
 import time
 from datetime import datetime, timezone
@@ -21,6 +24,36 @@ load_dotenv()
 _yolo: Any = None
 _sam2: Any = None
 _depth: Any = None
+
+
+def _configure_determinism() -> None:
+    seed = int(os.environ.get("DRISORA_DETERMINISTIC_SEED", "1337"))
+    os.environ.setdefault("PYTHONHASHSEED", str(seed))
+    os.environ.setdefault("CUBLAS_WORKSPACE_CONFIG", ":4096:8")
+    random.seed(seed)
+    try:
+        import numpy as np
+
+        np.random.seed(seed)
+    except Exception:
+        pass
+    try:
+        import torch
+
+        torch.manual_seed(seed)
+        if torch.cuda.is_available():
+            torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+        try:
+            torch.use_deterministic_algorithms(True, warn_only=True)
+        except TypeError:
+            torch.use_deterministic_algorithms(True)
+    except Exception as exc:
+        print(f"[DETERMINISM] torch setup skipped: {exc}", flush=True)
+
+
+_configure_determinism()
 
 
 def get_yolo() -> Any:
@@ -238,8 +271,12 @@ def _build_dispatch_files(
     local_files: list[Path],
     options: dict[str, Any],
 ) -> dict[str, Any]:
+    extraction_mode = str(options.get("frame_extraction_mode") or "all_frames")
     files: dict[str, Any] = {
-        "frame_interval_seconds": options.get("frame_interval_seconds", 1),
+        "frame_extraction_mode": extraction_mode,
+        "frame_interval_seconds": None
+        if extraction_mode == "all_frames"
+        else options.get("frame_interval_seconds", 1),
     }
     if mode == "image_batch":
         files["images"] = [str(path) for path in local_files]
@@ -266,6 +303,117 @@ def _build_dispatch_files(
     else:
         raise ValueError(f"Unknown job mode: {mode!r}")
     return files
+
+
+def _sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _file_manifest(paths: list[Path]) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for path in paths:
+        out.append(
+            {
+                "name": path.name,
+                "size_bytes": path.stat().st_size if path.exists() else None,
+                "sha256": _sha256_file(path) if path.exists() else None,
+            }
+        )
+    return out
+
+
+def _model_file(path: Path) -> dict[str, Any]:
+    return {
+        "path": str(path),
+        "exists": path.exists(),
+        "size_bytes": path.stat().st_size if path.exists() else None,
+        "sha256": _sha256_file(path) if path.exists() else None,
+    }
+
+
+def _package_version(name: str) -> str | None:
+    try:
+        from importlib.metadata import version
+
+        return version(name)
+    except Exception:
+        return None
+
+
+def _runtime_manifest() -> dict[str, Any]:
+    return {
+        "python": platform.python_version(),
+        "platform": platform.platform(),
+        "packages": {
+            "torch": _package_version("torch"),
+            "ultralytics": _package_version("ultralytics"),
+            "opencv-python-headless": _package_version("opencv-python-headless"),
+            "runpod": _package_version("runpod"),
+        },
+        "deterministic_seed": int(os.environ.get("DRISORA_DETERMINISTIC_SEED", "1337")),
+        "deterministic_extractor": os.environ.get("DRISORA_DETERMINISTIC_EXTRACTOR", "1"),
+    }
+
+
+def _model_manifest() -> dict[str, Any]:
+    return {
+        "yolo": {
+            "confidence": getattr(yolo_inference, "CONFIDENCE", None),
+            "iou": getattr(yolo_inference, "IOU", None),
+            "weights": _model_file(getattr(yolo_inference, "WEIGHTS_PATH")),
+        },
+        "sam2": {
+            "model_path": _model_file(getattr(sam2_inference, "MODEL_PATH")),
+            "model_cfg": getattr(sam2_inference, "MODEL_CFG", None),
+        },
+        "depthpro": {
+            "model_path": _model_file(getattr(depthpro_inference, "MODEL_PATH")),
+            "enabled_default": os.environ.get("DRISORA_ENABLE_DEPTHPRO_DEFAULT"),
+        },
+        "pci": {
+            "version": getattr(pci_scorer, "SCORING_VERSION", "legacy"),
+            "standard": getattr(pci_scorer, "IRC_STANDARD", None),
+        },
+    }
+
+
+def _frame_manifest(frames: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    hash_frames = os.environ.get("DRISORA_HASH_FRAME_MANIFEST", "1").strip().lower() in {
+        "1",
+        "true",
+        "yes",
+        "on",
+    }
+    out: list[dict[str, Any]] = []
+    for frame in frames:
+        path = Path(frame["path"])
+        out.append(
+            {
+                "index": frame.get("index"),
+                "timestamp_ms": frame.get("timestamp_ms"),
+                "filename": path.name,
+                "size_bytes": path.stat().st_size if path.exists() else None,
+                "sha256": _sha256_file(path) if hash_frames and path.exists() else None,
+                "lat": frame.get("lat"),
+                "lon": frame.get("lon"),
+                "alt_m": frame.get("alt_m", frame.get("alt")),
+                "gimbal_yaw": frame.get("gimbal_yaw"),
+            }
+        )
+    return out
+
+
+def _upload_json(r2_client: Any, bucket: str, key: str, payload: dict[str, Any] | list[Any]) -> None:
+    r2_client.put_object(
+        Bucket=bucket,
+        Key=key,
+        Body=json.dumps(payload, sort_keys=True, default=str).encode("utf-8"),
+        ContentType="application/json",
+    )
 
 
 def _storage_name_map(local_files: list[Path]) -> dict[str, Path]:
@@ -550,6 +698,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         _update_job(redis_url, redis_token, job_id, status="extracting_frames")
         r2_client = _create_r2_client()
         local_files = _download_raw_files(r2_client, bucket, r2_prefix, file_names, raw_dir)
+        raw_file_manifest = _file_manifest(local_files)
 
         use_depth = _depth_enabled(mode, options)
         warm_sam2 = _sam2_warmup_enabled(options)
@@ -561,6 +710,36 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
         frame_batch = dispatch_job(job_id, mode, _build_dispatch_files(mode, local_files, options))
         frames = frame_batch["frames"]
+        manifest_prefix = f"{output_r2_prefix}manifests/"
+        _upload_json(
+            r2_client,
+            bucket,
+            f"{manifest_prefix}run_manifest.json",
+            {
+                "job_id": job_id,
+                "user_id": user_id,
+                "mode": mode,
+                "created_at": _now(),
+                "options": options,
+                "input_r2_prefix": r2_prefix,
+                "output_r2_prefix": output_r2_prefix,
+                "raw_files": raw_file_manifest,
+                "ingest": frame_batch.get("ingest_metadata", {}),
+                "frame_count": len(frames),
+                "runtime": _runtime_manifest(),
+                "models": _model_manifest(),
+            },
+        )
+        _upload_json(
+            r2_client,
+            bucket,
+            f"{manifest_prefix}frame_manifest.json",
+            {
+                "job_id": job_id,
+                "frame_count": len(frames),
+                "frames": _frame_manifest(frames),
+            },
+        )
         _update_job(
             redis_url,
             redis_token,
@@ -609,6 +788,20 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             )
 
         average_pci = sum(pci_scores) / len(pci_scores) if pci_scores else 50.0
+        _upload_json(
+            r2_client,
+            bucket,
+            f"{manifest_prefix}processing_summary.json",
+            {
+                "job_id": job_id,
+                "status": "complete",
+                "processed_count": processed,
+                "frame_count": total,
+                "average_pci": average_pci,
+                "total_detections": total_detections,
+                "completed_at": _now(),
+            },
+        )
         _update_job(
             redis_url,
             redis_token,
