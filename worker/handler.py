@@ -572,6 +572,8 @@ def _process_frame(frame: dict[str, Any], use_depth: bool) -> dict[str, Any]:
     sam2_attempted = False
     depth_attempted = False
     depth_skipped_reason = None if use_depth else "disabled_for_mode"
+    frame_failed = False
+    degraded_reasons: list[str] = []
     try:
         detections = yolo_inference.run(str(frame_path))
         yolo_count = len(detections)
@@ -594,11 +596,25 @@ def _process_frame(frame: dict[str, Any], use_depth: bool) -> dict[str, Any]:
             depth_map=depth_map,
         )
     except Exception as exc:
+        frame_failed = True
+        degraded_reasons.append("frame_exception")
         detections = []
         depth_map = None
         pci_result = _fallback_pci(str(exc))
 
     depth_available = depth_map is not None and getattr(depth_map, "size", 0) > 0
+    if use_depth and depth_attempted and not depth_available:
+        degraded_reasons.append("depthpro_unavailable")
+
+    if frame_failed:
+        analysis_stage = "fallback"
+    elif depth_available and sam2_attempted:
+        analysis_stage = "yolo_sam2_depthpro"
+    elif sam2_attempted:
+        analysis_stage = "yolo_sam2"
+    else:
+        analysis_stage = "yolo_only"
+
     metrics = _metric_summary(detections, depth_map) if depth_available else {
         "camera_surface_distance_m": None,
         "avg_crack_width_mm": None,
@@ -611,7 +627,8 @@ def _process_frame(frame: dict[str, Any], use_depth: bool) -> dict[str, Any]:
         f"index={frame.get('index')} pci={pci_result['pci']} "
         f"yolo={yolo_count} final={final_count} "
         f"sam2_attempted={sam2_attempted} depth_attempted={depth_attempted} "
-        f"depth_available={depth_available} elapsed_ms={elapsed_ms}",
+        f"depth_available={depth_available} analysis_stage={analysis_stage} "
+        f"degraded_reasons={','.join(degraded_reasons) or 'none'} elapsed_ms={elapsed_ms}",
         flush=True,
     )
 
@@ -636,6 +653,8 @@ def _process_frame(frame: dict[str, Any], use_depth: bool) -> dict[str, Any]:
         "max_crack_width_mm": metrics["max_crack_width_mm"],
         "depth_attempted": depth_attempted,
         "depth_skipped_reason": depth_skipped_reason,
+        "analysis_stage": analysis_stage,
+        "degraded_reasons": degraded_reasons,
         "sam2_attempted": sam2_attempted,
         "yolo_detection_count": yolo_count,
         "final_detection_count": final_count,
@@ -749,12 +768,17 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             processed_count=0,
             output_r2_prefix=output_r2_prefix,
         )
+        processing_started = time.perf_counter()
         _warm_pipeline_models(use_depth=use_depth, warm_sam2=warm_sam2)
 
         pci_scores: list[float] = []
         processed = 0
         total = len(frames)
         total_detections = 0
+        total_processing_ms = 0
+        pipeline_stage_counts: dict[str, int] = {}
+        degraded_reason_counts: dict[str, int] = {}
+        degraded_frame_count = 0
         for processed_count, frame in enumerate(frames, start=1):
             print(f"[FRAME {processed_count}/{total}] processing", flush=True)
             frame_path = Path(frame["path"])
@@ -762,6 +786,16 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             processed = processed_count
             total_detections += len(frame_result.get("detections") or [])
             pci_scores.append(float(frame_result["pci_score"]))
+            total_processing_ms += int(frame_result.get("processing_ms") or 0)
+
+            analysis_stage = str(frame_result.get("analysis_stage") or "unknown")
+            pipeline_stage_counts[analysis_stage] = pipeline_stage_counts.get(analysis_stage, 0) + 1
+            frame_degraded_reasons = frame_result.get("degraded_reasons") or []
+            if analysis_stage == "fallback" or frame_degraded_reasons:
+                degraded_frame_count += 1
+            for reason in frame_degraded_reasons:
+                reason_key = str(reason)
+                degraded_reason_counts[reason_key] = degraded_reason_counts.get(reason_key, 0) + 1
 
             _upload_file(
                 r2_client,
@@ -788,6 +822,12 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             )
 
         average_pci = sum(pci_scores) / len(pci_scores) if pci_scores else 50.0
+        end_to_end_processing_ms = int((time.perf_counter() - processing_started) * 1000)
+        frames_per_minute = (
+            processed / (end_to_end_processing_ms / 60000)
+            if end_to_end_processing_ms > 0 and processed > 0
+            else 0.0
+        )
         _upload_json(
             r2_client,
             bucket,
@@ -799,6 +839,12 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 "frame_count": total,
                 "average_pci": average_pci,
                 "total_detections": total_detections,
+                "total_processing_ms": total_processing_ms,
+                "end_to_end_processing_ms": end_to_end_processing_ms,
+                "frames_per_minute": frames_per_minute,
+                "pipeline_stage_counts": pipeline_stage_counts,
+                "degraded_frame_count": degraded_frame_count,
+                "degraded_reason_counts": degraded_reason_counts,
                 "completed_at": _now(),
             },
         )

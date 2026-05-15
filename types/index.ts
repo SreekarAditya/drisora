@@ -85,6 +85,8 @@ export interface FrameResult {
   depth_available: boolean | null;
   depth_attempted: boolean | null;
   depth_skipped_reason: string | null;
+  analysis_stage?: "fallback" | "yolo_only" | "yolo_sam2" | "yolo_sam2_depthpro" | string | null;
+  degraded_reasons?: string[];
   sam2_attempted: boolean | null;
   yolo_detection_count: number | null;
   final_detection_count: number | null;

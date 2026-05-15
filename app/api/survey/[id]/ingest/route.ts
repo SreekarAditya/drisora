@@ -16,6 +16,7 @@ interface VideoInput {
   video_filename: string;
   srt_filename: string | null;
   storage_path: string;
+  srt_storage_path?: string | null;
   flight_bounds?: FlightBounds | null;
   frame_count?: number | null;
 }
@@ -101,7 +102,6 @@ export async function POST(
   const surveyVideoRows = body.videos.map((video) => ({
     id: randomUUID(),
     survey_id: surveyId,
-    user_id: user.id,
     video_filename: video.video_filename,
     srt_filename: video.srt_filename ?? null,
     storage_path: video.storage_path,
@@ -136,8 +136,24 @@ export async function POST(
   }));
 
   const jobId = randomUUID();
+  const videoStorageFilenames = body.videos.map((video) => video.storage_path.split("/").pop() ?? video.storage_path);
+  const srtStorageFilenames = body.videos.map((video) => {
+    if (!video.srt_filename) return null;
+    const srtStoragePath = video.srt_storage_path ?? video.srt_filename;
+    return srtStoragePath.split("/").pop() ?? srtStoragePath;
+  });
+  const fileNames = [
+    ...videoStorageFilenames,
+    ...srtStorageFilenames.filter((name): name is string => typeof name === "string" && name.length > 0),
+  ];
   const jobOptions: Record<string, unknown> = {
     ...(body.job_options ?? {}),
+    is_multi_video: body.videos.length > 1,
+    video_count: body.videos.length,
+    video_filenames: body.videos.map((video) => video.video_filename),
+    srt_filenames: body.videos.map((video) => video.srt_filename),
+    video_storage_filenames: videoStorageFilenames,
+    srt_storage_filenames: srtStorageFilenames,
     video_pairs: videoPairs,
     video_ids: videoIds,
     survey_id: surveyId,
@@ -148,7 +164,7 @@ export async function POST(
     user_id: user.id,
     project_id: null,
     runpod_job_id: null,
-    mode: "multi_drone_survey" as ProcessingJobRecord["mode"],
+    mode: "drone_footage",
     status: "queued",
     frame_count: 0,
     processed_count: 0,
@@ -160,7 +176,7 @@ export async function POST(
     created_at: now,
     error_message: null,
     options: jobOptions,
-    file_names: body.videos.map((v) => v.video_filename),
+    file_names: fileNames,
     total_bytes: 0,
   };
 
@@ -169,7 +185,7 @@ export async function POST(
     user_id: user.id,
     project_id: null,
     survey_id: surveyId,
-    mode: "multi_drone_survey",
+    mode: "drone_footage",
     status: "queued",
     frame_count: 0,
     processed_count: 0,

@@ -33,14 +33,17 @@ class TestMultiVideoDispatch(unittest.TestCase):
         from jobs import dispatcher
 
         files = {
-            "frame_interval_seconds": 1,
+            "frame_extraction_mode": "all_frames",
+            "frame_interval_seconds": None,
             "videos": [
                 {"video": "/tmp/video-1.mp4", "srt": "/tmp/video-1.srt"},
                 {"video": "/tmp/video-2.mp4", "srt": "/tmp/video-2.srt"},
             ],
         }
 
-        def fake_extract(video: str, interval_seconds: float):
+        def fake_extract(video: str, interval_seconds: float | None, extraction_mode: str = "interval"):
+            self.assertEqual(extraction_mode, "all_frames")
+            self.assertIsNone(interval_seconds)
             if video.endswith("video-1.mp4"):
                 return [
                     {"index": 0, "path": "/frames/v1-0.jpg", "timestamp_ms": 0},

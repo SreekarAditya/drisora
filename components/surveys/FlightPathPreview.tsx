@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import L from "leaflet";
 
 // ---------------------------------------------------------------------------
@@ -30,6 +30,11 @@ interface ParsedTrack {
   id: string;
   videoName: string;
   points: GpsPoint[];
+}
+
+interface ParseResult {
+  key: string;
+  tracks: ParsedTrack[];
 }
 
 // ---------------------------------------------------------------------------
@@ -231,23 +236,28 @@ export function FlightPathPreview({ pairs, className }: FlightPathPreviewProps) 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
 
-  const [tracks, setTracks] = useState<ParsedTrack[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [parsed, setParsed] = useState(false);
-
   const hasSrt = pairs.some((p) => p.srt !== null);
+  const srtKey = useMemo(
+    () =>
+      pairs
+        .filter((p) => p.srt !== null)
+        .map((p) => `${p.id}:${p.srt!.name}:${p.srt!.size}:${p.srt!.lastModified}`)
+        .join("|"),
+    [pairs],
+  );
+  const [parseResult, setParseResult] = useState<ParseResult | null>(null);
+  const parsed = !hasSrt || parseResult?.key === srtKey;
+  const loading = hasSrt && !parsed;
+  const tracks = useMemo(
+    () => (hasSrt && parseResult?.key === srtKey ? parseResult.tracks : []),
+    [hasSrt, parseResult, srtKey],
+  );
 
   // Parse SRT files when pairs change
   useEffect(() => {
-    if (!hasSrt) {
-      setTracks([]);
-      setParsed(true);
-      return;
-    }
+    if (!hasSrt) return;
 
-    setLoading(true);
-    setParsed(false);
-
+    let cancelled = false;
     const pairsWithSrt = pairs.filter((p) => p.srt !== null);
 
     Promise.all(
@@ -260,11 +270,15 @@ export function FlightPathPreview({ pairs, className }: FlightPathPreviewProps) 
         }
       }),
     ).then((results) => {
-      setTracks(results);
-      setLoading(false);
-      setParsed(true);
+      if (!cancelled) {
+        setParseResult({ key: srtKey, tracks: results });
+      }
     });
-  }, [pairs, hasSrt]);
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pairs, hasSrt, srtKey]);
 
   // Build/rebuild map when tracks change
   useEffect(() => {
