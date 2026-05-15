@@ -1,12 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { createRoot, type Root } from "react-dom/client";
 import L from "leaflet";
 import { getPciBand, PCI_BANDS } from "@/types";
 import { crackWidthBandLabel, crackWidthColor } from "@/lib/crack-metrics";
 import type { ProjectMapFeature, ProjectMapFeatureCollection } from "@/lib/project-map";
-import { ProjectSectionPopup } from "./ProjectSectionPopup";
 
 interface ProjectMapClientProps {
   geojson: ProjectMapFeatureCollection;
@@ -24,7 +22,6 @@ export default function ProjectMapClient({ geojson }: ProjectMapClientProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<L.Map | null>(null);
   const groupRef = useRef<L.FeatureGroup | null>(null);
-  const popupRootsRef = useRef<Root[]>([]);
   const [overlayMode, setOverlayMode] = useState<"pci" | "width">("pci");
 
   const renderLines = useCallback((
@@ -32,18 +29,9 @@ export default function ProjectMapClient({ geojson }: ProjectMapClientProps) {
     lines: Array<{ feature: ProjectMapFeature; coordinates: L.LatLngExpression[] }>,
     mode: "pci" | "width",
   ) => {
-    for (const popupRoot of popupRootsRef.current) {
-      popupRoot.unmount();
-    }
-    popupRootsRef.current = [];
     group.clearLayers();
 
     for (const { feature, coordinates } of lines) {
-      const popupContainer = document.createElement("div");
-      const popupRoot = createRoot(popupContainer);
-      popupRoot.render(<ProjectSectionPopup properties={feature.properties} />);
-      popupRootsRef.current.push(popupRoot);
-
       const widthValue = feature.properties.max_crack_width_mm ?? feature.properties.avg_crack_width_mm;
       L.polyline(coordinates, {
         color: mode === "width" ? crackWidthColor(widthValue) : getPciBand(feature.properties.pci_score ?? 0).color,
@@ -52,7 +40,7 @@ export default function ProjectMapClient({ geojson }: ProjectMapClientProps) {
         dashArray: feature.properties.is_relative ? "10 8" : undefined,
       })
         .bindTooltip(sectionTooltip(feature), { sticky: true, className: "drisora-map-tooltip" })
-        .bindPopup(popupContainer, { className: "drisora-section-popup" })
+        .bindPopup(sectionPopup(feature), { className: "drisora-section-popup" })
         .addTo(group);
     }
   }, []);
@@ -86,10 +74,6 @@ export default function ProjectMapClient({ geojson }: ProjectMapClientProps) {
     }
 
     return () => {
-      for (const popupRoot of popupRootsRef.current) {
-        popupRoot.unmount();
-      }
-      popupRootsRef.current = [];
       map.remove();
       mapRef.current = null;
       groupRef.current = null;
@@ -186,6 +170,80 @@ function sectionTooltip(feature: ProjectMapFeature) {
       </div>
     </div>
   `;
+}
+
+function sectionPopup(feature: ProjectMapFeature) {
+  const properties = feature.properties;
+  const crackTypes = properties.crack_types.length > 0 ? properties.crack_types : ["None recorded"];
+  const lengthEntries = Object.entries(properties.crack_length_m_by_type ?? {});
+  return `
+    <div style="min-width: 240px; max-width: 320px; color: #f5f5f5; font-size: 13px">
+      <div style="margin-bottom: 12px">
+        <div style="font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #a3a3a3">Source</div>
+        <div style="font-weight: 600; color: #fff">${escapeHtml(properties.source_label)}</div>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px">
+        <div>
+          <div style="font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #a3a3a3">
+            ${properties.is_relative ? "Relative PCI" : "PCI score"}
+          </div>
+          <div style="font-size: 24px; font-weight: 700; color: #fff">
+            ${properties.pci_score == null ? "N/A" : properties.pci_score.toFixed(1)}
+          </div>
+        </div>
+        <div>
+          <div style="font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #a3a3a3">Condition</div>
+          <div style="font-weight: 600; color: #fff; text-transform: capitalize">
+            ${escapeHtml(properties.condition_category?.replace("_", " ") ?? "Unknown")}
+          </div>
+        </div>
+      </div>
+      <div style="display: grid; gap: 5px; margin-bottom: 12px; font-size: 12px">
+        ${popupRow("Section", properties.section_index == null ? "N/A" : String(properties.section_index + 1))}
+        ${popupRow("Start chainage", formatMeters(properties.segment_start_m))}
+        ${popupRow("End chainage", formatMeters(properties.segment_end_m))}
+        ${popupRow("Length", formatMeters(properties.length_m))}
+        ${popupRow("Segment type", properties.is_relative ? "Relative (<100 m)" : "Standard 100 m")}
+        ${popupRow("Cracks", String(properties.crack_count))}
+      </div>
+      <div style="margin-bottom: 12px">
+        <div style="margin-bottom: 5px; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #a3a3a3">Types</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 4px">
+          ${crackTypes.map((type) => `<span style="border-radius: 999px; background: #262626; padding: 2px 8px; font-size: 11px; color: #e5e5e5">${escapeHtml(type)}</span>`).join("")}
+        </div>
+      </div>
+      ${
+        lengthEntries.length > 0
+          ? `<div style="margin-bottom: 12px">
+              <div style="margin-bottom: 5px; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #a3a3a3">Length by type</div>
+              <div style="display: grid; gap: 4px; font-size: 12px">
+                ${lengthEntries.map(([type, length]) => popupRow(type, `${length.toFixed(1)} m`)).join("")}
+              </div>
+            </div>`
+          : ""
+      }
+      <div>
+        <div style="margin-bottom: 5px; font-size: 10px; text-transform: uppercase; letter-spacing: .08em; color: #a3a3a3">Recommended action</div>
+        <div style="line-height: 1.55; color: #e5e5e5">
+          ${escapeHtml(properties.recommended_mitigation ?? properties.recommended_intervention ?? "Not assigned")}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function popupRow(label: string, value: string) {
+  return `
+    <div style="display: flex; justify-content: space-between; gap: 16px">
+      <span style="color: #a3a3a3">${escapeHtml(label)}</span>
+      <span style="font-weight: 600; color: #fff">${escapeHtml(value)}</span>
+    </div>
+  `;
+}
+
+function formatMeters(value: number | null | undefined) {
+  if (value == null) return "N/A";
+  return `${value.toFixed(1)} m`;
 }
 
 function escapeHtml(value: string) {
