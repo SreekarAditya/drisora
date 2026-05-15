@@ -40,6 +40,11 @@ interface RawDetection {
   [key: string]: unknown;
 }
 
+interface LoadJobResultsOptions {
+  includeMediaUrls?: boolean;
+  hydrateGpsFromSrt?: boolean;
+}
+
 interface SrtGpsEntry {
   timestamp_ms: number;
   lat: number;
@@ -61,7 +66,10 @@ export async function loadJobResults(
   jobId: string,
   userId: string,
   mode: JobMode,
+  options: LoadJobResultsOptions = {},
 ): Promise<JobResults> {
+  const includeMediaUrls = options.includeMediaUrls ?? true;
+  const hydrateGpsFromSrtOption = options.hydrateGpsFromSrt ?? true;
   const prefix = `results/${userId}/${jobId}`;
   const detectionPrefix = `${prefix}/detections/`;
   const overlayPrefix = `${prefix}/overlays/`;
@@ -75,21 +83,23 @@ export async function loadJobResults(
   let overlayKeys = new Set<string>();
   let frameKeys = new Set<string>();
   let rawKeys = new Set<string>();
-  try {
-    overlayKeys = new Set(await listR2Objects(overlayPrefix));
-  } catch {
-    overlayKeys = new Set();
-  }
-  try {
-    frameKeys = new Set(await listR2Objects(framePrefix));
-  } catch {
-    frameKeys = new Set();
-  }
-  if (mode === "image_batch") {
+  if (includeMediaUrls) {
     try {
-      rawKeys = new Set(await listR2Objects(rawPrefix));
+      overlayKeys = new Set(await listR2Objects(overlayPrefix));
     } catch {
-      rawKeys = new Set();
+      overlayKeys = new Set();
+    }
+    try {
+      frameKeys = new Set(await listR2Objects(framePrefix));
+    } catch {
+      frameKeys = new Set();
+    }
+    if (mode === "image_batch") {
+      try {
+        rawKeys = new Set(await listR2Objects(rawPrefix));
+      } catch {
+        rawKeys = new Set();
+      }
     }
   }
 
@@ -110,32 +120,36 @@ export async function loadJobResults(
       }),
     );
 
-    const overlayPresigns = await Promise.all(
-      batch.map(async (key) => {
-        const stem = key.replace(detectionPrefix, "").replace(/\.json$/, "");
-        const overlayKey = `${overlayPrefix}${stem}.png`;
-        if (!overlayKeys.has(overlayKey)) return null;
-        try {
-          return await getPresignedGetUrl(overlayKey, 3600);
-        } catch {
-          return null;
-        }
-      }),
-    );
-    const framePresigns = await Promise.all(
-      batch.map(async (key) => {
-        const stem = key.replace(detectionPrefix, "").replace(/\.json$/, "");
-        const frameKey =
-          findFrameKeyForStem(frameKeys, framePrefix, stem) ??
-          (mode === "image_batch" ? findFrameKeyForStem(rawKeys, rawPrefix, stem) : null);
-        if (!frameKey) return null;
-        try {
-          return await getPresignedGetUrl(frameKey, 3600);
-        } catch {
-          return null;
-        }
-      }),
-    );
+    const overlayPresigns = includeMediaUrls
+      ? await Promise.all(
+          batch.map(async (key) => {
+            const stem = key.replace(detectionPrefix, "").replace(/\.json$/, "");
+            const overlayKey = `${overlayPrefix}${stem}.png`;
+            if (!overlayKeys.has(overlayKey)) return null;
+            try {
+              return await getPresignedGetUrl(overlayKey, 3600);
+            } catch {
+              return null;
+            }
+          }),
+        )
+      : batch.map(() => null);
+    const framePresigns = includeMediaUrls
+      ? await Promise.all(
+          batch.map(async (key) => {
+            const stem = key.replace(detectionPrefix, "").replace(/\.json$/, "");
+            const frameKey =
+              findFrameKeyForStem(frameKeys, framePrefix, stem) ??
+              (mode === "image_batch" ? findFrameKeyForStem(rawKeys, rawPrefix, stem) : null);
+            if (!frameKey) return null;
+            try {
+              return await getPresignedGetUrl(frameKey, 3600);
+            } catch {
+              return null;
+            }
+          }),
+        )
+      : batch.map(() => null);
 
     for (let j = 0; j < parsed.length; j++) {
       const item = parsed[j];
@@ -192,7 +206,9 @@ export async function loadJobResults(
   }
 
   frames.sort((a, b) => a.index - b.index);
-  await hydrateGpsFromUploadedSrt(jobId, userId, mode, frames);
+  if (hydrateGpsFromSrtOption) {
+    await hydrateGpsFromUploadedSrt(jobId, userId, mode, frames);
+  }
 
   const summary = computeSummary(frames);
 

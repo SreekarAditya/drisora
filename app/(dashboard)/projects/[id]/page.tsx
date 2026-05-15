@@ -1,9 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import ProjectMap from "@/components/map/ProjectMap";
+import { ProjectMapLoader } from "@/components/projects/ProjectMapLoader";
 import { ProjectAssignForm } from "@/components/projects/ProjectAssignForm";
 import { analyzeDistress } from "@/lib/civil-intelligence";
-import { loadJobResults } from "@/lib/jobs/results";
 import { buildProjectMapCollection, type ProjectMapFeatureCollection, type SurveySectionRow } from "@/lib/project-map";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -174,11 +173,11 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       { id: survey.id, label: survey.name, created_at: survey.created_at },
     ]),
   );
-  const completedGpsJobs = jobs.filter(
+  const completedGpsJobCount = jobs.filter(
     (job) => job.status === "complete" && job.gps_available === true,
-  );
+  ).length;
 
-  const [{ data: sectionRows }, { data: detections }, jobResultsSettled] = await Promise.all([
+  const [{ data: sectionRows }, { data: detections }] = await Promise.all([
     surveyIds.length > 0
       ? supabase
           .from("road_sections")
@@ -191,17 +190,6 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           .select("crack_type, severity")
           .in("survey_id", surveyIds)
       : Promise.resolve({ data: [] }),
-    Promise.allSettled(
-      completedGpsJobs.map(async (job) => ({
-        meta: {
-          id: job.id,
-          label: JOB_MODE_LABELS[job.mode],
-          created_at: job.created_at,
-          mode: job.mode,
-        },
-        results: await loadJobResults(job.id, user.id, job.mode),
-      })),
-    ),
   ]);
 
   const linkedRecords: LinkedRecord[] = [
@@ -229,8 +217,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const projectMapCollection = buildProjectMapCollection({
     surveySections: (sectionRows ?? []) as SurveySectionRow[],
     surveyMetaById,
-    jobResults: jobResultsSettled
-      .flatMap((result) => (result.status === "fulfilled" ? [result.value] : [])),
+    jobResults: [],
   });
 
   const sectionPciValues = projectMapCollection.features
@@ -263,7 +250,6 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
   const topCauses = rankedEntries(analyses.flatMap((analysis) => analysis.possibleCauses));
   const topTreatments = rankedEntries(analyses.map((analysis) => analysis.recommendedMitigation));
   const typedProject = project as ProjectRecord;
-  const mapHasGeometry = projectMapCollection.features.length > 0;
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-10">
@@ -324,18 +310,11 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
               <h2 className="text-lg font-semibold text-white">Combined pavement map</h2>
               <span className="text-xs text-gray-600">Campus-wide linked sections and 100 m PCI segments</span>
             </div>
-            {mapHasGeometry ? (
-              <ProjectMap geojson={projectMapCollection as ProjectMapFeatureCollection} />
-            ) : (
-              <div className="flex h-[520px] items-center justify-center rounded-lg border border-white/10 bg-[#0b0c0d] text-center">
-                <div className="px-6">
-                  <p className="text-sm font-semibold text-white">No geospatial sections linked yet</p>
-                  <p className="mt-1 text-xs leading-5 text-gray-600">
-                    Link a completed GPS-backed survey or upload job to build the combined campus map.
-                  </p>
-                </div>
-              </div>
-            )}
+            <ProjectMapLoader
+              projectId={typedProject.id}
+              initialGeojson={projectMapCollection as ProjectMapFeatureCollection}
+              completedGpsJobCount={completedGpsJobCount}
+            />
             <div className="mt-4 flex flex-wrap gap-3">
               {PCI_BANDS.map((band) => (
                 <span key={band.label} className="inline-flex items-center gap-2 text-xs text-gray-500">
