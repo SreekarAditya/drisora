@@ -13,7 +13,7 @@ type SurveyMode = "single" | "multi";
 type FrameProfile = "all_frames" | "0.25s" | "0.5s" | "1s";
 
 const FRAME_PROFILES: Array<{ value: FrameProfile; label: string; hint: string }> = [
-  { value: "all_frames", label: "All frames", hint: "60 fps x 2 min ~= 7,200 frames" },
+  { value: "all_frames", label: "All frames", hint: "Auto-detects FPS and duration" },
   { value: "0.25s", label: "Every 0.25s", hint: "Dense review" },
   { value: "0.5s", label: "Every 0.5s", hint: "Detailed survey" },
   { value: "1s", label: "Every 1s", hint: "Fast preview" },
@@ -283,7 +283,7 @@ function SingleVideoPanel({
       <div className="mt-5 rounded-lg border border-[#242424] bg-[#0a0a0a] p-4">
         <p className="text-sm font-medium text-white">Frame extraction</p>
         <p className="mt-0.5 text-xs text-gray-600">
-          Use all frames when PCI reproducibility matters. A 4K60 two-minute video should produce about 7,200 frames.
+          Use all frames when PCI reproducibility matters. Drisora probes the source video metadata and extracts every decoded frame.
         </p>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
           {FRAME_PROFILES.map((profile) => (

@@ -132,6 +132,11 @@ def _parse_rate(value: str | None) -> float | None:
         return None
 
 
+def _parse_optional_int(value: Any) -> int | None:
+    text = str(value or "")
+    return int(text) if text.isdigit() else None
+
+
 def _probe_video(path: str) -> dict[str, Any]:
     ffprobe = shutil.which("ffprobe")
     if not ffprobe:
@@ -143,7 +148,7 @@ def _probe_video(path: str) -> dict[str, Any]:
         "-select_streams",
         "v:0",
         "-show_entries",
-        "stream=avg_frame_rate,r_frame_rate,nb_frames,duration",
+        "stream=avg_frame_rate,r_frame_rate,nb_frames,duration,width,height,codec_name",
         "-of",
         "json",
         path,
@@ -156,11 +161,15 @@ def _probe_video(path: str) -> dict[str, Any]:
         stream = (data.get("streams") or [{}])[0]
         fps = _parse_rate(stream.get("avg_frame_rate")) or _parse_rate(stream.get("r_frame_rate"))
         duration = float(stream["duration"]) if stream.get("duration") not in {None, "N/A"} else None
-        nb_frames = int(stream["nb_frames"]) if str(stream.get("nb_frames") or "").isdigit() else None
+        nb_frames = _parse_optional_int(stream.get("nb_frames"))
+        codec_name = stream.get("codec_name")
         return {
             "fps": fps,
             "duration_seconds": duration,
             "reported_frame_count": nb_frames,
+            "source_width": _parse_optional_int(stream.get("width")),
+            "source_height": _parse_optional_int(stream.get("height")),
+            "source_codec": codec_name if isinstance(codec_name, str) and codec_name else None,
         }
     except Exception:
         return {}

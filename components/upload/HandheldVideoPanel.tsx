@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useUpload } from "@/hooks/useUpload";
 
 const FRAME_PROFILES = [
-  { value: "all_frames", label: "All frames", hint: "60 fps x 2 min ~= 7,200 frames" },
+  { value: "all_frames", label: "All frames", hint: "Auto-detects FPS and duration" },
   { value: "0.25s", label: "Every 0.25s", hint: "Dense review" },
   { value: "0.5s", label: "Every 0.5s", hint: "Detailed survey" },
   { value: "1s", label: "Every 1s", hint: "Fast preview" },

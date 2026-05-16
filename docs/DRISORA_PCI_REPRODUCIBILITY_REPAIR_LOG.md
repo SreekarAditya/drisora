@@ -9,7 +9,7 @@ The reported symptoms came from multiple independent issues:
 
 | Symptom | Root Cause | Impact |
 |---|---|---|
-| 4K60 two-minute footage produced far fewer than 7,200 frames | Video uploads defaulted to interval/keyframe-style sampling, not full-frame extraction. The worker also did not fail closed when extraction produced far fewer frames than expected. | PCI was computed over a sparse sample, so repeated or differently sampled runs could disagree. |
+| High-frame-rate footage produced far fewer frames than the source video contains | Video uploads defaulted to interval/keyframe-style sampling, not full-frame extraction. The worker also did not fail closed when extraction produced far fewer frames than expected. | PCI was computed over a sparse sample, so repeated or differently sampled runs could disagree. |
 | PCI reproducibility was questionable | There was no run manifest, frame manifest, model hash manifest, or deterministic extraction default. R2 result listing order was also not guaranteed. | It was hard to prove whether two runs used the same frames, models, options, and result ordering. |
 | Pothole width showed values like 18 mm | `lib/crack-metrics.ts` had fallback width bands for potholes and report hydration could derive crack metrics from D40 pothole detections. | Potholes were presented like cracks, producing physically nonsensical width values. |
 | DepthPro fallback produced fake metric values | `worker/pipeline/depthpro_inference.py` converted pixel area to square meters when DepthPro failed. | Metric outputs could look precise even when metric inference was unavailable. |
@@ -21,7 +21,7 @@ The reported symptoms came from multiple independent issues:
 | Area | Files | Change |
 |---|---|---|
 | Full-frame extraction | `components/upload/DroneFootagePanel.tsx`, `components/upload/HandheldVideoPanel.tsx`, `worker/handler.py`, `worker/jobs/dispatcher.py`, `worker/ingest/video_handler.py` | Added `frame_extraction_mode: "all_frames"`, made it the UI and worker default, and preserved interval modes only as explicit preview options. |
-| Frame-count validation | `worker/ingest/video_handler.py` | Added ffprobe metadata parsing and count validation. All-frame jobs now fail if extraction is far below the expected frame count, so a 60 fps two-minute clip is expected to produce about 7,200 frames. |
+| Frame-count validation | `worker/ingest/video_handler.py` | Added ffprobe metadata parsing and count validation. All-frame jobs now fail if extraction is far below the expected source-derived frame count. |
 | Deterministic worker defaults | `worker/handler.py`, `worker/Dockerfile` | Seeded Python, NumPy, and Torch where available; set deterministic Docker defaults for `PYTHONHASHSEED`, `CUBLAS_WORKSPACE_CONFIG`, `DRISORA_DETERMINISTIC_SEED`, and `DRISORA_DETERMINISTIC_EXTRACTOR`. |
 | Reproducibility manifests | `worker/handler.py` | Worker now uploads `run_manifest.json`, `frame_manifest.json`, and `processing_summary.json` under `results/{user_id}/{job_id}/manifests/`. |
 | Stable result hydration | `lib/r2.ts` | R2 object keys are sorted before result hydration. |
@@ -46,8 +46,8 @@ All passed locally. The first build attempt was blocked by sandboxed Google Font
 
 These fixes make the implementation much less brittle, but PCI still needs empirical validation on the real worker and real footage.
 
-1. Run the exact 4K60 two-minute video through the deployed RunPod worker.
-2. Confirm `results/{user_id}/{job_id}/manifests/frame_manifest.json` contains roughly 7,200 frame entries.
+1. Run the exact high-frame-rate test video through the deployed RunPod worker.
+2. Confirm `results/{user_id}/{job_id}/manifests/frame_manifest.json` contains the source-derived expected frame count.
 3. Repeat the same upload twice and compare:
    - frame count
    - frame timestamps
@@ -62,6 +62,6 @@ These fixes make the implementation much less brittle, but PCI still needs empir
 ## Honest Remaining Work
 
 - The current PCI scorer is an application-level engineering heuristic, not yet a validated certified PCI engine.
-- Full-frame 4K60 processing is much heavier than preview sampling; RunPod timeout, GPU memory, R2 write volume, and webhook duration should be tested at 7,200+ frames.
+- Full-frame high-resolution processing is much heavier than preview sampling; RunPod timeout, GPU memory, R2 write volume, and webhook duration should be tested with the full decoded frame count from real source media.
 - The report UI should surface metric-quality flags more explicitly so users can distinguish measured metric outputs from unavailable metric outputs.
 - A worker-container regression test should be added with a tiny known-FPS video fixture to assert frame extraction count and timestamp determinism.
