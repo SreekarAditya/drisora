@@ -237,7 +237,7 @@ def _extract_frames_ffmpeg(
         vf = f"fps={sample_fps:.6f}"
         output_args.extend(["-vf", vf])
     else:
-        output_args.extend(["-fps_mode", "passthrough"])
+        output_args.extend(["-vsync", "0"])
     output_args.extend(["-start_number", "0"])
     if extension in {"jpg", "jpeg"}:
         output_args.extend(["-q:v", str(_ffmpeg_quality(jpeg_quality))])
