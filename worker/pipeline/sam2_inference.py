@@ -76,6 +76,28 @@ def _fallback_detection(detection: dict[str, Any]) -> dict[str, Any]:
     return updated
 
 
+def _mask_area_for_detection(masks: Any, scores: Any, index: int) -> float | None:
+    mask_array = np.asarray(masks)
+    score_array = np.asarray(scores) if scores is not None else np.array([])
+
+    try:
+        if mask_array.ndim == 4:
+            detection_masks = mask_array[index]
+            detection_scores = score_array[index] if score_array.ndim >= 2 else score_array
+        elif mask_array.ndim == 3:
+            detection_masks = mask_array
+            detection_scores = score_array
+        elif mask_array.ndim == 2:
+            return float(mask_array.astype(bool).sum())
+        else:
+            return None
+
+        best_idx = int(np.argmax(detection_scores)) if detection_scores is not None and len(detection_scores) else 0
+        return float(np.asarray(detection_masks[best_idx]).astype(bool).sum())
+    except Exception:
+        return None
+
+
 def _run_one(image_path: str, detections: list[dict[str, Any]]) -> list[dict[str, Any]]:
     if not detections:
         return []
@@ -86,30 +108,56 @@ def _run_one(image_path: str, detections: list[dict[str, Any]]) -> list[dict[str
         image = np.array(Image.open(image_path).convert("RGB"))
         predictor.set_image(image)
 
-        segmented: list[dict[str, Any]] = []
-        for detection in detections:
+        boxed_items: list[tuple[int, dict[str, Any], list[Any]]] = []
+        segmented: list[dict[str, Any] | None] = [None] * len(detections)
+        for detection_index, detection in enumerate(detections):
             bbox = detection.get("bbox")
             if not bbox or len(bbox) != 4:
-                segmented.append(_fallback_detection(detection))
+                segmented[detection_index] = _fallback_detection(detection)
                 continue
+            boxed_items.append((detection_index, detection, bbox))
 
+        if not boxed_items:
+            return [item for item in segmented if item is not None]
+
+        try:
+            boxes = np.array([bbox for _index, _detection, bbox in boxed_items], dtype=np.float32)
+            masks, scores, _ = predictor.predict(
+                box=boxes,
+                multimask_output=True,
+            )
+            for batch_index, (original_index, detection, _bbox) in enumerate(boxed_items):
+                mask_area_px = _mask_area_for_detection(masks, scores, batch_index)
+                if mask_area_px is None:
+                    segmented[original_index] = _fallback_detection(detection)
+                    continue
+                updated = dict(detection)
+                updated["mask_area_px"] = mask_area_px
+                updated["mask_area_m2"] = None
+                segmented[original_index] = updated
+
+            return [item if item is not None else _fallback_detection(detections[index]) for index, item in enumerate(segmented)]
+        except Exception as batch_exc:
+            print(f"[SAM2] batched box prediction failed for {image_path}: {batch_exc}; falling back to per-box")
+
+        for original_index, detection, bbox in boxed_items:
             try:
                 masks, scores, _ = predictor.predict(
                     box=np.array(bbox, dtype=np.float32),
                     multimask_output=True,
                 )
                 if masks is None or len(masks) == 0:
-                    segmented.append(_fallback_detection(detection))
+                    segmented[original_index] = _fallback_detection(detection)
                     continue
                 best_idx = int(np.argmax(scores)) if scores is not None and len(scores) else 0
                 mask_area_px = float(np.asarray(masks[best_idx]).astype(bool).sum())
                 updated = dict(detection)
                 updated["mask_area_px"] = mask_area_px
                 updated["mask_area_m2"] = None
-                segmented.append(updated)
+                segmented[original_index] = updated
             except Exception:
-                segmented.append(_fallback_detection(detection))
-        return segmented
+                segmented[original_index] = _fallback_detection(detection)
+        return [item if item is not None else _fallback_detection(detections[index]) for index, item in enumerate(segmented)]
     except Exception as e:
         print(f"[SAM2] _run_one failed for {image_path}: {e}")
         return [_fallback_detection(detection) for detection in detections]

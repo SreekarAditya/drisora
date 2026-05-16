@@ -163,9 +163,42 @@ def _infer_depth_map(image_path: str) -> np.ndarray:
     return np.asarray(depth, dtype=np.float32)
 
 
-def _run_one(image_path: str, detections: list[dict[str, Any]]) -> dict[str, Any]:
+def infer_depth_maps(image_paths: list[str]) -> list[np.ndarray]:
+    if not image_paths:
+        return []
+
     try:
-        depth_map = _infer_depth_map(image_path)
+        import torch
+        from PIL import Image
+
+        model, transform, device = load_model()
+        tensors = []
+        for image_path in image_paths:
+            image = Image.open(image_path).convert("RGB")
+            tensor = transform(image)
+            tensors.append(tensor)
+
+        batch = torch.stack(tensors, dim=0).to(device)
+        with torch.no_grad():
+            prediction = model.infer(batch)
+        depth = prediction.get("depth") if isinstance(prediction, dict) else prediction
+        if hasattr(depth, "detach"):
+            depth = depth.detach().cpu().numpy()
+        depth_array = np.asarray(depth, dtype=np.float32)
+        if depth_array.ndim == 4 and depth_array.shape[1] == 1:
+            depth_array = depth_array[:, 0, :, :]
+        if depth_array.ndim == 2 and len(image_paths) == 1:
+            return [depth_array]
+        if depth_array.ndim == 3 and depth_array.shape[0] == len(image_paths):
+            return [np.asarray(depth_array[index], dtype=np.float32) for index in range(len(image_paths))]
+        raise RuntimeError(f"unexpected batched depth shape {depth_array.shape}")
+    except Exception as exc:
+        print(f"[DepthPro] batched depth inference failed: {exc}; falling back to per-frame")
+        return [_infer_depth_map(image_path) for image_path in image_paths]
+
+
+def enrich_detections(depth_map: np.ndarray, detections: list[dict[str, Any]]) -> dict[str, Any]:
+    try:
         width = int(depth_map.shape[1]) if depth_map.ndim >= 2 else 1
         focal_length_px = _focal_length_px(width)
 
@@ -184,6 +217,15 @@ def _run_one(image_path: str, detections: list[dict[str, Any]]) -> dict[str, Any
                 item["crack_width_mm"] = crack_width_mm
             updated.append(item)
         return {"depth_map": depth_map, "detections": updated}
+    except Exception as e:
+        print(f"[DepthPro] detection enrichment failed: {e}")
+        return _fallback(detections)
+
+
+def _run_one(image_path: str, detections: list[dict[str, Any]]) -> dict[str, Any]:
+    try:
+        depth_map = _infer_depth_map(image_path)
+        return enrich_detections(depth_map, detections)
     except Exception as e:
         print(f"[DepthPro] frame inference failed: {e}")
         return _fallback(detections)

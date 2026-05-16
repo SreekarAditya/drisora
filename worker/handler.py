@@ -124,9 +124,20 @@ def _sam2_warmup_enabled(options: dict[str, Any]) -> bool:
 def _yolo_batch_size(options: dict[str, Any]) -> int:
     raw_value = options.get("yolo_batch_size", os.environ.get("DRISORA_YOLO_BATCH_SIZE", "64"))
     try:
-        return max(1, min(128, int(raw_value)))
+        return max(1, min(256, int(raw_value)))
     except (TypeError, ValueError):
         return 64
+
+
+def _depthpro_batch_size(options: dict[str, Any], yolo_batch_size: int) -> int:
+    raw_value = options.get(
+        "depthpro_batch_size",
+        os.environ.get("DRISORA_DEPTHPRO_BATCH_SIZE", str(min(16, yolo_batch_size))),
+    )
+    try:
+        return max(1, min(64, int(raw_value)))
+    except (TypeError, ValueError):
+        return min(16, yolo_batch_size)
 
 
 def _elapsed_ms(started: float) -> int:
@@ -629,6 +640,8 @@ def _process_frame(
     use_depth: bool,
     yolo_detections: list[dict[str, Any]] | None = None,
     yolo_elapsed_ms: int | None = None,
+    precomputed_depth_map: Any | None = None,
+    depth_elapsed_ms: int | None = None,
 ) -> dict[str, Any]:
     started = time.perf_counter()
     stage_timings: dict[str, int] = {
@@ -663,9 +676,13 @@ def _process_frame(
 
         if use_depth:
             depth_attempted = True
-            stage_started = time.perf_counter()
-            depth_result = depthpro_inference.run(str(frame_path), detections)
-            stage_timings["depthpro_ms"] = _elapsed_ms(stage_started)
+            if precomputed_depth_map is not None:
+                depth_result = depthpro_inference.enrich_detections(precomputed_depth_map, detections)
+                stage_timings["depthpro_ms"] = int(depth_elapsed_ms or 0)
+            else:
+                stage_started = time.perf_counter()
+                depth_result = depthpro_inference.run(str(frame_path), detections)
+                stage_timings["depthpro_ms"] = _elapsed_ms(stage_started)
             detections = depth_result.get("detections", detections)
             depth_map = depth_result.get("depth_map")
         else:
@@ -818,9 +835,10 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         use_depth = _depth_enabled(mode, options)
         warm_sam2 = _sam2_warmup_enabled(options)
         yolo_batch_size = _yolo_batch_size(options)
+        depthpro_batch_size = _depthpro_batch_size(options, yolo_batch_size)
         print(
             f"[PIPELINE] mode={mode} use_depth={use_depth} warm_sam2={warm_sam2} "
-            f"yolo_batch_size={yolo_batch_size} "
+            f"yolo_batch_size={yolo_batch_size} depthpro_batch_size={depthpro_batch_size} "
             f"options={json.dumps(options, sort_keys=True)}",
             flush=True,
         )
@@ -850,6 +868,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 "models": _model_manifest(),
                 "performance": {
                     "yolo_batch_size": yolo_batch_size,
+                    "depthpro_batch_size": depthpro_batch_size if use_depth else 0,
                     "progress_update_target": 100,
                 },
             },
@@ -924,6 +943,30 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 flush=True,
             )
 
+            depth_maps_by_index: dict[Any, Any] = {}
+            depth_share_ms = 0
+            if use_depth:
+                depth_started = time.perf_counter()
+                try:
+                    for depth_chunk in _chunked(frame_chunk, depthpro_batch_size):
+                        depth_paths = [str(Path(frame["path"])) for frame in depth_chunk]
+                        depth_maps = depthpro_inference.infer_depth_maps(depth_paths)
+                        for frame, depth_map in zip(depth_chunk, depth_maps):
+                            depth_maps_by_index[frame.get("index")] = depth_map
+                    depth_batch_elapsed_ms = _elapsed_ms(depth_started)
+                    depth_share_ms = int(depth_batch_elapsed_ms / max(1, len(frame_chunk)))
+                    print(
+                        f"[DEPTHPRO_BATCH_RESULT {batch_index}] frames={len(depth_maps_by_index)} "
+                        f"batch_size={depthpro_batch_size} elapsed_ms={depth_batch_elapsed_ms}",
+                        flush=True,
+                    )
+                except Exception as exc:
+                    print(
+                        f"[DEPTHPRO_BATCH {batch_index}] failed: {exc}; "
+                        "falling back to per-frame depth",
+                        flush=True,
+                    )
+
             for frame in frame_chunk:
                 processed_count += 1
                 print(f"[FRAME {processed_count}/{total}] processing", flush=True)
@@ -933,6 +976,8 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                     use_depth=use_depth,
                     yolo_detections=detections_by_index.get(frame.get("index"), []),
                     yolo_elapsed_ms=yolo_share_ms,
+                    precomputed_depth_map=depth_maps_by_index.get(frame.get("index")),
+                    depth_elapsed_ms=depth_share_ms,
                 )
                 processed = processed_count
                 total_detections += len(frame_result.get("detections") or [])
@@ -1020,6 +1065,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 "unattributed_frame_loop_ms": unattributed_frame_loop_ms,
                 "progress_update_every_frames": progress_update_every,
                 "yolo_batch_size": yolo_batch_size,
+                "depthpro_batch_size": depthpro_batch_size if use_depth else 0,
                 "pipeline_stage_counts": pipeline_stage_counts,
                 "degraded_frame_count": degraded_frame_count,
                 "degraded_reason_counts": degraded_reason_counts,
