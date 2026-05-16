@@ -121,6 +121,14 @@ def _sam2_warmup_enabled(options: dict[str, Any]) -> bool:
     return _option_enabled(options, "warm_sam2", env_default)
 
 
+def _yolo_batch_size(options: dict[str, Any]) -> int:
+    raw_value = options.get("yolo_batch_size", os.environ.get("DRISORA_YOLO_BATCH_SIZE", "64"))
+    try:
+        return max(1, min(128, int(raw_value)))
+    except (TypeError, ValueError):
+        return 64
+
+
 def _elapsed_ms(started: float) -> int:
     return int((time.perf_counter() - started) * 1000)
 
@@ -605,7 +613,23 @@ def _metric_summary(detections: list[dict[str, Any]], depth_map: Any) -> dict[st
     }
 
 
-def _process_frame(frame: dict[str, Any], use_depth: bool) -> dict[str, Any]:
+def _chunked(items: list[dict[str, Any]], size: int) -> list[list[dict[str, Any]]]:
+    return [items[index:index + size] for index in range(0, len(items), size)]
+
+
+def _detections_by_frame_index(detections: list[dict[str, Any]]) -> dict[Any, list[dict[str, Any]]]:
+    grouped: dict[Any, list[dict[str, Any]]] = {}
+    for detection in detections:
+        grouped.setdefault(detection.get("frame_index"), []).append(detection)
+    return grouped
+
+
+def _process_frame(
+    frame: dict[str, Any],
+    use_depth: bool,
+    yolo_detections: list[dict[str, Any]] | None = None,
+    yolo_elapsed_ms: int | None = None,
+) -> dict[str, Any]:
     started = time.perf_counter()
     stage_timings: dict[str, int] = {
         "yolo_ms": 0,
@@ -622,9 +646,13 @@ def _process_frame(frame: dict[str, Any], use_depth: bool) -> dict[str, Any]:
     frame_failed = False
     degraded_reasons: list[str] = []
     try:
-        stage_started = time.perf_counter()
-        detections = yolo_inference.run(str(frame_path))
-        stage_timings["yolo_ms"] = _elapsed_ms(stage_started)
+        if yolo_detections is None:
+            stage_started = time.perf_counter()
+            detections = yolo_inference.run(str(frame_path))
+            stage_timings["yolo_ms"] = _elapsed_ms(stage_started)
+        else:
+            detections = [dict(detection) for detection in yolo_detections]
+            stage_timings["yolo_ms"] = int(yolo_elapsed_ms or 0)
         yolo_count = len(detections)
 
         if detections:
@@ -789,8 +817,10 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
         use_depth = _depth_enabled(mode, options)
         warm_sam2 = _sam2_warmup_enabled(options)
+        yolo_batch_size = _yolo_batch_size(options)
         print(
             f"[PIPELINE] mode={mode} use_depth={use_depth} warm_sam2={warm_sam2} "
+            f"yolo_batch_size={yolo_batch_size} "
             f"options={json.dumps(options, sort_keys=True)}",
             flush=True,
         )
@@ -818,6 +848,10 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 "frame_count": len(frames),
                 "runtime": _runtime_manifest(),
                 "models": _model_manifest(),
+                "performance": {
+                    "yolo_batch_size": yolo_batch_size,
+                    "progress_update_target": 100,
+                },
             },
         )
         _add_ms(timing_breakdown_ms, "run_manifest_upload_ms", stage_started)
@@ -870,59 +904,85 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             "redis_progress_update_ms": 0,
         }
         progress_update_every = max(1, math.ceil(total / 100)) if total > 0 else 1
-        for processed_count, frame in enumerate(frames, start=1):
-            print(f"[FRAME {processed_count}/{total}] processing", flush=True)
-            frame_path = Path(frame["path"])
-            frame_result = _process_frame(frame, use_depth=use_depth)
-            processed = processed_count
-            total_detections += len(frame_result.get("detections") or [])
-            pci_scores.append(float(frame_result["pci_score"]))
-            total_processing_ms += int(frame_result.get("processing_ms") or 0)
-            for key, value in (frame_result.get("stage_timings_ms") or {}).items():
-                if isinstance(value, int):
-                    frame_stage_totals_ms[key] = frame_stage_totals_ms.get(key, 0) + value
-
-            analysis_stage = str(frame_result.get("analysis_stage") or "unknown")
-            pipeline_stage_counts[analysis_stage] = pipeline_stage_counts.get(analysis_stage, 0) + 1
-            frame_degraded_reasons = frame_result.get("degraded_reasons") or []
-            if analysis_stage == "fallback" or frame_degraded_reasons:
-                degraded_frame_count += 1
-            for reason in frame_degraded_reasons:
-                reason_key = str(reason)
-                degraded_reason_counts[reason_key] = degraded_reason_counts.get(reason_key, 0) + 1
-
-            stage_started = time.perf_counter()
-            _upload_file(
-                r2_client,
-                bucket,
-                frame_path,
-                f"{output_r2_prefix}frames/{frame_path.name}",
+        processed_count = 0
+        for batch_index, frame_chunk in enumerate(_chunked(frames, yolo_batch_size), start=1):
+            batch_start = processed_count + 1
+            batch_end = processed_count + len(frame_chunk)
+            print(
+                f"[YOLO_BATCH {batch_index}] frames={batch_start}-{batch_end}/{total} "
+                f"batch_size={len(frame_chunk)}",
+                flush=True,
             )
-            _add_ms(frame_stage_totals_ms, "frame_upload_ms", stage_started)
-
             stage_started = time.perf_counter()
-            detection_path = detection_dir / f"{frame_path.stem}.json"
-            detection_path.parent.mkdir(parents=True, exist_ok=True)
-            detection_path.write_text(json.dumps(frame_result))
-            _add_ms(frame_stage_totals_ms, "detection_json_write_ms", stage_started)
-
-            stage_started = time.perf_counter()
-            _upload_file(
-                r2_client,
-                bucket,
-                detection_path,
-                f"{output_r2_prefix}detections/{frame_path.stem}.json",
+            yolo_detections = yolo_inference.run(frame_chunk, batch_size=yolo_batch_size)
+            yolo_batch_elapsed_ms = _elapsed_ms(stage_started)
+            yolo_share_ms = int(yolo_batch_elapsed_ms / max(1, len(frame_chunk)))
+            detections_by_index = _detections_by_frame_index(yolo_detections)
+            print(
+                f"[YOLO_BATCH_RESULT {batch_index}] detections={len(yolo_detections)} "
+                f"elapsed_ms={yolo_batch_elapsed_ms}",
+                flush=True,
             )
-            _add_ms(frame_stage_totals_ms, "detection_upload_ms", stage_started)
-            if processed_count == total or processed_count % progress_update_every == 0:
-                stage_started = time.perf_counter()
-                _update_job(
-                    redis_url,
-                    redis_token,
-                    job_id,
-                    processed_count=processed_count,
+
+            for frame in frame_chunk:
+                processed_count += 1
+                print(f"[FRAME {processed_count}/{total}] processing", flush=True)
+                frame_path = Path(frame["path"])
+                frame_result = _process_frame(
+                    frame,
+                    use_depth=use_depth,
+                    yolo_detections=detections_by_index.get(frame.get("index"), []),
+                    yolo_elapsed_ms=yolo_share_ms,
                 )
-                _add_ms(frame_stage_totals_ms, "redis_progress_update_ms", stage_started)
+                processed = processed_count
+                total_detections += len(frame_result.get("detections") or [])
+                pci_scores.append(float(frame_result["pci_score"]))
+                total_processing_ms += int(frame_result.get("processing_ms") or 0)
+                for key, value in (frame_result.get("stage_timings_ms") or {}).items():
+                    if isinstance(value, int):
+                        frame_stage_totals_ms[key] = frame_stage_totals_ms.get(key, 0) + value
+
+                analysis_stage = str(frame_result.get("analysis_stage") or "unknown")
+                pipeline_stage_counts[analysis_stage] = pipeline_stage_counts.get(analysis_stage, 0) + 1
+                frame_degraded_reasons = frame_result.get("degraded_reasons") or []
+                if analysis_stage == "fallback" or frame_degraded_reasons:
+                    degraded_frame_count += 1
+                for reason in frame_degraded_reasons:
+                    reason_key = str(reason)
+                    degraded_reason_counts[reason_key] = degraded_reason_counts.get(reason_key, 0) + 1
+
+                stage_started = time.perf_counter()
+                _upload_file(
+                    r2_client,
+                    bucket,
+                    frame_path,
+                    f"{output_r2_prefix}frames/{frame_path.name}",
+                )
+                _add_ms(frame_stage_totals_ms, "frame_upload_ms", stage_started)
+
+                stage_started = time.perf_counter()
+                detection_path = detection_dir / f"{frame_path.stem}.json"
+                detection_path.parent.mkdir(parents=True, exist_ok=True)
+                detection_path.write_text(json.dumps(frame_result))
+                _add_ms(frame_stage_totals_ms, "detection_json_write_ms", stage_started)
+
+                stage_started = time.perf_counter()
+                _upload_file(
+                    r2_client,
+                    bucket,
+                    detection_path,
+                    f"{output_r2_prefix}detections/{frame_path.stem}.json",
+                )
+                _add_ms(frame_stage_totals_ms, "detection_upload_ms", stage_started)
+                if processed_count == total or processed_count % progress_update_every == 0:
+                    stage_started = time.perf_counter()
+                    _update_job(
+                        redis_url,
+                        redis_token,
+                        job_id,
+                        processed_count=processed_count,
+                    )
+                    _add_ms(frame_stage_totals_ms, "redis_progress_update_ms", stage_started)
 
         average_pci = sum(pci_scores) / len(pci_scores) if pci_scores else 50.0
         end_to_end_processing_ms = int((time.perf_counter() - processing_started) * 1000)
@@ -959,6 +1019,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 "per_frame_average_ms": per_frame_average_ms,
                 "unattributed_frame_loop_ms": unattributed_frame_loop_ms,
                 "progress_update_every_frames": progress_update_every,
+                "yolo_batch_size": yolo_batch_size,
                 "pipeline_stage_counts": pipeline_stage_counts,
                 "degraded_frame_count": degraded_frame_count,
                 "degraded_reason_counts": degraded_reason_counts,

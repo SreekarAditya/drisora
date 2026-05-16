@@ -71,6 +71,30 @@ def _class_name(model: Any, cls_id: int) -> str:
     return str(raw_name or cls_id)
 
 
+def _detections_from_result(model: Any, result: Any, frame_index: Any = None) -> list[dict[str, Any]]:
+    boxes = getattr(result, "boxes", None)
+    if boxes is None or len(boxes) == 0:
+        return []
+
+    detections: list[dict[str, Any]] = []
+    xyxy = boxes.xyxy.detach().cpu().numpy()
+    confs = boxes.conf.detach().cpu().numpy()
+    classes = boxes.cls.detach().cpu().numpy()
+    for bbox_arr, conf, cls in zip(xyxy, confs, classes):
+        x1, y1, x2, y2 = [float(v) for v in bbox_arr]
+        area_px = max(0.0, x2 - x1) * max(0.0, y2 - y1)
+        detection: dict[str, Any] = {
+            "class": _class_name(model, int(cls)),
+            "confidence": float(conf),
+            "bbox": [x1, y1, x2, y2],
+            "area_px": float(area_px),
+        }
+        if frame_index is not None:
+            detection["frame_index"] = frame_index
+        detections.append(detection)
+    return detections
+
+
 def _run_one(image_path: str, frame_index: Any = None) -> list[dict[str, Any]]:
     if not image_path:
         return []
@@ -85,39 +109,44 @@ def _run_one(image_path: str, frame_index: Any = None) -> list[dict[str, Any]]:
         )
         if not results:
             return []
-
-        boxes = getattr(results[0], "boxes", None)
-        if boxes is None or len(boxes) == 0:
-            return []
-
-        detections: list[dict[str, Any]] = []
-        xyxy = boxes.xyxy.detach().cpu().numpy()
-        confs = boxes.conf.detach().cpu().numpy()
-        classes = boxes.cls.detach().cpu().numpy()
-        for bbox_arr, conf, cls in zip(xyxy, confs, classes):
-            x1, y1, x2, y2 = [float(v) for v in bbox_arr]
-            area_px = max(0.0, x2 - x1) * max(0.0, y2 - y1)
-            detection: dict[str, Any] = {
-                "class": _class_name(model, int(cls)),
-                "confidence": float(conf),
-                "bbox": [x1, y1, x2, y2],
-                "area_px": float(area_px),
-            }
-            if frame_index is not None:
-                detection["frame_index"] = frame_index
-            detections.append(detection)
-        return detections
+        return _detections_from_result(model, results[0], frame_index)
     except Exception as e:
         print(f"[YOLO] frame {frame_index} inference failed: {e}")
         return []
 
 
-def run(image_path: str | Path | list[Any]) -> list[dict[str, Any]]:
-    if isinstance(image_path, list):
+def _run_batch(frames: list[Any], batch_size: int = 64) -> list[dict[str, Any]]:
+    items = [(_image_path(frame), _frame_index(frame)) for frame in frames]
+    items = [(path, frame_index) for path, frame_index in items if path]
+    if not items:
+        return []
+
+    try:
+        model = load_model()
+        results = model.predict(
+            source=[path for path, _frame_index in items],
+            conf=CONFIDENCE,
+            iou=IOU,
+            device=_DEVICE or "cpu",
+            verbose=False,
+            batch=max(1, int(batch_size)),
+        )
+
         detections: list[dict[str, Any]] = []
-        for frame in image_path:
-            detections.extend(_run_one(_image_path(frame), _frame_index(frame)))
+        for (_path, frame_index), result in zip(items, results or []):
+            detections.extend(_detections_from_result(model, result, frame_index))
         return detections
+    except Exception as e:
+        print(f"[YOLO] batch inference failed: {e}; falling back to per-frame inference")
+        detections: list[dict[str, Any]] = []
+        for path, frame_index in items:
+            detections.extend(_run_one(path, frame_index))
+        return detections
+
+
+def run(image_path: str | Path | list[Any], batch_size: int | None = None) -> list[dict[str, Any]]:
+    if isinstance(image_path, list):
+        return _run_batch(image_path, batch_size=batch_size or 64)
     return _run_one(_image_path(image_path))
 
 
