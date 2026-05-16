@@ -121,6 +121,65 @@ class TestMultiVideoDispatch(unittest.TestCase):
             ["/frames/v1-0.jpg", "/frames/v1-1.jpg", "/frames/v2-0.jpg"],
         )
 
+    def test_dispatch_multi_drone_footage_null_interval_without_mode_means_all_frames(self):
+        from jobs import dispatcher
+
+        files = {
+            "frame_interval_seconds": None,
+            "videos": [
+                {"video": "/tmp/video-1.mp4"},
+                {"video": "/tmp/video-2.mp4"},
+            ],
+        }
+
+        calls: list[tuple[str, float | None, str]] = []
+
+        def fake_extract(video: str, interval_seconds: float | None, extraction_mode: str = "interval"):
+            calls.append((video, interval_seconds, extraction_mode))
+            return [{"index": 0, "path": f"/frames/{os.path.basename(video)}.jpg", "timestamp_ms": 0}]
+
+        with unittest.mock.patch.object(dispatcher, "extract_frames", side_effect=fake_extract):
+            batch = dispatcher.dispatch_job("job-123", "drone_footage", files)
+
+        self.assertEqual(batch["frame_count"], 2)
+        self.assertEqual(
+            calls,
+            [
+                ("/tmp/video-1.mp4", None, "all_frames"),
+                ("/tmp/video-2.mp4", None, "all_frames"),
+            ],
+        )
+
+    def test_dispatch_multi_drone_footage_interval_profile_is_preserved(self):
+        from jobs import dispatcher
+
+        files = {
+            "frame_extraction_mode": "interval",
+            "frame_interval_seconds": 0.5,
+            "videos": [
+                {"video": "/tmp/video-1.mp4"},
+                {"video": "/tmp/video-2.mp4"},
+            ],
+        }
+
+        calls: list[tuple[str, float | None, str]] = []
+
+        def fake_extract(video: str, interval_seconds: float | None, extraction_mode: str = "interval"):
+            calls.append((video, interval_seconds, extraction_mode))
+            return [{"index": 0, "path": f"/frames/{os.path.basename(video)}.jpg", "timestamp_ms": 0}]
+
+        with unittest.mock.patch.object(dispatcher, "extract_frames", side_effect=fake_extract):
+            batch = dispatcher.dispatch_job("job-123", "drone_footage", files)
+
+        self.assertEqual(batch["frame_count"], 2)
+        self.assertEqual(
+            calls,
+            [
+                ("/tmp/video-1.mp4", 0.5, "interval"),
+                ("/tmp/video-2.mp4", 0.5, "interval"),
+            ],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

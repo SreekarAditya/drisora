@@ -23,12 +23,39 @@ interface VideoInput {
 
 interface JobOptions {
   enable_metric_analysis?: boolean;
-  frame_interval_seconds?: number;
+  frame_extraction_mode?: string | null;
+  frame_interval_seconds?: number | null;
 }
 
 interface IngestBody {
   videos: VideoInput[];
   job_options?: JobOptions;
+}
+
+function normalizedFrameOptions(options: JobOptions) {
+  const rawMode = options.frame_extraction_mode;
+  const rawInterval = options.frame_interval_seconds;
+  const mode = typeof rawMode === "string" ? rawMode.trim().toLowerCase() : "";
+
+  if (mode === "all_frames" || (mode === "" && rawInterval == null)) {
+    return {
+      frame_extraction_mode: "all_frames",
+      frame_interval_seconds: null,
+    };
+  }
+
+  const interval = Number(rawInterval);
+  if (!Number.isFinite(interval) || interval <= 0) {
+    return {
+      frame_extraction_mode: "interval",
+      frame_interval_seconds: 1,
+    };
+  }
+
+  return {
+    frame_extraction_mode: "interval",
+    frame_interval_seconds: interval,
+  };
 }
 
 export async function POST(
@@ -148,6 +175,7 @@ export async function POST(
   ];
   const jobOptions: Record<string, unknown> = {
     ...(body.job_options ?? {}),
+    ...normalizedFrameOptions(body.job_options ?? {}),
     is_multi_video: body.videos.length > 1,
     video_count: body.videos.length,
     video_filenames: body.videos.map((video) => video.video_filename),

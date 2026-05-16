@@ -17,6 +17,32 @@ interface CreateJobBody {
 const VALID_MODES: JobMode[] = ["image_batch", "handheld_video", "drone_footage"];
 const SAFE_FILE_NAME = /^[A-Za-z0-9._-]+$/;
 
+function normalizedFrameOptions(options: Record<string, unknown>) {
+  const rawMode = options.frame_extraction_mode;
+  const rawInterval = options.frame_interval_seconds;
+  const mode = typeof rawMode === "string" ? rawMode.trim().toLowerCase() : "";
+
+  if (mode === "all_frames" || (mode === "" && rawInterval == null)) {
+    return {
+      frame_extraction_mode: "all_frames",
+      frame_interval_seconds: null,
+    };
+  }
+
+  const interval = Number(rawInterval);
+  if (!Number.isFinite(interval) || interval <= 0) {
+    return {
+      frame_extraction_mode: "interval",
+      frame_interval_seconds: 1,
+    };
+  }
+
+  return {
+    frame_extraction_mode: "interval",
+    frame_interval_seconds: interval,
+  };
+}
+
 function isSafeStorageName(name: string) {
   return (
     name.length > 0 &&
@@ -129,7 +155,10 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const options = body.options ?? {};
+  const options: Record<string, unknown> = {
+    ...(body.options ?? {}),
+    ...normalizedFrameOptions(body.options ?? {}),
+  };
   const projectId =
     typeof body.project_id === "string" && body.project_id.length > 0
       ? body.project_id
