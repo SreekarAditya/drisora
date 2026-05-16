@@ -64,6 +64,27 @@ def dispatch_job(job_id: str, mode: str, files: Dict[str, Any]) -> FrameBatch:
 # --- Per-mode handlers ------------------------------------------------------
 
 
+def _frame_extraction_settings(files: Dict[str, Any]) -> tuple[str, float | None]:
+    """Normalize frame extraction options from old and new job payloads."""
+    raw_mode = files.get("frame_extraction_mode")
+    interval_value = files.get("frame_interval_seconds")
+
+    if isinstance(raw_mode, str) and raw_mode.strip():
+        mode = raw_mode.strip().lower()
+    elif interval_value is None:
+        mode = "all_frames"
+    else:
+        mode = "interval"
+
+    if mode not in {"interval", "all_frames"}:
+        raise ValueError("frame_extraction_mode must be 'interval' or 'all_frames'")
+
+    if mode == "all_frames":
+        return mode, None
+
+    return mode, float(interval_value if interval_value is not None else 1.0)
+
+
 def _dispatch_image_batch(job_id: str, files: Dict[str, Any]) -> FrameBatch:
     image_paths: Sequence[str] = files.get("images") or []
     if not image_paths:
@@ -101,9 +122,7 @@ def _dispatch_handheld_video(job_id: str, files: Dict[str, Any]) -> FrameBatch:
     if not video:
         raise ValueError("handheld_video requires 'video'")
     srt_path = files.get("srt")
-    mode = str(files.get("frame_extraction_mode") or "all_frames")
-    interval_value = files.get("frame_interval_seconds", 1.0)
-    interval = None if mode == "all_frames" else float(interval_value or 1.0)
+    mode, interval = _frame_extraction_settings(files)
 
     raw_frames = extract_frames(video, interval_seconds=interval, extraction_mode=mode)
     ingest_metadata = last_extraction_metadata()
@@ -144,9 +163,7 @@ def _dispatch_drone_footage(job_id: str, files: Dict[str, Any]) -> FrameBatch:
     if not video:
         raise ValueError("drone_footage requires 'video'")
     srt_path = files.get("srt")
-    mode = str(files.get("frame_extraction_mode") or "all_frames")
-    interval_value = files.get("frame_interval_seconds", 1.0)
-    interval = None if mode == "all_frames" else float(interval_value or 1.0)
+    mode, interval = _frame_extraction_settings(files)
 
     raw_frames = extract_frames(video, interval_seconds=interval, extraction_mode=mode)
     ingest_metadata = last_extraction_metadata()
@@ -184,9 +201,7 @@ def _dispatch_multi_drone_footage(job_id: str, files: Dict[str, Any]) -> FrameBa
     if not isinstance(entries, list) or len(entries) == 0:
         raise ValueError("multi-video drone_footage requires 'videos'")
 
-    mode = str(files.get("frame_extraction_mode") or "all_frames")
-    interval_value = files.get("frame_interval_seconds", 1.0)
-    interval = None if mode == "all_frames" else float(interval_value or 1.0)
+    mode, interval = _frame_extraction_settings(files)
     frames: List[FrameBatchItem] = []
     extraction_runs: list[dict[str, Any]] = []
 

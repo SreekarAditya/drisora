@@ -271,12 +271,22 @@ def _build_dispatch_files(
     local_files: list[Path],
     options: dict[str, Any],
 ) -> dict[str, Any]:
-    extraction_mode = str(options.get("frame_extraction_mode") or "all_frames")
+    interval_value = options.get("frame_interval_seconds")
+    raw_extraction_mode = options.get("frame_extraction_mode")
+    if isinstance(raw_extraction_mode, str) and raw_extraction_mode.strip():
+        extraction_mode = raw_extraction_mode.strip().lower()
+    elif interval_value is None:
+        extraction_mode = "all_frames"
+    else:
+        extraction_mode = "interval"
+    if extraction_mode not in {"interval", "all_frames"}:
+        raise ValueError("frame_extraction_mode must be 'interval' or 'all_frames'")
+
     files: dict[str, Any] = {
         "frame_extraction_mode": extraction_mode,
         "frame_interval_seconds": None
         if extraction_mode == "all_frames"
-        else options.get("frame_interval_seconds", 1),
+        else interval_value if interval_value is not None else 1,
     }
     if mode == "image_batch":
         files["images"] = [str(path) for path in local_files]

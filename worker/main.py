@@ -390,7 +390,22 @@ def run_job(redis: Redis, job: Dict[str, Any]) -> None:
     try:
         download_raw_files(job, work_dir)
 
-        files: Dict[str, Any] = {"frame_interval_seconds": job["options"].get("frame_interval_seconds", 1.0)}
+        options = job.get("options") or {}
+        interval_value = options.get("frame_interval_seconds")
+        raw_extraction_mode = options.get("frame_extraction_mode")
+        if isinstance(raw_extraction_mode, str) and raw_extraction_mode.strip():
+            extraction_mode = raw_extraction_mode.strip().lower()
+        elif interval_value is None:
+            extraction_mode = "all_frames"
+        else:
+            extraction_mode = "interval"
+
+        files: Dict[str, Any] = {
+            "frame_extraction_mode": extraction_mode,
+            "frame_interval_seconds": None
+            if extraction_mode == "all_frames"
+            else interval_value if interval_value is not None else 1.0,
+        }
         mode = job["mode"]
 
         if mode == "image_batch":

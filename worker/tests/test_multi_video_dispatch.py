@@ -29,6 +29,44 @@ for _mod in (
 
 
 class TestMultiVideoDispatch(unittest.TestCase):
+    def test_dispatch_drone_footage_null_interval_means_all_frames(self):
+        from jobs import dispatcher
+
+        files = {
+            "frame_interval_seconds": None,
+            "video": "/tmp/video.mp4",
+        }
+
+        def fake_extract(video: str, interval_seconds: float | None, extraction_mode: str = "interval"):
+            self.assertEqual(video, "/tmp/video.mp4")
+            self.assertEqual(extraction_mode, "all_frames")
+            self.assertIsNone(interval_seconds)
+            return [{"index": 0, "path": "/frames/frame-0.jpg", "timestamp_ms": 0}]
+
+        with unittest.mock.patch.object(dispatcher, "extract_frames", side_effect=fake_extract):
+            batch = dispatcher.dispatch_job("job-123", "drone_footage", files)
+
+        self.assertEqual(batch["frame_count"], 1)
+
+    def test_dispatch_drone_footage_numeric_interval_without_mode_stays_interval(self):
+        from jobs import dispatcher
+
+        files = {
+            "frame_interval_seconds": 0.5,
+            "video": "/tmp/video.mp4",
+        }
+
+        def fake_extract(video: str, interval_seconds: float | None, extraction_mode: str = "interval"):
+            self.assertEqual(video, "/tmp/video.mp4")
+            self.assertEqual(extraction_mode, "interval")
+            self.assertEqual(interval_seconds, 0.5)
+            return [{"index": 0, "path": "/frames/frame-0.jpg", "timestamp_ms": 0}]
+
+        with unittest.mock.patch.object(dispatcher, "extract_frames", side_effect=fake_extract):
+            batch = dispatcher.dispatch_job("job-123", "drone_footage", files)
+
+        self.assertEqual(batch["frame_count"], 1)
+
     def test_dispatch_multi_drone_footage_combines_all_video_entries(self):
         from jobs import dispatcher
 

@@ -39,7 +39,7 @@ def extract_frames(
     output_dir: Optional[str | Path] = None,
     image_format: str = "jpg",
     jpeg_quality: int = 92,
-    extraction_mode: str = "interval",
+    extraction_mode: str | None = None,
 ) -> List[Frame]:
     """Extract frames from a video.
 
@@ -48,7 +48,7 @@ def extract_frames(
     call `attach_gps_to_frames()` afterwards to populate them from SRT data.
     """
     global _LAST_EXTRACTION_METADATA
-    mode = (extraction_mode or "interval").strip().lower()
+    mode = (extraction_mode or ("all_frames" if interval_seconds is None else "interval")).strip().lower()
     if mode not in {"interval", "all_frames"}:
         raise ValueError("extraction_mode must be 'interval' or 'all_frames'")
     if mode == "interval" and (interval_seconds is None or interval_seconds <= 0):
