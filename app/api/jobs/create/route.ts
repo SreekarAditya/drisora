@@ -62,6 +62,10 @@ function hasMultiVideoSrt(options: Record<string, unknown>) {
   );
 }
 
+function isSrtName(name: string) {
+  return /\.srt$/i.test(name);
+}
+
 export async function POST(request: NextRequest) {
   const supabase = await createClient();
   const {
@@ -115,6 +119,8 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const rawOptions = body.options ?? {};
+
   if (body.mode === "image_batch" && body.file_names.length > 1000) {
     return NextResponse.json(
       { error: "Image batch limited to 1,000 files" },
@@ -137,27 +143,38 @@ export async function POST(request: NextRequest) {
   }
 
   if (body.mode === "drone_footage") {
-    const isMultiVideo = body.options?.is_multi_video === true;
+    const isMultiVideo = rawOptions.is_multi_video === true;
+    const uploadedSrtCount = body.file_names.filter(isSrtName).length;
+    const uploadedVideoCount = body.file_names.length - uploadedSrtCount;
+
     if (isMultiVideo) {
-      const videoCount = typeof body.options?.video_count === "number" ? body.options.video_count : 0;
-      const srtFilenames = Array.isArray(body.options?.srt_filenames) ? body.options.srt_filenames : [];
-      if (videoCount < 1 || srtFilenames.some((s: unknown) => s === null)) {
+      const videoCount = typeof rawOptions.video_count === "number" ? rawOptions.video_count : 0;
+      if (
+        !hasMultiVideoSrt(rawOptions) ||
+        uploadedVideoCount !== videoCount ||
+        uploadedSrtCount !== videoCount
+      ) {
         return NextResponse.json(
-          { error: "Drone footage requires one video file and an optional SRT file" },
+          { error: "Multi-video drone footage requires one .SRT GPS log for each video" },
           { status: 400 },
         );
       }
-    } else if (body.file_count < 1 || body.file_count > 2) {
+    } else if (
+      body.file_count !== 2 ||
+      uploadedVideoCount !== 1 ||
+      uploadedSrtCount !== 1 ||
+      rawOptions.has_srt !== true
+    ) {
       return NextResponse.json(
-        { error: "Drone footage requires one video file and an optional SRT file" },
+        { error: "Drone footage requires one video file and a paired .SRT GPS log" },
         { status: 400 },
       );
     }
   }
 
   const options: Record<string, unknown> = {
-    ...(body.options ?? {}),
-    ...normalizedFrameOptions(body.options ?? {}),
+    ...rawOptions,
+    ...normalizedFrameOptions(rawOptions),
   };
   const projectId =
     typeof body.project_id === "string" && body.project_id.length > 0
@@ -183,13 +200,13 @@ export async function POST(request: NextRequest) {
       ? true
       : body.mode === "handheld_video"
         ? options.has_srt === true
-        : options.gps_source === "embedded" ||
-          options.has_srt === true ||
-          (options.is_multi_video === true && hasMultiVideoSrt(options));
+        : options.is_multi_video === true
+          ? hasMultiVideoSrt(options)
+          : options.has_srt === true;
 
   if (body.mode === "drone_footage" && !gpsAvailable) {
     return NextResponse.json(
-      { error: "Drone footage requires embedded GPS or an .SRT file" },
+      { error: "Drone footage requires a paired .SRT GPS log" },
       { status: 400 },
     );
   }

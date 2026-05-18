@@ -38,7 +38,7 @@ function StepOne() {
     },
     {
       title: "Drone Footage",
-      desc: "Best for: aerial coverage with embedded GPS mapping",
+      desc: "Best for: aerial coverage with paired SRT GPS mapping",
       icon: (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-5 w-5">
           <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />

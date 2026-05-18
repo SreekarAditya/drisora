@@ -47,7 +47,7 @@ def dispatch_job(job_id: str, mode: str, files: Dict[str, Any]) -> FrameBatch:
     files:  mode-dependent payload, e.g.:
         image_batch    -> {"images": [path, path, ...]}
         handheld_video -> {"video": path, "frame_interval_seconds": float}
-        drone_footage  -> {"video": path, "srt": Optional[path],
+        drone_footage  -> {"video": path, "srt": path,
                            "frame_interval_seconds": float}
 
     Returns a `FrameBatch` ready for the detection pipeline.
@@ -163,6 +163,8 @@ def _dispatch_drone_footage(job_id: str, files: Dict[str, Any]) -> FrameBatch:
     if not video:
         raise ValueError("drone_footage requires 'video'")
     srt_path = files.get("srt")
+    if not srt_path:
+        raise ValueError("drone_footage requires a paired .SRT GPS log")
     mode, interval = _frame_extraction_settings(files)
 
     raw_frames = extract_frames(video, interval_seconds=interval, extraction_mode=mode)
@@ -214,6 +216,8 @@ def _dispatch_multi_drone_footage(job_id: str, files: Dict[str, Any]) -> FrameBa
             raise ValueError("multi-video drone_footage requires a video for each entry")
 
         srt_path = entry.get("srt")
+        if not srt_path:
+            raise ValueError("multi-video drone_footage requires an .SRT GPS log for each video")
         raw_frames = extract_frames(video, interval_seconds=interval, extraction_mode=mode)
         extraction_runs.append(last_extraction_metadata())
         srt_entries = parse_srt(srt_path) if srt_path else []
