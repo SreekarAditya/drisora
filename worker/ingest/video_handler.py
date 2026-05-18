@@ -116,7 +116,9 @@ def _run_ffmpeg(command: list[str]) -> None:
     result = subprocess.run(command, capture_output=True, text=True, check=False)
     if result.returncode != 0:
         stderr = (result.stderr or result.stdout or "").strip()
-        raise RuntimeError(stderr or f"ffmpeg exited with code {result.returncode}")
+        command_text = " ".join(command)
+        message = stderr or f"ffmpeg exited with code {result.returncode}"
+        raise RuntimeError(f"{message}\nffmpeg command: {command_text}")
 
 
 def _parse_rate(value: str | None) -> float | None:
