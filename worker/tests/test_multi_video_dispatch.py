@@ -35,6 +35,7 @@ class TestMultiVideoDispatch(unittest.TestCase):
         files = {
             "frame_interval_seconds": None,
             "video": "/tmp/video.mp4",
+            "srt": "/tmp/video.srt",
         }
 
         def fake_extract(video: str, interval_seconds: float | None, extraction_mode: str = "interval"):
@@ -54,6 +55,7 @@ class TestMultiVideoDispatch(unittest.TestCase):
         files = {
             "frame_interval_seconds": 0.5,
             "video": "/tmp/video.mp4",
+            "srt": "/tmp/video.srt",
         }
 
         def fake_extract(video: str, interval_seconds: float | None, extraction_mode: str = "interval"):
@@ -127,8 +129,8 @@ class TestMultiVideoDispatch(unittest.TestCase):
         files = {
             "frame_interval_seconds": None,
             "videos": [
-                {"video": "/tmp/video-1.mp4"},
-                {"video": "/tmp/video-2.mp4"},
+                {"video": "/tmp/video-1.mp4", "srt": "/tmp/video-1.srt"},
+                {"video": "/tmp/video-2.mp4", "srt": "/tmp/video-2.srt"},
             ],
         }
 
@@ -157,8 +159,8 @@ class TestMultiVideoDispatch(unittest.TestCase):
             "frame_extraction_mode": "interval",
             "frame_interval_seconds": 0.5,
             "videos": [
-                {"video": "/tmp/video-1.mp4"},
-                {"video": "/tmp/video-2.mp4"},
+                {"video": "/tmp/video-1.mp4", "srt": "/tmp/video-1.srt"},
+                {"video": "/tmp/video-2.mp4", "srt": "/tmp/video-2.srt"},
             ],
         }
 
@@ -179,6 +181,30 @@ class TestMultiVideoDispatch(unittest.TestCase):
                 ("/tmp/video-2.mp4", 0.5, "interval"),
             ],
         )
+
+    def test_dispatch_drone_footage_requires_srt(self):
+        from jobs import dispatcher
+
+        with self.assertRaisesRegex(ValueError, "paired .SRT GPS log"):
+            dispatcher.dispatch_job(
+                "job-123",
+                "drone_footage",
+                {"video": "/tmp/video.mp4", "frame_interval_seconds": None},
+            )
+
+    def test_dispatch_multi_drone_footage_requires_srt_per_video(self):
+        from jobs import dispatcher
+
+        files = {
+            "frame_interval_seconds": None,
+            "videos": [
+                {"video": "/tmp/video-1.mp4"},
+                {"video": "/tmp/video-2.mp4", "srt": "/tmp/video-2.srt"},
+            ],
+        }
+
+        with self.assertRaisesRegex(ValueError, ".SRT GPS log for each video"):
+            dispatcher.dispatch_job("job-123", "drone_footage", files)
 
 
 if __name__ == "__main__":

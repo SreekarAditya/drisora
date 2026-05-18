@@ -3,12 +3,6 @@
 import { useState } from "react";
 import { useUpload } from "@/hooks/useUpload";
 
-type GpsState =
-  | { kind: "unchecked" }
-  | { kind: "checking" }
-  | { kind: "found" }
-  | { kind: "not_found" };
-
 type SurveyMode = "single" | "multi";
 type FrameProfile = "all_frames" | "0.25s" | "0.5s" | "1s";
 
@@ -64,7 +58,6 @@ function SingleVideoPanel({
   const [srt, setSrt] = useState<File | null>(null);
   const [frameProfile, setFrameProfile] = useState<FrameProfile>("all_frames");
   const [enableMetricAnalysis, setEnableMetricAnalysis] = useState(false);
-  const [gps, setGps] = useState<GpsState>({ kind: "unchecked" });
   const [videoDrag, setVideoDrag] = useState(false);
   const [srtDrag, setSrtDrag] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
@@ -77,28 +70,12 @@ function SingleVideoPanel({
       return;
     }
     setVideo(file);
-    setGps({ kind: "unchecked" });
-    setSrt(null);
   }
 
   function setSingleSrt(file: File | null) {
     if (!file) return;
     if (!/\.srt$/i.test(file.name)) return;
     setSrt(file);
-  }
-
-  async function detectGps() {
-    if (!video) return;
-    setGps({ kind: "checking" });
-
-    const sliceBytes = Math.min(video.size, 5 * 1024 * 1024);
-    const buf = await video.slice(0, sliceBytes).arrayBuffer();
-    const bytes = new Uint8Array(buf);
-
-    const markers = ["djmd", "dbgi", "dji.gps", "GPMF", "GPS5", "©xyz", "gps_lat"];
-    const haystack = bytesToAscii(bytes);
-    const found = markers.some((m) => haystack.includes(m));
-    setGps({ kind: found ? "found" : "not_found" });
   }
 
   function handleVideoDrop(event: React.DragEvent<HTMLLabelElement>) {
@@ -113,23 +90,22 @@ function SingleVideoPanel({
     setSingleSrt(event.dataTransfer.files?.[0] ?? null);
   }
 
-  const gpsAvailable = gps.kind === "found" || srt !== null;
-  const canSubmit = !!video && gpsAvailable;
+  const canSubmit = !!video && srt !== null;
   const isUploading =
     phase === "uploading" || phase === "presigning" || phase === "creating_job";
 
   async function handleSubmit() {
     if (!video || !canSubmit) return;
-    const files = [video, ...(srt ? [srt] : [])];
+    const files = [video, srt!];
     await startUpload(files, {
       mode: "drone_footage",
       project_id: projectId ?? null,
       file_names: files.map((f) => f.name),
       total_bytes: files.reduce((sum, f) => sum + f.size, 0),
       options: {
-        gps_source: gps.kind === "found" ? "embedded" : "srt",
-        has_srt: srt !== null,
-        srt_name: srt?.name ?? null,
+        gps_source: "srt",
+        has_srt: true,
+        srt_name: srt!.name,
         ...frameProfileOptions(frameProfile),
         enable_metric_analysis: enableMetricAnalysis,
         enable_depthpro: enableMetricAnalysis,
@@ -140,8 +116,7 @@ function SingleVideoPanel({
   return (
     <>
       <p className="mt-1 text-sm text-gray-500">
-        Single MP4 or MOV. We&apos;ll use embedded GPS if present, otherwise pair it
-        with a DJI .SRT log.
+        Single MP4 or MOV with a paired DJI .SRT log for GPS mapping.
       </p>
 
       <label
@@ -197,88 +172,50 @@ function SingleVideoPanel({
         </div>
       )}
 
-      {video && (
-        <div className="mt-6 rounded-lg border border-[#1a1a1a] bg-[#0a0a0a] p-4">
-          {gps.kind === "unchecked" && (
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <p className="text-sm font-medium text-white">
-                  Check for embedded GPS
-                </p>
-                <p className="mt-0.5 text-xs text-gray-500">
-                  We&apos;ll scan the video&apos;s metadata for embedded GPS tracks.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={detectGps}
-                className="rounded-md border border-[#2a2a2a] bg-[#141414] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:border-[#3a3a3a] hover:bg-[#1a1a1a]"
-              >
-                Detect GPS
-              </button>
-            </div>
-          )}
-
-          {gps.kind === "checking" && (
-            <p className="text-sm text-gray-400">Scanning video metadata…</p>
-          )}
-
-          {gps.kind === "found" && (
-            <div className="flex items-center gap-2">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400">
-                <svg viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3">
-                  <path d="M13.5 4.5L6 12l-3.5-3.5 1-1L6 10l6.5-6.5 1 1z" />
-                </svg>
-              </span>
-              <span className="text-sm font-medium text-emerald-400">
-                GPS detected in video
-              </span>
-            </div>
-          )}
-
-          {gps.kind === "not_found" && (
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-yellow-500/20 text-yellow-400">
-                  !
-                </span>
-                <span className="text-sm font-medium text-yellow-400">
-                  No GPS found in video — upload the .SRT log
-                </span>
-              </div>
-
-              <label
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  setSrtDrag(true);
-                }}
-                onDragLeave={() => setSrtDrag(false)}
-                onDrop={handleSrtDrop}
-                className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors ${
-                  srtDrag
-                    ? "border-amber-500 bg-amber-500/5"
-                    : "border-[#2a2a2a] bg-[#0a0a0a] hover:border-[#3a3a3a]"
-                }`}
-              >
-                <input
-                  type="file"
-                  accept=".srt,application/x-subrip"
-                  className="sr-only"
-                  onChange={(e) => setSingleSrt(e.target.files?.[0] ?? null)}
-                />
-                <p className="text-sm font-medium text-white">
-                  {srt ? srt.name : "Drop .SRT file, or click to browse"}
-                </p>
-                <p className="mt-1 text-xs text-gray-600">
-                  {srt
-                    ? `${formatBytes(srt.size)} · click to replace`
-                    : "DJI Mini / Air / Mavic"}
-                </p>
-              </label>
-            </div>
+      <div className="mt-6 rounded-lg border border-[#1a1a1a] bg-[#0a0a0a] p-4">
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <div>
+            <p className="text-sm font-medium text-white">Required GPS telemetry</p>
+            <p className="mt-0.5 text-xs text-gray-500">
+              Upload the .SRT generated with the flight video. Embedded GPS is not parsed by the worker yet.
+            </p>
+          </div>
+          {srt && (
+            <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-400">
+              SRT paired
+            </span>
           )}
         </div>
-      )}
+
+        <label
+          onDragOver={(e) => {
+            e.preventDefault();
+            setSrtDrag(true);
+          }}
+          onDragLeave={() => setSrtDrag(false)}
+          onDrop={handleSrtDrop}
+          className={`flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 transition-colors ${
+            srtDrag
+              ? "border-amber-500 bg-amber-500/5"
+              : "border-[#2a2a2a] bg-[#0a0a0a] hover:border-[#3a3a3a]"
+          }`}
+        >
+          <input
+            type="file"
+            accept=".srt,application/x-subrip"
+            className="sr-only"
+            onChange={(e) => setSingleSrt(e.target.files?.[0] ?? null)}
+          />
+          <p className="text-sm font-medium text-white">
+            {srt ? srt.name : "Drop .SRT file, or click to browse"}
+          </p>
+          <p className="mt-1 text-xs text-gray-600">
+            {srt
+              ? `${formatBytes(srt.size)} · click to replace`
+              : "Required for DJI Mini / Air / Mavic drone processing"}
+          </p>
+        </label>
+      </div>
 
       <div className="mt-5 rounded-lg border border-[#242424] bg-[#0a0a0a] p-4">
         <p className="text-sm font-medium text-white">Frame extraction</p>
@@ -361,8 +298,14 @@ function stemOf(filename: string): string {
   return filename.replace(/\.[^.]+$/, "").toLowerCase();
 }
 
-function SrtStatusBadge({ matched }: { matched: boolean }) {
-  if (matched) {
+function SrtStatusBadge({
+  hasSrt,
+  matched,
+}: {
+  hasSrt: boolean;
+  matched: boolean;
+}) {
+  if (hasSrt && matched) {
     return (
       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-400">
         <svg viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3">
@@ -372,8 +315,18 @@ function SrtStatusBadge({ matched }: { matched: boolean }) {
       </span>
     );
   }
+  if (hasSrt) {
+    return (
+      <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/15 px-2 py-0.5 text-xs font-medium text-yellow-400">
+        <svg viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3">
+          <path d="M8 3v5M8 11v1" stroke="currentColor" strokeWidth={2} fill="none" strokeLinecap="round" />
+        </svg>
+        Name mismatch
+      </span>
+    );
+  }
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-yellow-500/15 px-2 py-0.5 text-xs font-medium text-yellow-400">
+    <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-0.5 text-xs font-medium text-red-400">
       <svg viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3">
         <path d="M8 3v5M8 11v1" stroke="currentColor" strokeWidth={2} fill="none" strokeLinecap="round" />
       </svg>
@@ -416,6 +369,7 @@ function VideoPairCard({
     }
   }
 
+  const hasSrt = pair.srt !== null;
   const srtMatched = pair.video !== null && pair.srt !== null &&
     stemOf(pair.video.name) === stemOf(pair.srt.name);
 
@@ -424,7 +378,7 @@ function VideoPairCard({
       <div className="mb-3 flex items-center justify-between">
         <span className="text-sm font-medium text-gray-400">Video {index + 1}</span>
         <div className="flex items-center gap-2">
-          {pair.video && <SrtStatusBadge matched={srtMatched} />}
+          {pair.video && <SrtStatusBadge hasSrt={hasSrt} matched={srtMatched} />}
           <button
             type="button"
             onClick={() => onRemove(pair.id)}
@@ -496,7 +450,7 @@ function VideoPairCard({
         <p className="text-xs text-gray-500">
           {pair.srt
             ? `${pair.srt.name} (${formatBytes(pair.srt.size)}) · click to replace`
-            : "Optional: drop .SRT log, or click to browse"}
+            : "Required: drop .SRT log, or click to browse"}
         </p>
       </label>
     </div>
@@ -547,10 +501,7 @@ function MultiVideoPanel({
         if (!file.type.startsWith("video/") && !/\.(mp4|mov)$/i.test(file.name)) {
           return { ...p, videoError: `${file.name} — Unsupported format (MP4 or MOV required)` };
         }
-        // Auto-match SRT by stem if not already set
-        const stem = stemOf(file.name);
-        const autoSrt = p.srt && stemOf(p.srt.name) === stem ? p.srt : p.srt;
-        return { ...p, video: file, srt: autoSrt, videoError: null };
+        return { ...p, video: file, videoError: null };
       }),
     );
   }
@@ -567,11 +518,12 @@ function MultiVideoPanel({
   const isUploading =
     phase === "uploading" || phase === "presigning" || phase === "creating_job";
   const allHaveVideo = pairs.length > 0 && pairs.every((p) => p.video !== null);
+  const allHaveSrt = pairs.length > 0 && pairs.every((p) => p.srt !== null);
 
   async function handleSubmit() {
-    if (!allHaveVideo) return;
+    if (!allHaveVideo || !allHaveSrt) return;
     const videos = pairs.map((p) => p.video!);
-    const srts = pairs.flatMap((p) => (p.srt ? [p.srt] : []));
+    const srts = pairs.map((p) => p.srt!);
     const allFiles = [...videos, ...srts];
 
     await startUpload(allFiles, {
@@ -580,13 +532,12 @@ function MultiVideoPanel({
       file_names: allFiles.map((f) => f.name),
       total_bytes: allFiles.reduce((sum, f) => sum + f.size, 0),
       options: {
-        mode: "multi_drone_survey",
         is_multi_video: true,
-        gps_source: srts.length > 0 ? "srt" : "none",
-        has_srt: srts.length > 0,
+        gps_source: "srt",
+        has_srt: true,
         video_count: pairs.length,
         video_filenames: pairs.map((p) => p.video!.name),
-        srt_filenames: pairs.map((p) => p.srt?.name ?? null),
+        srt_filenames: pairs.map((p) => p.srt!.name),
         ...frameProfileOptions(frameProfile),
         enable_metric_analysis: enableMetricAnalysis,
         enable_depthpro: enableMetricAnalysis,
@@ -597,7 +548,7 @@ function MultiVideoPanel({
   return (
     <>
       <p className="mt-1 text-sm text-gray-500">
-        Multiple drone videos for a single survey run. Add one pair per video segment.
+        Multiple drone videos for a single survey run. Each video segment needs its matching .SRT telemetry log.
       </p>
 
       <div className="mt-6 space-y-4">
@@ -681,12 +632,12 @@ function MultiVideoPanel({
 
       <div className="mt-6 flex items-center justify-between">
         <p className="text-xs text-gray-500">
-          Total: {videoCount} video{videoCount !== 1 ? "s" : ""}, {srtCount} with SRT
+          Total: {videoCount} video{videoCount !== 1 ? "s" : ""}, {srtCount} SRT{srtCount !== 1 ? "s" : ""} required
         </p>
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={isUploading || !allHaveVideo || pairs.length === 0}
+          disabled={isUploading || !allHaveVideo || !allHaveSrt || pairs.length === 0}
           className="rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {phase === "creating_job"
@@ -821,15 +772,6 @@ function ProgressList({
       })}
     </div>
   );
-}
-
-function bytesToAscii(bytes: Uint8Array): string {
-  const out = new Array<string>(bytes.length);
-  for (let i = 0; i < bytes.length; i++) {
-    const b = bytes[i];
-    out[i] = b >= 32 && b <= 126 ? String.fromCharCode(b) : ".";
-  }
-  return out.join("");
 }
 
 function formatBytes(bytes: number): string {

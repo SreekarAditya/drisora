@@ -37,9 +37,9 @@ const FEATURES = [
   },
   {
     tag: "Infrastructure",
-    name: "Resumable Upload",
-    desc: "Multipart upload in 50 MB chunks with background processing. Survives network drops and resumes across devices via BullMQ queue.",
-    stat: "50 MB chunks",
+    name: "Direct R2 Upload",
+    desc: "Browser uploads directly to object storage with presigned PUT URLs, then RunPod processing starts after every file lands successfully.",
+    stat: "Presigned PUT",
   },
 ]
 
@@ -47,12 +47,12 @@ const STEPS = [
   {
     n: "01",
     title: "Upload your flight",
-    desc: "Drop the MP4 drone footage and paired SRT telemetry file. Upload runs in the background using resumable multipart transfer — no browser lock-in.",
+    desc: "Drop the MP4 drone footage and paired SRT telemetry file. The browser uploads directly to R2, then processing starts after the manifest is complete.",
     lines: [
       { dim: false, text: "$ drisora upload flight.mp4 survey.srt" },
       { dim: true,  text: "▸ NH-48 Surat–Baroda Corridor  ·  2.1 GB" },
-      { dim: true,  text: "▸ Chunked 50 MB  ·  resumable  ·  background" },
-      { dim: false, text: "✓ Queued — processing starts automatically" },
+      { dim: true,  text: "▸ Direct R2 PUT  ·  signed URLs  ·  manifest lock" },
+      { dim: false, text: "✓ RunPod queued — processing starts automatically" },
     ],
   },
   {

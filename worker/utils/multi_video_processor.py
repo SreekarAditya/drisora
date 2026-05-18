@@ -3,9 +3,11 @@
 Orchestrates GPS-deduped frame processing across multiple drone video files,
 then computes per-segment PCI and persists results to Supabase.
 
-This module is invoked by the existing job pipeline when mode="multi_drone_survey".
-It does NOT run YOLO/SAM2/DepthPro itself — those are delegated to the
-``process_frame_fn`` callable supplied by the caller (handler.py).
+This is a legacy survey-level helper. The active RunPod path builds a
+``drone_footage`` multi-video payload and dispatches through ``jobs.dispatcher``.
+If this helper is wired back in, every video entry must carry a paired .SRT GPS
+log. It does NOT run YOLO/SAM2/DepthPro itself; those are delegated to the
+``process_frame_fn`` callable supplied by the caller.
 """
 
 from __future__ import annotations
@@ -120,6 +122,8 @@ def process_multi_video_survey(
         vid = entry["video_id"]
         srt_path = entry.get("srt_path")
         filename = entry.get("video_filename", vid)
+        if not srt_path:
+            raise ValueError(f"{filename}: missing required .SRT GPS log")
         try:
             dji_entries = parse_dji_srt(srt_path)
             srt_map[vid] = dji_entries
@@ -308,8 +312,9 @@ def process_multi_video_survey(
             {
                 "survey_id": survey_id,
                 "segment_index": s["segment_index"],
-                "start_m": s["start_m"],
-                "end_m": s["end_m"],
+                "start_distance_m": s["start_m"],
+                "end_distance_m": s["end_m"],
+                "total_length_m": max(0.0, s["end_m"] - s["start_m"]),
                 "pci_score": s["pci_score"],
                 "pci_grade": s["pci_grade"],
                 "is_relative": s["is_relative"],

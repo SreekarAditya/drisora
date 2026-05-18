@@ -272,8 +272,9 @@ def build_multi_video_files(job: Dict[str, Any], work_dir: Path) -> list[Dict[st
             candidate = uploaded_file_by_original_name(job, srt_name, work_dir)
             if candidate and candidate.suffix.lower() == ".srt" and candidate.exists():
                 srt_path = candidate
-        if srt_path is not None:
-            entry["srt"] = str(srt_path)
+        if srt_path is None:
+            raise ValueError(f"Missing uploaded .SRT GPS log for multi-video survey: {video_name}")
+        entry["srt"] = str(srt_path)
 
         entries.append(entry)
 
@@ -428,8 +429,9 @@ def run_job(redis: Redis, job: Dict[str, Any]) -> None:
                     raise ValueError("drone_footage requires a video file")
                 files["video"] = str(video_path)
                 srt_path = find_srt_file(job, work_dir)
-                if srt_path:
-                    files["srt"] = str(srt_path)
+                if not srt_path:
+                    raise ValueError("drone_footage requires a paired .SRT GPS log")
+                files["srt"] = str(srt_path)
 
         frame_batch = dispatch_job(job_id, mode, files)
 

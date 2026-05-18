@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { DetectionAnnotation, DetectionBox, DetectionMaskPolygon, FrameResult } from "@/types";
 
@@ -35,7 +34,6 @@ export function DetectionFrameImage({
   objectFit = "cover",
   className = "",
   imageClassName = "",
-  sizes,
   placeholderClassName = "text-xs text-gray-700",
   onError,
 }: DetectionFrameImageProps) {
@@ -77,12 +75,11 @@ export function DetectionFrameImage({
   return (
     <div ref={containerRef} className={`relative overflow-hidden ${className}`}>
       {imageSrc && !imgError ? (
-        <Image
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
           src={imageSrc}
           alt={alt}
-          fill
-          sizes={sizes}
-          className={`${objectFit === "contain" ? "object-contain" : "object-cover"} ${imageClassName}`}
+          className={`absolute inset-0 h-full w-full ${objectFit === "contain" ? "object-contain" : "object-cover"} ${imageClassName}`}
           onLoad={(event) => {
             const img = event.currentTarget;
             setNaturalSize({ width: img.naturalWidth, height: img.naturalHeight });
