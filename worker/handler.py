@@ -5,6 +5,7 @@ import os
 import platform
 import random
 import shutil
+import subprocess
 import time
 import traceback
 from datetime import datetime, timezone
@@ -404,10 +405,22 @@ def _package_version(name: str) -> str | None:
         return None
 
 
+def _command_output(command: list[str]) -> str | None:
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=False, timeout=5)
+    except Exception:
+        return None
+    output = (result.stdout or result.stderr or "").strip()
+    return output.splitlines()[0] if output else None
+
+
 def _runtime_manifest() -> dict[str, Any]:
     return {
+        "build_sha": os.environ.get("DRISORA_BUILD_SHA", "unknown"),
         "python": platform.python_version(),
         "platform": platform.platform(),
+        "ffmpeg": _command_output(["ffmpeg", "-version"]),
+        "ffprobe": _command_output(["ffprobe", "-version"]),
         "packages": {
             "torch": _package_version("torch"),
             "ultralytics": _package_version("ultralytics"),
@@ -1138,5 +1151,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         if work_dir.exists():
             shutil.rmtree(work_dir)
 
+
+print(f"[WORKER_BOOT] {json.dumps(_runtime_manifest(), sort_keys=True)}", flush=True)
 
 runpod.serverless.start({"handler": handler})
