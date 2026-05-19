@@ -358,9 +358,8 @@ def _build_dispatch_files(
                 raise ValueError("drone_footage requires a video file")
             files["video"] = str(video_path)
             srt_path = _find_srt_file(local_files, options)
-            if not srt_path:
-                raise ValueError("drone_footage requires a paired .SRT GPS log")
-            files["srt"] = str(srt_path)
+            if srt_path:
+                files["srt"] = str(srt_path)
     else:
         raise ValueError(f"Unknown job mode: {mode!r}")
     return files
@@ -566,9 +565,8 @@ def _build_multi_video_files(
             srt_storage[index] if index < len(srt_storage) else None,
             expect_srt=True,
         )
-        if not srt_path:
-            raise ValueError(f"Missing uploaded .SRT GPS log for multi-video survey: {video_name}")
-        entry["srt"] = str(srt_path)
+        if srt_path:
+            entry["srt"] = str(srt_path)
 
         video_entries.append(entry)
 

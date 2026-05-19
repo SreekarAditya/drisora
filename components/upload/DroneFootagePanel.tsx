@@ -90,22 +90,22 @@ function SingleVideoPanel({
     setSingleSrt(event.dataTransfer.files?.[0] ?? null);
   }
 
-  const canSubmit = !!video && srt !== null;
+  const canSubmit = !!video;
   const isUploading =
     phase === "uploading" || phase === "presigning" || phase === "creating_job";
 
   async function handleSubmit() {
     if (!video || !canSubmit) return;
-    const files = [video, srt!];
+    const files = [video, ...(srt ? [srt] : [])];
     await startUpload(files, {
       mode: "drone_footage",
       project_id: projectId ?? null,
       file_names: files.map((f) => f.name),
       total_bytes: files.reduce((sum, f) => sum + f.size, 0),
       options: {
-        gps_source: "srt",
-        has_srt: true,
-        srt_name: srt!.name,
+        gps_source: srt ? "srt" : "embedded",
+        has_srt: srt !== null,
+        srt_name: srt?.name ?? null,
         ...frameProfileOptions(frameProfile),
         enable_metric_analysis: enableMetricAnalysis,
         enable_depthpro: enableMetricAnalysis,
@@ -116,7 +116,7 @@ function SingleVideoPanel({
   return (
     <>
       <p className="mt-1 text-sm text-gray-500">
-        Single MP4 or MOV with a paired DJI .SRT log for GPS mapping.
+        Single MP4 or MOV with embedded telemetry or a matching DJI .SRT log.
       </p>
 
       <label
@@ -175,9 +175,9 @@ function SingleVideoPanel({
       <div className="mt-6 rounded-lg border border-[#1a1a1a] bg-[#0a0a0a] p-4">
         <div className="mb-3 flex items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-medium text-white">Required GPS telemetry</p>
+            <p className="text-sm font-medium text-white">GPS telemetry</p>
             <p className="mt-0.5 text-xs text-gray-500">
-              Upload the .SRT generated with the flight video. Embedded GPS is not parsed by the worker yet.
+              Drisora reads embedded telemetry when present. Add the matching DJI .SRT when your video stores GPS separately.
             </p>
           </div>
           {srt && (
@@ -212,7 +212,7 @@ function SingleVideoPanel({
           <p className="mt-1 text-xs text-gray-600">
             {srt
               ? `${formatBytes(srt.size)} · click to replace`
-              : "Required for DJI Mini / Air / Mavic drone processing"}
+              : "Optional when telemetry is embedded in the video"}
           </p>
         </label>
       </div>
@@ -330,7 +330,7 @@ function SrtStatusBadge({
       <svg viewBox="0 0 16 16" fill="currentColor" className="h-3 w-3">
         <path d="M8 3v5M8 11v1" stroke="currentColor" strokeWidth={2} fill="none" strokeLinecap="round" />
       </svg>
-      No SRT
+      Auto GPS
     </span>
   );
 }
@@ -450,7 +450,7 @@ function VideoPairCard({
         <p className="text-xs text-gray-500">
           {pair.srt
             ? `${pair.srt.name} (${formatBytes(pair.srt.size)}) · click to replace`
-            : "Required: drop .SRT log, or click to browse"}
+            : "Optional: drop .SRT log, or click to browse"}
         </p>
       </label>
     </div>
@@ -518,13 +518,14 @@ function MultiVideoPanel({
   const isUploading =
     phase === "uploading" || phase === "presigning" || phase === "creating_job";
   const allHaveVideo = pairs.length > 0 && pairs.every((p) => p.video !== null);
-  const allHaveSrt = pairs.length > 0 && pairs.every((p) => p.srt !== null);
+  const hasVideoErrors = pairs.some((p) => p.videoError !== null);
 
   async function handleSubmit() {
-    if (!allHaveVideo || !allHaveSrt) return;
+    if (!allHaveVideo || hasVideoErrors) return;
     const videos = pairs.map((p) => p.video!);
-    const srts = pairs.map((p) => p.srt!);
+    const srts = pairs.flatMap((p) => (p.srt ? [p.srt] : []));
     const allFiles = [...videos, ...srts];
+    const allHaveSrt = pairs.every((p) => p.srt !== null);
 
     await startUpload(allFiles, {
       mode: "drone_footage",
@@ -533,11 +534,11 @@ function MultiVideoPanel({
       total_bytes: allFiles.reduce((sum, f) => sum + f.size, 0),
       options: {
         is_multi_video: true,
-        gps_source: "srt",
-        has_srt: true,
+        gps_source: allHaveSrt ? "srt" : srtCount > 0 ? "mixed" : "embedded",
+        has_srt: srtCount > 0,
         video_count: pairs.length,
         video_filenames: pairs.map((p) => p.video!.name),
-        srt_filenames: pairs.map((p) => p.srt!.name),
+        srt_filenames: pairs.map((p) => p.srt?.name ?? null),
         ...frameProfileOptions(frameProfile),
         enable_metric_analysis: enableMetricAnalysis,
         enable_depthpro: enableMetricAnalysis,
@@ -548,7 +549,7 @@ function MultiVideoPanel({
   return (
     <>
       <p className="mt-1 text-sm text-gray-500">
-        Multiple drone videos for a single survey run. Each video segment needs its matching .SRT telemetry log.
+        Multiple drone videos for a single survey run. Use embedded telemetry or add matching .SRT logs where needed.
       </p>
 
       <div className="mt-6 space-y-4">
@@ -632,12 +633,12 @@ function MultiVideoPanel({
 
       <div className="mt-6 flex items-center justify-between">
         <p className="text-xs text-gray-500">
-          Total: {videoCount} video{videoCount !== 1 ? "s" : ""}, {srtCount} SRT{srtCount !== 1 ? "s" : ""} required
+          Total: {videoCount} video{videoCount !== 1 ? "s" : ""}, {srtCount} SRT{srtCount !== 1 ? "s" : ""} uploaded
         </p>
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={isUploading || !allHaveVideo || !allHaveSrt || pairs.length === 0}
+          disabled={isUploading || !allHaveVideo || hasVideoErrors || pairs.length === 0}
           className="rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {phase === "creating_job"
