@@ -29,6 +29,18 @@ for _mod in (
 
 
 class TestMultiVideoDispatch(unittest.TestCase):
+    @staticmethod
+    def gps_result(source: str = "srt"):
+        return {
+            "entries": [
+                {"timestamp_ms": 0, "lat": 1.0, "lon": 2.0, "alt_m": 10.0, "gimbal_yaw": None}
+            ],
+            "source": source,
+            "source_path": f"/tmp/{source}.srt",
+            "entry_count": 1,
+            "errors": [],
+        }
+
     def test_dispatch_drone_footage_null_interval_means_all_frames(self):
         from jobs import dispatcher
 
@@ -44,7 +56,8 @@ class TestMultiVideoDispatch(unittest.TestCase):
             self.assertIsNone(interval_seconds)
             return [{"index": 0, "path": "/frames/frame-0.jpg", "timestamp_ms": 0}]
 
-        with unittest.mock.patch.object(dispatcher, "extract_frames", side_effect=fake_extract):
+        with unittest.mock.patch.object(dispatcher, "extract_frames", side_effect=fake_extract), \
+             unittest.mock.patch.object(dispatcher, "load_gps_telemetry", return_value=self.gps_result()):
             batch = dispatcher.dispatch_job("job-123", "drone_footage", files)
 
         self.assertEqual(batch["frame_count"], 1)
@@ -64,7 +77,8 @@ class TestMultiVideoDispatch(unittest.TestCase):
             self.assertEqual(interval_seconds, 0.5)
             return [{"index": 0, "path": "/frames/frame-0.jpg", "timestamp_ms": 0}]
 
-        with unittest.mock.patch.object(dispatcher, "extract_frames", side_effect=fake_extract):
+        with unittest.mock.patch.object(dispatcher, "extract_frames", side_effect=fake_extract), \
+             unittest.mock.patch.object(dispatcher, "load_gps_telemetry", return_value=self.gps_result()):
             batch = dispatcher.dispatch_job("job-123", "drone_footage", files)
 
         self.assertEqual(batch["frame_count"], 1)
@@ -93,9 +107,6 @@ class TestMultiVideoDispatch(unittest.TestCase):
                 {"index": 0, "path": "/frames/v2-0.jpg", "timestamp_ms": 0},
             ]
 
-        def fake_parse_srt(path: str):
-            return [{"timestamp_ms": 0, "lat": 1.0, "lon": 2.0, "alt_m": 10.0, "gimbal_yaw": None}]
-
         def fake_attach(frames, _entries):
             enriched = []
             for frame in frames:
@@ -111,7 +122,7 @@ class TestMultiVideoDispatch(unittest.TestCase):
             return enriched
 
         with unittest.mock.patch.object(dispatcher, "extract_frames", side_effect=fake_extract), \
-             unittest.mock.patch.object(dispatcher, "parse_srt", side_effect=fake_parse_srt), \
+             unittest.mock.patch.object(dispatcher, "load_gps_telemetry", return_value=self.gps_result()), \
              unittest.mock.patch.object(dispatcher, "attach_gps_to_frames", side_effect=fake_attach):
             batch = dispatcher.dispatch_job("job-123", "drone_footage", files)
 
@@ -140,7 +151,8 @@ class TestMultiVideoDispatch(unittest.TestCase):
             calls.append((video, interval_seconds, extraction_mode))
             return [{"index": 0, "path": f"/frames/{os.path.basename(video)}.jpg", "timestamp_ms": 0}]
 
-        with unittest.mock.patch.object(dispatcher, "extract_frames", side_effect=fake_extract):
+        with unittest.mock.patch.object(dispatcher, "extract_frames", side_effect=fake_extract), \
+             unittest.mock.patch.object(dispatcher, "load_gps_telemetry", return_value=self.gps_result()):
             batch = dispatcher.dispatch_job("job-123", "drone_footage", files)
 
         self.assertEqual(batch["frame_count"], 2)
@@ -170,7 +182,8 @@ class TestMultiVideoDispatch(unittest.TestCase):
             calls.append((video, interval_seconds, extraction_mode))
             return [{"index": 0, "path": f"/frames/{os.path.basename(video)}.jpg", "timestamp_ms": 0}]
 
-        with unittest.mock.patch.object(dispatcher, "extract_frames", side_effect=fake_extract):
+        with unittest.mock.patch.object(dispatcher, "extract_frames", side_effect=fake_extract), \
+             unittest.mock.patch.object(dispatcher, "load_gps_telemetry", return_value=self.gps_result()):
             batch = dispatcher.dispatch_job("job-123", "drone_footage", files)
 
         self.assertEqual(batch["frame_count"], 2)
@@ -182,29 +195,68 @@ class TestMultiVideoDispatch(unittest.TestCase):
             ],
         )
 
-    def test_dispatch_drone_footage_requires_srt(self):
+    def test_dispatch_drone_footage_uses_embedded_gps_without_srt(self):
         from jobs import dispatcher
 
-        with self.assertRaisesRegex(ValueError, "paired .SRT GPS log"):
-            dispatcher.dispatch_job(
+        def fake_extract(video: str, interval_seconds: float | None, extraction_mode: str = "interval"):
+            self.assertEqual(video, "/tmp/video.mp4")
+            self.assertIsNone(interval_seconds)
+            self.assertEqual(extraction_mode, "all_frames")
+            return [{"index": 0, "path": "/frames/frame-0.jpg", "timestamp_ms": 0}]
+
+        with unittest.mock.patch.object(dispatcher, "extract_frames", side_effect=fake_extract), \
+             unittest.mock.patch.object(dispatcher, "load_gps_telemetry", return_value=self.gps_result("embedded_srt")):
+            batch = dispatcher.dispatch_job(
                 "job-123",
                 "drone_footage",
                 {"video": "/tmp/video.mp4", "frame_interval_seconds": None},
             )
 
-    def test_dispatch_multi_drone_footage_requires_srt_per_video(self):
+        self.assertEqual(batch["frame_count"], 1)
+        self.assertTrue(batch["gps_available"])
+        self.assertEqual(batch["ingest_metadata"]["gps"]["source"], "embedded_srt")
+
+    def test_dispatch_drone_footage_fails_when_no_gps_is_readable(self):
+        from jobs import dispatcher
+
+        with unittest.mock.patch.object(dispatcher, "load_gps_telemetry", return_value={
+            "entries": [],
+            "source": "unavailable",
+            "source_path": None,
+            "entry_count": 0,
+            "errors": [],
+        }):
+            with self.assertRaisesRegex(ValueError, "no readable GPS telemetry"):
+                dispatcher.dispatch_job(
+                    "job-123",
+                    "drone_footage",
+                    {"video": "/tmp/video.mp4", "frame_interval_seconds": None},
+                )
+
+    def test_dispatch_multi_drone_footage_uses_embedded_gps_when_srt_missing(self):
         from jobs import dispatcher
 
         files = {
             "frame_interval_seconds": None,
             "videos": [
                 {"video": "/tmp/video-1.mp4"},
-                {"video": "/tmp/video-2.mp4", "srt": "/tmp/video-2.srt"},
+                {"video": "/tmp/video-2.mp4"},
             ],
         }
 
-        with self.assertRaisesRegex(ValueError, ".SRT GPS log for each video"):
-            dispatcher.dispatch_job("job-123", "drone_footage", files)
+        with unittest.mock.patch.object(
+            dispatcher,
+            "extract_frames",
+            return_value=[{"index": 0, "path": "/frames/frame-0.jpg", "timestamp_ms": 0}],
+        ), unittest.mock.patch.object(
+            dispatcher,
+            "load_gps_telemetry",
+            return_value=self.gps_result("embedded_srt"),
+        ):
+            batch = dispatcher.dispatch_job("job-123", "drone_footage", files)
+
+        self.assertEqual(batch["frame_count"], 2)
+        self.assertTrue(batch["gps_available"])
 
 
 if __name__ == "__main__":

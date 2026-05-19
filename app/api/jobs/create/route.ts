@@ -52,13 +52,29 @@ function isSafeStorageName(name: string) {
   );
 }
 
-function hasMultiVideoSrt(options: Record<string, unknown>) {
+function multiVideoSrtNames(options: Record<string, unknown>) {
   const srtFilenames = Array.isArray(options.srt_filenames) ? options.srt_filenames : [];
+  return srtFilenames.filter((name): name is string => typeof name === "string" && name.length > 0);
+}
+
+function hasValidOptionalMultiVideoSrtList(options: Record<string, unknown>) {
+  const srtFilenames = options.srt_filenames;
+  const videoCount = typeof options.video_count === "number" ? options.video_count : 0;
+  if (srtFilenames == null) return true;
+  return (
+    Array.isArray(srtFilenames) &&
+    srtFilenames.length === videoCount &&
+    srtFilenames.every((name) => name == null || (typeof name === "string" && name.length > 0))
+  );
+}
+
+function hasValidMultiVideoList(options: Record<string, unknown>) {
+  const videoFilenames = options.video_filenames;
   const videoCount = typeof options.video_count === "number" ? options.video_count : 0;
   return (
-    videoCount > 0 &&
-    srtFilenames.length === videoCount &&
-    srtFilenames.every((name) => typeof name === "string" && name.length > 0)
+    Array.isArray(videoFilenames) &&
+    videoFilenames.length === videoCount &&
+    videoFilenames.every((name) => typeof name === "string" && name.length > 0)
   );
 }
 
@@ -150,23 +166,26 @@ export async function POST(request: NextRequest) {
     if (isMultiVideo) {
       const videoCount = typeof rawOptions.video_count === "number" ? rawOptions.video_count : 0;
       if (
-        !hasMultiVideoSrt(rawOptions) ||
+        videoCount <= 0 ||
+        !hasValidMultiVideoList(rawOptions) ||
+        !hasValidOptionalMultiVideoSrtList(rawOptions) ||
         uploadedVideoCount !== videoCount ||
-        uploadedSrtCount !== videoCount
+        uploadedSrtCount > videoCount ||
+        uploadedSrtCount !== multiVideoSrtNames(rawOptions).length
       ) {
         return NextResponse.json(
-          { error: "Multi-video drone footage requires one .SRT GPS log for each video" },
+          { error: "Multi-video drone footage requires each video plus optional matching .SRT telemetry files" },
           { status: 400 },
         );
       }
     } else if (
-      body.file_count !== 2 ||
+      body.file_count < 1 ||
+      body.file_count > 2 ||
       uploadedVideoCount !== 1 ||
-      uploadedSrtCount !== 1 ||
-      rawOptions.has_srt !== true
+      uploadedSrtCount > 1
     ) {
       return NextResponse.json(
-        { error: "Drone footage requires one video file and a paired .SRT GPS log" },
+        { error: "Drone footage requires one video file; .SRT telemetry is optional when embedded GPS is present" },
         { status: 400 },
       );
     }
@@ -200,16 +219,7 @@ export async function POST(request: NextRequest) {
       ? true
       : body.mode === "handheld_video"
         ? options.has_srt === true
-        : options.is_multi_video === true
-          ? hasMultiVideoSrt(options)
-          : options.has_srt === true;
-
-  if (body.mode === "drone_footage" && !gpsAvailable) {
-    return NextResponse.json(
-      { error: "Drone footage requires a paired .SRT GPS log" },
-      { status: 400 },
-    );
-  }
+        : true;
 
   const jobId = randomUUID();
   const now = new Date().toISOString();

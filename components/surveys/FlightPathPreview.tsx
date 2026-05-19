@@ -393,7 +393,7 @@ export function FlightPathPreview({ pairs, className }: FlightPathPreviewProps) 
         style={{ height: 320 }}
       >
         <p className="text-sm text-gray-500">
-          No SRT files found — flight path preview unavailable
+          Flight path preview appears when telemetry is available
         </p>
       </div>
     );

@@ -5,8 +5,8 @@ then computes per-segment PCI and persists results to Supabase.
 
 This is a legacy survey-level helper. The active RunPod path builds a
 ``drone_footage`` multi-video payload and dispatches through ``jobs.dispatcher``.
-If this helper is wired back in, every video entry must carry a paired .SRT GPS
-log. It does NOT run YOLO/SAM2/DepthPro itself; those are delegated to the
+If this helper is wired back in, GPS telemetry can come from a paired .SRT file
+or an embedded subtitle track. It does NOT run YOLO/SAM2/DepthPro itself; those are delegated to the
 ``process_frame_fn`` callable supplied by the caller.
 """
 
@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from ingest.srt_parser import parse_srt
+from ingest.gps_telemetry import load_gps_telemetry
 from ingest.video_handler import attach_gps_to_frames, extract_frames
 from utils.gps_dedup import compute_footprint_radius, is_duplicate_frame
 from utils.pci_segmentation import (
@@ -23,7 +23,6 @@ from utils.pci_segmentation import (
     compute_cumulative_distances,
     compute_segment_pci,
 )
-from utils.srt_parser import parse_dji_srt
 
 # Default DJI Mavic 3 FOV used when a frame has no SRT data.
 _DEFAULT_FOV_DEG: float = 73.7
@@ -50,6 +49,21 @@ def _flight_bounds(frames: list[dict[str, Any]]) -> dict[str, float | None]:
         "min_lon": min(lons),
         "max_lon": max(lons),
     }
+
+
+def _dji_entries_from_raw(raw_entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return [
+        {
+            "frame_index": index,
+            "timestamp_ms": entry["timestamp_ms"],
+            "lat": entry["lat"],
+            "lon": entry["lon"],
+            "altitude_m": entry.get("alt_m") if entry.get("alt_m") is not None else _DEFAULT_ALT_M,
+            "fov_deg": _DEFAULT_FOV_DEG,
+            "gimbal_yaw": entry.get("gimbal_yaw"),
+        }
+        for index, entry in enumerate(raw_entries)
+    ]
 
 
 def process_multi_video_survey(
@@ -112,26 +126,28 @@ def process_multi_video_survey(
         }
 
     # ------------------------------------------------------------------
-    # Step 1 — Parse all SRT files.
+    # Step 1 — Load GPS telemetry.
     # ------------------------------------------------------------------
-    _log(logger, f"{prefix} Parsing SRT files for {len(video_entries)} video(s).")
-    srt_map: dict[str, list[dict[str, Any]]] = {}  # video_id -> dji srt entries
+    _log(logger, f"{prefix} Loading GPS telemetry for {len(video_entries)} video(s).")
+    srt_map: dict[str, list[dict[str, Any]]] = {}  # video_id -> normalized telemetry entries
     raw_srt_map: dict[str, list] = {}  # video_id -> raw SrtEntry list (for attach_gps_to_frames)
 
     for entry in video_entries:
         vid = entry["video_id"]
         srt_path = entry.get("srt_path")
+        video_path = entry.get("video_path")
         filename = entry.get("video_filename", vid)
-        if not srt_path:
-            raise ValueError(f"{filename}: missing required .SRT GPS log")
         try:
-            dji_entries = parse_dji_srt(srt_path)
+            telemetry = load_gps_telemetry(video_path, srt_path)
+            if not telemetry["entries"]:
+                raise ValueError("no readable GPS telemetry")
+            dji_entries = _dji_entries_from_raw(telemetry["entries"])
             srt_map[vid] = dji_entries
             # Also keep the raw SrtEntry list so attach_gps_to_frames can use it.
-            raw_srt_map[vid] = parse_srt(srt_path) if srt_path else []
-            _log(logger, f"{prefix} {filename}: parsed {len(dji_entries)} SRT entries.")
+            raw_srt_map[vid] = telemetry["entries"]
+            _log(logger, f"{prefix} {filename}: loaded {len(dji_entries)} GPS entries from {telemetry['source']}.")
         except (ValueError, Exception) as exc:
-            _log(logger, f"{prefix} WARNING — {filename}: SRT parse failed ({exc}). Processing without GPS.")
+            _log(logger, f"{prefix} WARNING — {filename}: GPS telemetry unavailable ({exc}). Processing without GPS.")
             srt_map[vid] = []
             raw_srt_map[vid] = []
 
