@@ -7,14 +7,14 @@ import { PCI_BANDS } from "@/types"
 const FEATURES = [
   {
     tag: "Detection",
-    name: "YOLOv12s Crack Detection",
+    name: "AI Crack Detection",
     desc: "Trained on RDD2022 across four crack classes: longitudinal, transverse, alligator, and pothole. Runs section-by-section at scale.",
     stat: "4 crack classes",
     wide: true,
   },
   {
     tag: "Segmentation",
-    name: "SAM2 Pixel Masks",
+    name: "Pixel-Level Segmentation",
     desc: "Each detected crack receives a pixel-level segmentation mask, enabling precise area measurement and severity quantification.",
     stat: "Pixel-level accuracy",
     wide: false,
@@ -64,10 +64,10 @@ const STEPS = [
   {
     n: "02",
     title: "Automated CV pipeline",
-    desc: "YOLOv12s detects cracks, SAM2 creates pixel masks, Metric Analysis estimates distance and crack width, then the IRC scorer computes PCI per 10 m section.",
+    desc: "Drisora AI detects cracks, the segmentation engine creates pixel masks, depth estimation measures crack width, then the IRC scorer computes PCI per 10 m section.",
     lines: [
-      { dim: true,  text: "[YOLOv12s]  847 detections  /  32 sections" },
-      { dim: true,  text: "[SAM2]      pixel masks  ·  crack area mapped" },
+      { dim: true,  text: "[Detect]    847 detections  /  32 sections" },
+      { dim: true,  text: "[Segment]   pixel masks  ·  crack area mapped" },
       { dim: true,  text: "[Metric]    camera distance  ·  crack width" },
       { dim: false, text: "[IRC-PCI]   avg 67.3  ·  32 sections scored" },
     ],
@@ -627,7 +627,7 @@ export default function LandingPage() {
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6">
           <DrisoraLogo size="sm" />
           <span className="font-mono text-[11px] text-[#4A4A5A]">
-            IRC:82-2023 · YOLOv12s · SAM2 · DepthPro
+            IRC:82-2023 · AI-Powered · Drone-Native
           </span>
         </div>
       </footer>

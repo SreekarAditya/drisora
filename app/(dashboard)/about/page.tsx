@@ -31,7 +31,7 @@ export default function AboutPage() {
         <article className="rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116] p-6">
           <h2 className="text-lg font-semibold text-white">AI stack</h2>
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            {["YOLOv12s", "SAM2", "DepthPro", "IRC Scorer"].map((node, i) => (
+            {["Drisora AI", "Segmentation Engine", "Depth Estimation", "IRC Scorer"].map((node, i) => (
               <div key={node} className="flex items-center gap-3">
                 <span className="rounded-[8px] border border-[rgba(245,166,35,0.30)] bg-[rgba(245,166,35,0.08)] px-3 py-1.5 font-mono text-[12px] font-medium text-[#F5A623]">
                   {node}
@@ -45,7 +45,7 @@ export default function AboutPage() {
             ))}
           </div>
           <p className="mt-4 text-sm leading-6 text-[#8A8A9A]">
-            YOLOv12s detects distress, SAM2 refines crack masks, and DepthPro estimates camera-to-surface distance for pixel-to-mm crack-width conversion.
+            Drisora AI detects distress, the segmentation engine refines crack masks, and depth estimation measures camera-to-surface distance for pixel-to-mm crack-width conversion.
           </p>
         </article>
 
