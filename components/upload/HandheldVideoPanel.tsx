@@ -92,9 +92,9 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
   }
 
   return (
-    <section className="rounded-lg border border-white/10 bg-[#101113] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
-      <h2 className="text-lg font-semibold text-white">Handheld video</h2>
-      <p className="mt-1 text-sm text-gray-500">
+    <section className="rounded-[10px] border border-[rgba(255,255,255,0.10)] bg-[#111116] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
+      <h2 className="text-lg font-semibold text-[#F0F0F4]">Handheld video</h2>
+      <p className="mt-1 text-sm text-[#8A8A9A]">
         Single MP4 or MOV. Add an optional .SRT GPS log when you want the handheld survey mapped.
       </p>
 
@@ -105,10 +105,10 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
-        className={`mt-6 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-10 transition-colors ${
+        className={`mt-6 flex cursor-pointer flex-col items-center justify-center rounded-[10px] border-2 border-dashed p-10 transition-colors ${
           dragOver
-            ? "border-amber-500 bg-amber-500/5"
-            : "border-[#2a2a2a] bg-[#0a0a0a] hover:border-[#3a3a3a]"
+            ? "border-[#F5A623] bg-[rgba(245,166,35,0.05)]"
+            : "border-[rgba(255,255,255,0.10)] bg-[#0D0D11] hover:border-[rgba(255,255,255,0.20)]"
         }`}
       >
         <input
@@ -118,7 +118,7 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
           onChange={(e) => setSingleVideo(e.target.files?.[0] ?? null)}
         />
         <svg
-          className="h-10 w-10 text-gray-600"
+          className="h-10 w-10 text-[#4A4A5A]"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -127,10 +127,10 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
           <rect x="2" y="6" width="14" height="12" rx="2" />
           <path d="M22 8l-6 4 6 4V8z" />
         </svg>
-        <p className="mt-3 text-sm font-medium text-white">
+        <p className="mt-3 text-sm font-medium text-[#F0F0F4]">
           {video ? video.name : "Drop video here, or click to browse"}
         </p>
-        <p className="mt-1 text-xs text-gray-600">
+        <p className="mt-1 text-xs text-[#4A4A5A]">
           {video
             ? `${formatBytes(video.size)} · click to replace`
             : "MP4 or MOV"}
@@ -138,12 +138,12 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
       </label>
 
       {videoError && (
-        <div className="mt-4 flex items-center justify-between rounded-md bg-red-500/10 px-3 py-2">
-          <span className="truncate text-xs text-red-300">{videoError}</span>
+        <div className="mt-4 flex items-center justify-between rounded-md bg-[rgba(239,68,68,0.10)] px-3 py-2">
+          <span className="truncate text-xs text-[#EF4444]">{videoError}</span>
           <button
             type="button"
             onClick={() => setVideoError(null)}
-            className="ml-2 text-xs text-gray-600 hover:text-gray-400"
+            className="ml-2 text-xs text-[#4A4A5A] hover:text-[#F0F0F4]"
           >
             ✕
           </button>
@@ -157,10 +157,10 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
         }}
         onDragLeave={() => setSrtDragOver(false)}
         onDrop={handleSrtDrop}
-        className={`mt-4 flex cursor-pointer flex-col items-center justify-center rounded-lg border border-dashed p-5 transition-colors ${
+        className={`mt-4 flex cursor-pointer flex-col items-center justify-center rounded-[10px] border border-dashed p-5 transition-colors ${
           srtDragOver
-            ? "border-amber-500 bg-amber-500/5"
-            : "border-[#2a2a2a] bg-[#0a0a0a] hover:border-[#3a3a3a]"
+            ? "border-[#F5A623] bg-[rgba(245,166,35,0.05)]"
+            : "border-[rgba(255,255,255,0.10)] bg-[#0D0D11] hover:border-[rgba(255,255,255,0.20)]"
         }`}
       >
         <input
@@ -169,21 +169,21 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
           className="sr-only"
           onChange={(e) => setSingleSrt(e.target.files?.[0] ?? null)}
         />
-        <p className="text-sm font-medium text-white">
+        <p className="text-sm font-medium text-[#F0F0F4]">
           {srt ? srt.name : "Optional .SRT GPS log"}
         </p>
-        <p className="mt-1 text-xs text-gray-600">
+        <p className="mt-1 text-xs text-[#4A4A5A]">
           {srt ? `${formatBytes(srt.size)} · click to replace` : "Use when your phone or camera captured a GPS subtitle track"}
         </p>
       </label>
 
       {srtError && (
-        <div className="mt-4 flex items-center justify-between rounded-md bg-red-500/10 px-3 py-2">
-          <span className="truncate text-xs text-red-300">{srtError}</span>
+        <div className="mt-4 flex items-center justify-between rounded-md bg-[rgba(239,68,68,0.10)] px-3 py-2">
+          <span className="truncate text-xs text-[#EF4444]">{srtError}</span>
           <button
             type="button"
             onClick={() => setSrtError(null)}
-            className="ml-2 text-xs text-gray-600 hover:text-gray-400"
+            className="ml-2 text-xs text-[#4A4A5A] hover:text-[#F0F0F4]"
           >
             ✕
           </button>
@@ -191,17 +191,17 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
       )}
 
       <div className="mt-6">
-        <label className="text-xs font-medium text-gray-400">Frame extraction</label>
+        <label className="text-xs font-medium text-[#8A8A9A]">Frame extraction</label>
         <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
           {FRAME_PROFILES.map((opt) => {
             const isActive = frameProfile === opt.value;
             return (
               <label
                 key={opt.value}
-                className={`flex cursor-pointer flex-col rounded-lg border p-3 transition-colors ${
+                className={`flex cursor-pointer flex-col rounded-[10px] border p-3 transition-colors ${
                   isActive
-                    ? "border-amber-500 bg-amber-500/5"
-                    : "border-[#2a2a2a] bg-[#0a0a0a] hover:border-[#3a3a3a]"
+                    ? "border-[#F5A623] bg-[rgba(245,166,35,0.05)]"
+                    : "border-[rgba(255,255,255,0.10)] bg-[#0D0D11] hover:border-[rgba(255,255,255,0.20)]"
                 }`}
               >
                 <input
@@ -215,26 +215,26 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
                 <div className="flex items-center gap-2">
                   <span
                     className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-                      isActive ? "border-amber-500" : "border-[#3a3a3a]"
+                      isActive ? "border-[#F5A623]" : "border-[rgba(255,255,255,0.15)]"
                     }`}
                   >
                     {isActive && (
-                      <span className="h-2 w-2 rounded-full bg-amber-500" />
+                      <span className="h-2 w-2 rounded-full bg-[#F5A623]" />
                     )}
                   </span>
-                  <span className="text-sm font-medium text-white">{opt.label}</span>
+                  <span className="text-sm font-medium text-[#F0F0F4]">{opt.label}</span>
                 </div>
-                <span className="ml-6 mt-0.5 text-xs text-gray-500">{opt.hint}</span>
+                <span className="ml-6 mt-0.5 text-xs text-[#8A8A9A]">{opt.hint}</span>
               </label>
             );
           })}
         </div>
       </div>
 
-      <label className="mt-5 flex items-center justify-between gap-4 rounded-lg border border-[#242424] bg-[#0a0a0a] px-4 py-3">
+      <label className="mt-5 flex items-center justify-between gap-4 rounded-[10px] border border-[rgba(255,255,255,0.07)] bg-[#0D0D11] px-4 py-3">
         <span>
-          <span className="block text-sm font-medium text-white">Metric Analysis</span>
-          <span className="mt-0.5 block text-xs text-gray-600">
+          <span className="block text-sm font-medium text-[#F0F0F4]">Metric Analysis</span>
+          <span className="mt-0.5 block text-xs text-[#4A4A5A]">
             Camera-to-surface distance and width from pixels. Adds processing time.
           </span>
         </span>
@@ -257,7 +257,7 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
         )}
 
       {uploadError && failedFiles.size === 0 && (
-        <p className="mt-4 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-400">
+        <p className="mt-4 rounded-md bg-[rgba(239,68,68,0.10)] px-3 py-2 text-sm text-[#EF4444]">
           {uploadError}
         </p>
       )}
@@ -267,7 +267,7 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
           type="button"
           onClick={handleSubmit}
           disabled={isUploading || !video || !!videoError || !!srtError}
-          className="rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-[10px] bg-[#F5A623] px-5 py-2.5 text-sm font-semibold text-[#09090C] transition-colors hover:bg-[#FFBE4D] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {phase === "creating_job"
             ? "Creating job…"
@@ -300,12 +300,12 @@ function ProgressList({
         return (
           <div key={filename}>
             <div className="mb-1 flex items-center justify-between gap-2">
-              <span className="max-w-[70%] truncate text-xs text-gray-400">
+              <span className="max-w-[70%] truncate text-xs text-[#8A8A9A]">
                 {fileLabels.get(filename) ?? filename}
               </span>
               <div className="flex items-center gap-2">
                 <span
-                  className={`text-xs ${failed ? "text-red-400" : "text-gray-500"}`}
+                  className={`text-xs ${failed ? "text-[#EF4444]" : "text-[#8A8A9A]"}`}
                 >
                   {failed ? "Failed" : `${Math.round(pct * 100)}%`}
                 </span>
@@ -313,17 +313,17 @@ function ProgressList({
                   <button
                     type="button"
                     onClick={() => onRetry(filename)}
-                    className="rounded px-2 py-0.5 text-xs font-medium text-amber-400 hover:text-amber-300"
+                    className="rounded px-2 py-0.5 text-xs font-medium text-[#F5A623] hover:text-[#FFBE4D]"
                   >
                     Retry
                   </button>
                 )}
               </div>
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-[#1a1a1a]">
+            <div className="h-1.5 overflow-hidden rounded-full bg-[rgba(245,166,35,0.15)]">
               <div
                 className={`h-full rounded-full transition-all duration-150 ${
-                  failed ? "bg-red-500" : "bg-amber-500"
+                  failed ? "bg-[#EF4444]" : "bg-[#F5A623]"
                 }`}
                 style={{ width: `${Math.round(pct * 100)}%` }}
               />

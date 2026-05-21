@@ -389,10 +389,10 @@ export function FlightPathPreview({ pairs, className }: FlightPathPreviewProps) 
   if (!hasSrt) {
     return (
       <div
-        className={`flex items-center justify-center rounded-lg border border-white/10 bg-[#0b0c0d] ${className ?? ""}`}
+        className={`flex items-center justify-center rounded-lg border border-[rgba(255,255,255,0.10)] bg-[#0b0c0d] ${className ?? ""}`}
         style={{ height: 320 }}
       >
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-[#8A8A9A]">
           Flight path preview appears when telemetry is available
         </p>
       </div>
@@ -402,11 +402,11 @@ export function FlightPathPreview({ pairs, className }: FlightPathPreviewProps) 
   if (loading) {
     return (
       <div
-        className={`flex flex-col items-center justify-center gap-3 rounded-lg border border-white/10 bg-[#0b0c0d] ${className ?? ""}`}
+        className={`flex flex-col items-center justify-center gap-3 rounded-lg border border-[rgba(255,255,255,0.10)] bg-[#0b0c0d] ${className ?? ""}`}
         style={{ height: 320 }}
       >
         <svg
-          className="h-5 w-5 animate-spin text-amber-500"
+          className="h-5 w-5 animate-spin text-[#F5A623]"
           xmlns="http://www.w3.org/2000/svg"
           fill="none"
           viewBox="0 0 24 24"
@@ -425,7 +425,7 @@ export function FlightPathPreview({ pairs, className }: FlightPathPreviewProps) 
             d="M4 12a8 8 0 018-8v8H4z"
           />
         </svg>
-        <p className="text-sm text-gray-500">Parsing GPS data…</p>
+        <p className="text-sm text-[#8A8A9A]">Parsing GPS data…</p>
       </div>
     );
   }
@@ -433,10 +433,10 @@ export function FlightPathPreview({ pairs, className }: FlightPathPreviewProps) 
   if (parsed && tracksWithPoints.length === 0) {
     return (
       <div
-        className={`flex items-center justify-center rounded-lg border border-white/10 bg-[#0b0c0d] ${className ?? ""}`}
+        className={`flex items-center justify-center rounded-lg border border-[rgba(255,255,255,0.10)] bg-[#0b0c0d] ${className ?? ""}`}
         style={{ height: 320 }}
       >
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-[#8A8A9A]">
           SRT files contained no GPS data — flight path preview unavailable
         </p>
       </div>
@@ -447,20 +447,20 @@ export function FlightPathPreview({ pairs, className }: FlightPathPreviewProps) 
     <div className={`flex flex-col gap-2 ${className ?? ""}`}>
       {/* Map */}
       <div
-        className="relative overflow-hidden rounded-lg border border-white/10 bg-[#0b0c0d]"
+        className="relative overflow-hidden rounded-lg border border-[rgba(255,255,255,0.10)] bg-[#0b0c0d]"
         style={{ height: 320 }}
       >
         <div ref={containerRef} className="h-full w-full" />
 
         {/* Legend overlay */}
         {tracksWithPoints.length > 0 && (
-          <div className="absolute bottom-3 left-3 z-[500] max-w-[220px] rounded-md border border-white/10 bg-[#0b0c0d]/90 p-2.5 text-xs backdrop-blur">
-            <p className="mb-1.5 font-mono text-[10px] uppercase tracking-widest text-gray-500">
+          <div className="absolute bottom-3 left-3 z-[500] max-w-[220px] rounded-md border border-[rgba(255,255,255,0.10)] bg-[#0b0c0d]/90 p-2.5 text-xs backdrop-blur">
+            <p className="mb-1.5 font-mono text-[10px] uppercase tracking-widest text-[#8A8A9A]">
               Flight paths
             </p>
             <div className="space-y-1">
               {tracksWithPoints.map((track, idx) => (
-                <div key={track.id} className="flex items-center gap-2 text-gray-300">
+                <div key={track.id} className="flex items-center gap-2 text-[#F0F0F4]">
                   <span
                     className="h-2 w-5 shrink-0 rounded-sm"
                     style={{ background: TRACK_COLORS[idx % TRACK_COLORS.length] }}
@@ -476,23 +476,23 @@ export function FlightPathPreview({ pairs, className }: FlightPathPreviewProps) 
       </div>
 
       {/* Metrics bar */}
-      <div className="flex flex-wrap gap-x-6 gap-y-1 px-1 text-sm text-gray-400">
+      <div className="flex flex-wrap gap-x-6 gap-y-1 px-1 text-sm text-[#8A8A9A]">
         <span>
           Total coverage:{" "}
-          <span className="font-semibold text-amber-400">
+          <span className="font-semibold text-[#F5A623]">
             ~{formatMeters(totalCoverage)} estimated
           </span>
         </span>
         <span>
           Videos:{" "}
-          <span className="font-semibold text-amber-400">
+          <span className="font-semibold text-[#F5A623]">
             {pairs.length}
           </span>{" "}
           ({srtCount} with SRT)
         </span>
         <span>
           Overlap:{" "}
-          <span className="font-semibold text-amber-400">
+          <span className="font-semibold text-[#F5A623]">
             {hasOverlap ? "detected" : "not detected"}
           </span>
         </span>

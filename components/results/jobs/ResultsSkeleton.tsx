@@ -1,24 +1,17 @@
 function Skeleton({ className }: { className: string }) {
   return (
-    <div
-      className={`rounded bg-[#1a1a1a] ${className}`}
-      style={{
-        backgroundImage: "linear-gradient(90deg,#1a1a1a 25%,#222 50%,#1a1a1a 75%)",
-        backgroundSize: "200% 100%",
-        animation: "shimmer-x 1.6s infinite",
-      }}
-    />
+    <div className={`animate-skeleton rounded-[8px] bg-[rgba(255,255,255,0.04)] ${className}`} />
   );
 }
 
 export function ResultsSkeleton() {
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
-      <div className="border-b border-[#1a1a1a] bg-[#0a0a0a]">
+    <div className="min-h-screen bg-[#09090C]">
+      <div className="border-b border-[rgba(255,255,255,0.07)] bg-[#0D0D11]">
         <div className="mx-auto max-w-7xl px-6 py-4">
           <div className="mb-4 flex items-center justify-between">
             <Skeleton className="h-4 w-48" />
-            <Skeleton className="h-8 w-32 rounded-md" />
+            <Skeleton className="h-8 w-32 rounded-[8px]" />
           </div>
           <div className="flex flex-wrap items-center gap-6">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -32,7 +25,7 @@ export function ResultsSkeleton() {
       </div>
 
       <div className="mx-auto max-w-7xl px-6 py-8">
-        <Skeleton className="h-[400px] w-full rounded-xl" />
+        <Skeleton className="h-[400px] w-full rounded-[14px]" />
       </div>
     </div>
   );

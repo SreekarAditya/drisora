@@ -121,7 +121,7 @@ export function DroneMapClient({ frames, onSelect, selectedStem }: Props) {
 
   if (gpsCount === 0) {
     return (
-      <div className="flex h-full items-center justify-center rounded-xl border border-[#1a1a1a] bg-[#0f0f0f] text-sm text-gray-600">
+      <div className="flex h-full items-center justify-center rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116] text-sm text-[#4A4A5A]">
         No GPS coordinates available in this job
       </div>
     );
@@ -129,7 +129,7 @@ export function DroneMapClient({ frames, onSelect, selectedStem }: Props) {
 
   return (
     <div className="relative h-full w-full">
-      <div className="absolute right-3 top-3 z-[500] flex overflow-hidden rounded-md border border-white/10 bg-[#0b0c0d]/90 p-1 backdrop-blur">
+      <div className="absolute right-3 top-3 z-[500] flex overflow-hidden rounded-md border border-[rgba(255,255,255,0.10)] bg-[#09090C]/90 p-1 backdrop-blur">
         {[
           ["pci", "PCI"],
           ["width", "Width mm"],
@@ -140,33 +140,33 @@ export function DroneMapClient({ frames, onSelect, selectedStem }: Props) {
             onClick={() => setOverlayMode(mode as "pci" | "width")}
             className={`rounded px-3 py-1.5 text-xs font-semibold transition-colors ${
               overlayMode === mode
-                ? "bg-amber-500 text-black"
-                : "text-gray-400 hover:bg-white/5 hover:text-white"
+                ? "bg-[#F5A623] text-[#09090C]"
+                : "text-[#8A8A9A] hover:bg-white/5 hover:text-[#F0F0F4]"
             }`}
           >
             {label}
           </button>
         ))}
       </div>
-      <div className="absolute bottom-3 left-3 z-[500] max-w-[260px] rounded-lg border border-white/10 bg-[#0b0c0d]/90 p-3 text-xs shadow-xl backdrop-blur">
-        <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-gray-500">
+      <div className="absolute bottom-3 left-3 z-[500] max-w-[260px] rounded-[10px] border border-[rgba(255,255,255,0.10)] bg-[#09090C]/90 p-3 text-xs shadow-xl backdrop-blur">
+        <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-[#8A8A9A]">
           {overlayMode === "width" ? "Crack width legend" : "PCI legend"}
         </p>
         <div className="space-y-1.5">
           {overlayMode === "width"
             ? CRACK_WIDTH_BANDS.map((band) => (
                 <div key={band.label} className="flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-2 text-gray-300">
+                  <span className="flex items-center gap-2 text-[#F0F0F4]">
                     <span className="h-2.5 w-6 rounded-sm" style={{ background: band.color }} />
                     {band.label}
                   </span>
-                  <span className="text-gray-600">{band.detail}</span>
+                  <span className="text-[#4A4A5A]">{band.detail}</span>
                 </div>
               ))
             : ["Good 85-100", "Satisfactory 70-84", "Fair 55-69", "Poor 40-54", "Very poor 0-39"].map((label, index) => {
                 const colors = ["#22c55e", "#eab308", "#f97316", "#ef4444", "#7f1d1d"];
                 return (
-                  <div key={label} className="flex items-center gap-2 text-gray-300">
+                  <div key={label} className="flex items-center gap-2 text-[#F0F0F4]">
                     <span className="h-2.5 w-6 rounded-sm" style={{ background: colors[index] }} />
                     {label}
                   </div>
@@ -174,12 +174,12 @@ export function DroneMapClient({ frames, onSelect, selectedStem }: Props) {
               })}
         </div>
         {overlayMode === "width" && (
-          <p className="mt-2 border-t border-white/10 pt-2 text-[11px] leading-4 text-gray-600">
+          <p className="mt-2 border-t border-[rgba(255,255,255,0.10)] pt-2 text-[11px] leading-4 text-[#4A4A5A]">
             Legacy surveys are estimated from crack type, PCI, and detection density when depth metrics were not stored.
           </p>
         )}
       </div>
-      <div ref={containerRef} className="h-full w-full rounded-xl" />
+      <div ref={containerRef} className="h-full w-full rounded-[14px]" />
     </div>
   );
 }

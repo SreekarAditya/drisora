@@ -44,7 +44,7 @@ export default function ConditionBreakdownChart({ sections }: ConditionBreakdown
             <YAxis type="category" dataKey="name" hide />
             <Tooltip
               cursor={false}
-              contentStyle={{ background: "#171717", border: "1px solid #404040", color: "#fff" }}
+              contentStyle={{ background: "#1A1A22", border: "1px solid rgba(255,255,255,0.12)", color: "#F0F0F4", borderRadius: "10px" }}
               formatter={(value, name) => [
                 `${Number(value ?? 0).toFixed(1)}%`,
                 CONDITION_LABELS[String(name)] ?? String(name),
@@ -57,14 +57,14 @@ export default function ConditionBreakdownChart({ sections }: ConditionBreakdown
         </ResponsiveContainer>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 text-xs text-neutral-300">
+      <div className="grid grid-cols-2 gap-2 text-xs text-[#F0F0F4]">
         {CONDITION_ORDER.map((condition) => (
           <div key={condition} className="flex items-center justify-between gap-2">
             <span className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: CONDITION_COLORS[condition] }} />
               {CONDITION_LABELS[condition]}
             </span>
-            <span className="text-neutral-400">{Number(row[condition] ?? 0).toFixed(0)}%</span>
+            <span className="font-mono text-[#8A8A9A]">{Number(row[condition] ?? 0).toFixed(0)}%</span>
           </div>
         ))}
       </div>

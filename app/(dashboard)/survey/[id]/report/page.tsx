@@ -31,13 +31,13 @@ export default async function SurveyReportPage({ params }: { params: Promise<{ i
   const typedSurvey = survey as Survey;
 
   return (
-    <main className="min-h-screen bg-[#0a0a0a] px-6 py-8 text-white">
+    <main className="min-h-screen bg-[#09090C] px-6 py-8 text-[#F0F0F4]">
       <div className="mx-auto max-w-7xl space-y-6">
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <p className="text-sm uppercase tracking-wide text-amber-500">Report</p>
+            <p className="text-sm uppercase tracking-wide text-[#F5A623]">Report</p>
             <h1 className="mt-2 text-3xl font-semibold">{typedSurvey.name}</h1>
-            {typedSurvey.location && <p className="mt-1 text-sm text-neutral-400">{typedSurvey.location}</p>}
+            {typedSurvey.location && <p className="mt-1 text-sm text-[#8A8A9A]">{typedSurvey.location}</p>}
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
@@ -46,7 +46,7 @@ export default async function SurveyReportPage({ params }: { params: Promise<{ i
           </div>
         </header>
 
-        <section className="overflow-hidden rounded border border-neutral-800 bg-neutral-950">
+        <section className="overflow-hidden rounded border border-[rgba(255,255,255,0.07)] bg-[#09090C]">
           <iframe
             title={`${typedSurvey.name} report preview`}
             src={`/report/${id}`}

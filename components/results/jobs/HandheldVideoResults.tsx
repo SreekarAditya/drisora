@@ -70,8 +70,8 @@ function CustomTooltip({ active, payload }: { active?: boolean; payload?: Toolti
   const { pci, t } = payload[0].payload;
   const band = getPciBand(pci);
   return (
-    <div className="rounded-lg border border-[#2a2a2a] bg-[#111] p-3 shadow-xl">
-      <p className="font-mono text-[11px] text-gray-500">{fmtTime(t * 1000)}</p>
+    <div className="rounded-[10px] border border-[rgba(255,255,255,0.12)] bg-[#111116] p-3 shadow-xl">
+      <p className="font-mono text-[11px] text-[#8A8A9A]">{fmtTime(t * 1000)}</p>
       <p className="mt-1 text-sm font-semibold" style={{ color: band.color }}>
         PCI {pci.toFixed(0)} · {band.label}
       </p>
@@ -89,16 +89,16 @@ function FramePanel({ frame, onClose }: { frame: FrameResult; onClose: () => voi
     metricRows.length > 0;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-[#1a1a1a] bg-[#0f0f0f]">
+    <div className="flex h-full flex-col overflow-hidden rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116]">
       {/* Header */}
-      <div className="flex items-center justify-between border-b border-[#1a1a1a] px-4 py-3">
+      <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.07)] px-4 py-3">
         <div className="flex items-center gap-2">
           {frame.timestamp_ms != null && (
-            <span className="font-mono text-xs text-gray-500">{fmtTime(frame.timestamp_ms)}</span>
+            <span className="font-mono text-xs text-[#8A8A9A]">{fmtTime(frame.timestamp_ms)}</span>
           )}
           <PciChip score={frame.pci_score} />
         </div>
-        <button onClick={onClose} className="text-gray-600 hover:text-gray-400">
+        <button onClick={onClose} className="text-[#4A4A5A] hover:text-[#F0F0F4]">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
@@ -106,63 +106,63 @@ function FramePanel({ frame, onClose }: { frame: FrameResult; onClose: () => voi
       </div>
 
       {/* Overlay image */}
-      <div className="relative flex-1 bg-[#080808]">
+      <div className="relative flex-1 bg-[#0D0D11]">
         <DetectionFrameImage
           frame={frame}
           alt={`Frame at ${frame.timestamp_ms ?? frame.index}`}
           objectFit="contain"
           className="h-full w-full"
           sizes="(max-width: 1024px) 100vw, 50vw"
-          placeholderClassName="text-sm text-gray-700"
+          placeholderClassName="text-sm text-[#4A4A5A]"
         />
       </div>
 
       {/* Detail */}
-      <div className="border-t border-[#1a1a1a] p-4">
+      <div className="border-t border-[rgba(255,255,255,0.07)] p-4">
         <div className="grid grid-cols-2 gap-3 text-xs">
           <div>
-            <p className="text-gray-600">Condition</p>
+            <p className="text-[#4A4A5A]">Condition</p>
             <p className="mt-0.5 font-medium" style={{ color: band.color }}>{band.label}</p>
           </div>
           <div>
-            <p className="text-gray-600">Recommendation</p>
-            <p className="mt-0.5 text-gray-300">{ircRecommendation(frame.pci_score)}</p>
+            <p className="text-[#4A4A5A]">Recommendation</p>
+            <p className="mt-0.5 text-[#F0F0F4]">{ircRecommendation(frame.pci_score)}</p>
           </div>
           <div>
-            <p className="text-gray-600">Detections</p>
-            <p className="mt-0.5 text-gray-300">
+            <p className="text-[#4A4A5A]">Detections</p>
+            <p className="mt-0.5 text-[#F0F0F4]">
               {frame.final_detection_count ?? frame.yolo_detection_count ?? 0}
             </p>
           </div>
           <div>
-            <p className="text-gray-600">Metric Analysis</p>
-            <p className="mt-0.5 text-gray-300">
+            <p className="text-[#4A4A5A]">Metric Analysis</p>
+            <p className="mt-0.5 text-[#F0F0F4]">
               {hasCracks ? (frame.crack_metrics_estimated ? "Legacy estimate" : "Measured") : "No cracks"}
             </p>
           </div>
           {frame.camera_surface_distance_m != null && (
             <div>
-              <p className="text-gray-600">Camera distance</p>
-              <p className="mt-0.5 text-gray-300">
+              <p className="text-[#4A4A5A]">Camera distance</p>
+              <p className="mt-0.5 text-[#F0F0F4]">
                 {frame.camera_surface_distance_m.toFixed(2)} m
               </p>
             </div>
           )}
           <div>
-            <p className="text-gray-600">Max width</p>
-            <p className="mt-0.5 text-gray-300">
+            <p className="text-[#4A4A5A]">Max width</p>
+            <p className="mt-0.5 text-[#F0F0F4]">
               {frame.max_crack_width_mm == null ? "N/A" : `${frame.max_crack_width_mm.toFixed(1)} mm`}
             </p>
           </div>
           <div>
-            <p className="text-gray-600">Avg width</p>
-            <p className="mt-0.5 text-gray-300">
+            <p className="text-[#4A4A5A]">Avg width</p>
+            <p className="mt-0.5 text-[#F0F0F4]">
               {frame.avg_crack_width_mm == null ? "N/A" : `${frame.avg_crack_width_mm.toFixed(1)} mm`}
             </p>
           </div>
           <div className="col-span-2">
-            <p className="text-gray-600">Crack Metrics</p>
-            <p className="mt-0.5 text-gray-300">
+            <p className="text-[#4A4A5A]">Crack Metrics</p>
+            <p className="mt-0.5 text-[#F0F0F4]">
               {hasCracks
                 ? crackWidthBandLabel(frame.max_crack_width_mm ?? frame.avg_crack_width_mm)
                 : "No cracks detected in this frame."}
@@ -170,9 +170,9 @@ function FramePanel({ frame, onClose }: { frame: FrameResult; onClose: () => voi
             {metricRows.length > 0 && (
               <div className="mt-2 grid gap-1 sm:grid-cols-2">
                 {metricRows.map(([type, length]) => (
-                  <div key={type} className="flex justify-between gap-2 rounded bg-black/25 px-2 py-1">
-                    <span className="text-gray-500">{type}</span>
-                    <span className="font-mono text-gray-300">{length.toFixed(2)} m</span>
+                  <div key={type} className="flex justify-between gap-2 rounded bg-[rgba(0,0,0,0.25)] px-2 py-1">
+                    <span className="text-[#8A8A9A]">{type}</span>
+                    <span className="font-mono text-[#F0F0F4]">{length.toFixed(2)} m</span>
                   </div>
                 ))}
               </div>
@@ -180,14 +180,14 @@ function FramePanel({ frame, onClose }: { frame: FrameResult; onClose: () => voi
           </div>
           {frame.processing_ms != null && (
             <div>
-              <p className="text-gray-600">Frame time</p>
-              <p className="mt-0.5 text-gray-300">{fmtTime(frame.processing_ms)}</p>
+              <p className="text-[#4A4A5A]">Frame time</p>
+              <p className="mt-0.5 text-[#F0F0F4]">{fmtTime(frame.processing_ms)}</p>
             </div>
           )}
           {frame.crack_types.length > 0 && (
             <div className="col-span-2">
-              <p className="text-gray-600">Crack types</p>
-              <p className="mt-0.5 text-gray-300">{frame.crack_types.join(", ")}</p>
+              <p className="text-[#4A4A5A]">Crack types</p>
+              <p className="mt-0.5 text-[#F0F0F4]">{frame.crack_types.join(", ")}</p>
             </div>
           )}
         </div>
@@ -206,7 +206,7 @@ export function HandheldVideoResults({ results, jobId, surveyDate, orgName }: Pr
 
   if (frames.length === 0) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a]">
+      <div className="min-h-screen bg-[#09090C]">
         <SummaryBar results={results} jobId={jobId} surveyDate={surveyDate} orgName={orgName} />
         <NoDetectionsState jobId={jobId} />
       </div>
@@ -232,18 +232,18 @@ export function HandheldVideoResults({ results, jobId, surveyDate, orgName }: Pr
   );
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
+    <div className="min-h-screen bg-[#09090C]">
       <SummaryBar results={results} jobId={jobId} surveyDate={surveyDate} orgName={orgName} />
 
       <div className="mx-auto max-w-7xl px-6 py-8">
         {/* Lowest PCI callout */}
         {lowestPciFrame && lowestPciFrame.timestamp_ms != null && (
-          <div className="mb-6 flex items-center gap-4 rounded-xl border border-[#1a1a1a] bg-[#0f0f0f] px-5 py-3">
-            <span className="font-mono text-[10px] uppercase tracking-widest text-gray-600">Worst at</span>
-            <span className="font-mono text-sm text-gray-300">{fmtTime(lowestPciFrame.timestamp_ms)}</span>
+          <div className="mb-6 flex items-center gap-4 rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116] px-5 py-3">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">Worst at</span>
+            <span className="font-mono text-sm text-[#F0F0F4]">{fmtTime(lowestPciFrame.timestamp_ms)}</span>
             <PciChip score={lowestPciFrame.pci_score} />
             <button
-              className="ml-auto text-xs text-amber-400 hover:text-amber-300"
+              className="ml-auto text-xs text-[#F5A623] hover:text-[#FFBE4D]"
               onClick={() => setSelectedFrame(lowestPciFrame)}
             >
               View frame →
@@ -254,8 +254,8 @@ export function HandheldVideoResults({ results, jobId, surveyDate, orgName }: Pr
         {/* Chart + panel layout */}
         <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
           {/* Line chart */}
-          <div className="overflow-hidden rounded-xl border border-[#1a1a1a] bg-[#0f0f0f] p-6">
-            <p className="mb-4 font-mono text-[10px] uppercase tracking-widest text-gray-600">
+          <div className="overflow-hidden rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116] p-6">
+            <p className="mb-4 font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">
               PCI over {xLabel.toLowerCase()}
             </p>
             <ResponsiveContainer width="100%" height={320}>
@@ -263,13 +263,13 @@ export function HandheldVideoResults({ results, jobId, surveyDate, orgName }: Pr
                 <CartesianGrid stroke="#1a1a1a" vertical={false} />
                 <XAxis
                   dataKey="t"
-                  stroke="#333"
+                  stroke="rgba(255,255,255,0.07)"
                   tick={{ fill: "#555", fontSize: 11, fontFamily: "IBM Plex Mono" }}
                   tickFormatter={(v: number) => chartData.length > 0 ? `${v}s` : `#${v}`}
                 />
                 <YAxis
                   domain={[0, 100]}
-                  stroke="#333"
+                  stroke="rgba(255,255,255,0.07)"
                   tick={{ fill: "#555", fontSize: 11, fontFamily: "IBM Plex Mono" }}
                   width={32}
                 />
@@ -294,7 +294,7 @@ export function HandheldVideoResults({ results, jobId, surveyDate, orgName }: Pr
                 />
               </LineChart>
             </ResponsiveContainer>
-            <p className="mt-2 text-center text-[11px] text-gray-700">
+            <p className="mt-2 text-center text-[11px] text-[#4A4A5A]">
               Click any point to view frame diagnostics
             </p>
           </div>
@@ -304,14 +304,14 @@ export function HandheldVideoResults({ results, jobId, surveyDate, orgName }: Pr
             {selectedFrame ? (
               <FramePanel frame={selectedFrame} onClose={() => setSelectedFrame(null)} />
             ) : (
-              <div className="flex h-full items-center justify-center rounded-xl border border-[#1a1a1a] bg-[#0f0f0f]">
+              <div className="flex h-full items-center justify-center rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116]">
                 <div className="text-center">
-                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" className="mx-auto mb-3 text-[#2a2a2a]">
+                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" className="mx-auto mb-3 text-[#4A4A5A]">
                     <rect x="2" y="6" width="28" height="20" rx="3" stroke="currentColor" strokeWidth="1.5" />
                     <path d="M12 16l4-4 4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                     <path d="M16 12v8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                   </svg>
-                  <p className="text-xs text-gray-600">Click a point on the chart</p>
+                  <p className="text-xs text-[#4A4A5A]">Click a point on the chart</p>
                 </div>
               </div>
             )}
@@ -320,15 +320,15 @@ export function HandheldVideoResults({ results, jobId, surveyDate, orgName }: Pr
 
         {/* Crack type distribution */}
         {Object.keys(summary.crack_type_counts).length > 0 && (
-          <div className="mt-6 overflow-hidden rounded-xl border border-[#1a1a1a] bg-[#0f0f0f] p-5">
-            <p className="mb-4 font-mono text-[10px] uppercase tracking-widest text-gray-600">Crack type distribution</p>
+          <div className="mt-6 overflow-hidden rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116] p-5">
+            <p className="mb-4 font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">Crack type distribution</p>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {Object.entries(summary.crack_type_counts)
                 .sort((a, b) => b[1] - a[1])
                 .map(([type, count]) => (
-                  <div key={type} className="flex items-center justify-between rounded-lg bg-[#111] px-3 py-2">
-                    <span className="text-sm text-gray-300">{type}</span>
-                    <span className="font-mono text-xs text-gray-500">{count}</span>
+                  <div key={type} className="flex items-center justify-between rounded-[10px] bg-[#111116] px-3 py-2">
+                    <span className="text-sm text-[#F0F0F4]">{type}</span>
+                    <span className="font-mono text-xs text-[#8A8A9A]">{count}</span>
                   </div>
                 ))}
             </div>

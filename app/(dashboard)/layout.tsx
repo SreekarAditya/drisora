@@ -26,12 +26,12 @@ export default async function DashboardLayout({
     .single();
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
+    <div className="min-h-screen bg-[#09090C] text-[#F0F0F4]">
       <Navbar user={user} profile={profile} />
       <Breadcrumbs />
       <PageTransition>{children}</PageTransition>
-      <footer className="border-t border-white/[0.07] px-6 py-5 text-center text-xs text-gray-700">
-        <a href="/about" className="transition-colors duration-150 hover:text-gray-400">About Drisora</a>
+      <footer className="border-t border-[rgba(255,255,255,0.07)] px-6 py-5 text-center font-mono text-[11px] text-[#4A4A5A]">
+        <a href="/about" className="transition-colors duration-150 hover:text-[#8A8A9A]">About Drisora</a>
       </footer>
     </div>
   );

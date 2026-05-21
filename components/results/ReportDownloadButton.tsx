@@ -36,11 +36,11 @@ export function ReportDownloadButton({ surveyId }: ReportDownloadButtonProps) {
         type="button"
         onClick={handleClick}
         disabled={loading}
-        className="rounded bg-amber-500 px-4 py-2 text-sm font-semibold text-black transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-70"
+        className="rounded-[10px] bg-[#F5A623] px-4 py-2 text-sm font-semibold text-[#09090C] transition-colors hover:bg-[#FFBE4D] disabled:cursor-not-allowed disabled:opacity-50"
       >
         {loading ? "Generating report..." : "Download PDF"}
       </button>
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm text-[#EF4444]">{error}</p>}
     </div>
   );
 }

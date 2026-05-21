@@ -64,7 +64,7 @@ function ModeBadge({ mode }: { mode: JobMode }) {
     ),
   };
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#2a2a2a] bg-[#141414] px-2.5 py-1 font-mono text-[10px] tracking-widest text-gray-400">
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-[rgba(255,255,255,0.12)] bg-[#111116] px-2.5 py-1 font-mono text-[10px] tracking-widest text-[#8A8A9A]">
       {icons[mode]}
       {JOB_MODE_LABELS[mode].toUpperCase()}
     </span>
@@ -74,7 +74,7 @@ function ModeBadge({ mode }: { mode: JobMode }) {
 function Skeleton({ className }: { className: string }) {
   return (
     <div
-      className={`animate-pulse rounded bg-[#1a1a1a] ${className}`}
+      className={`animate-pulse rounded bg-[rgba(255,255,255,0.04)] ${className}`}
       style={{ backgroundImage: "linear-gradient(90deg,#1a1a1a 25%,#222 50%,#1a1a1a 75%)", backgroundSize: "200% 100%", animation: "shimmer-x 1.6s infinite" }}
     />
   );
@@ -82,13 +82,13 @@ function Skeleton({ className }: { className: string }) {
 
 function LoadingSkeleton() {
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-[#0a0a0a] px-6">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-[#09090C] px-6">
       <div className="w-full max-w-md">
         <div className="mb-8 flex flex-col items-center gap-3">
           <Skeleton className="h-7 w-24" />
           <Skeleton className="h-4 w-32" />
         </div>
-        <div className="rounded-xl border border-[#1a1a1a] bg-[#0f0f0f] p-8">
+        <div className="rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116] p-8">
           <Skeleton className="mb-2 h-5 w-40" />
           <Skeleton className="mb-4 h-3.5 w-52" />
           <Skeleton className="mb-6 h-1.5 w-full" />
@@ -163,10 +163,10 @@ export default function JobPage() {
 
   if (error) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#0a0a0a] px-6">
+      <main className="flex min-h-screen items-center justify-center bg-[#09090C] px-6">
         <div className="text-center">
-          <p className="text-sm text-red-400">{error}</p>
-          <Link href="/dashboard" className="mt-4 inline-block text-sm text-amber-400 hover:text-amber-300">
+          <p className="text-sm text-[#EF4444]">{error}</p>
+          <Link href="/dashboard" className="mt-4 inline-block text-sm text-[#F5A623] hover:text-[#FFBE4D]">
             Back to dashboard
           </Link>
         </div>
@@ -186,7 +186,7 @@ export default function JobPage() {
     (job.error_message?.toLowerCase().includes("timeout") ?? false);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-[#0a0a0a] px-6">
+    <main className="flex min-h-screen flex-col items-center justify-center bg-[#09090C] px-6">
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="mb-8 flex flex-col items-center gap-3">
@@ -194,29 +194,29 @@ export default function JobPage() {
           <ModeBadge mode={job.mode} />
         </div>
 
-        <div className="rounded-xl border border-[#1a1a1a] bg-[#0f0f0f] p-8">
+        <div className="rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116] p-8">
           {job.status === "failed" ? (
             <div className="text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-500/10">
-                <svg viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6 text-red-400">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[rgba(239,68,68,0.10)]">
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6 text-[#EF4444]">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm-1-5v-4h2v4H9zm0 2h2v-2H9v2z" clipRule="evenodd" />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-white">
+              <h2 className="text-lg font-semibold text-[#F0F0F4]">
                 {isTimeout ? "Processing timed out" : "Processing failed"}
               </h2>
               {isTimeout ? (
-                <p className="mt-2 text-sm text-gray-500">
+                <p className="mt-2 text-sm text-[#8A8A9A]">
                   The pipeline took too long and was stopped automatically.
                 </p>
               ) : job.error_message ? (
-                <p className="mt-2 text-sm text-gray-500">{job.error_message}</p>
+                <p className="mt-2 text-sm text-[#8A8A9A]">{job.error_message}</p>
               ) : null}
               <button
                 type="button"
                 onClick={handleRetry}
                 disabled={retrying}
-                className="mt-6 inline-flex items-center gap-2 rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+                className="mt-6 inline-flex items-center gap-2 rounded-[10px] bg-[#F5A623] px-5 py-2.5 text-sm font-semibold text-[#09090C] transition-colors hover:bg-[#FFBE4D] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {retrying && (
                   <span className="h-3.5 w-3.5 animate-spin rounded-full border-2 border-black/30 border-t-black" />
@@ -224,38 +224,38 @@ export default function JobPage() {
                 {retrying ? "Retrying…" : "Retry"}
               </button>
               {retryError && (
-                <p className="mt-2 text-sm text-red-400">{retryError}</p>
+                <p className="mt-2 text-sm text-[#EF4444]">{retryError}</p>
               )}
               {isTimeout && (
                 <a
                   href="mailto:support@drisora.com"
-                  className="mt-3 block text-sm text-gray-400 underline hover:text-gray-300"
+                  className="mt-3 block text-sm text-[#8A8A9A] underline hover:text-[#F0F0F4]"
                 >
                   Contact support
                 </a>
               )}
               <Link
                 href="/upload"
-                className="mt-3 block text-sm text-gray-500 hover:text-gray-400"
+                className="mt-3 block text-sm text-[#8A8A9A] hover:text-[#8A8A9A]"
               >
                 New survey
               </Link>
             </div>
           ) : job.status === "complete" ? (
             <div className="text-center">
-              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500/10">
-                <svg viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6 text-emerald-400">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[rgba(34,197,94,0.10)]">
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-6 w-6 text-[#22C55E]">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-white">Complete — loading results…</h2>
+              <h2 className="text-lg font-semibold text-[#F0F0F4]">Complete — loading results…</h2>
             </div>
           ) : (
             <>
-              <h2 className="text-base font-semibold text-white">
+              <h2 className="text-base font-semibold text-[#F0F0F4]">
                 {STATUS_LABELS[job.status]}…
               </h2>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-[#8A8A9A]">
                 {job.status === "uploading"
                   ? "Waiting for upload to finish…"
                   : hasFrameProgress && pct !== null
@@ -266,9 +266,9 @@ export default function JobPage() {
               </p>
 
               {/* Progress bar */}
-              <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-[#1a1a1a]">
+              <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-[rgba(255,255,255,0.04)]">
                 <div
-                  className="h-full rounded-full bg-amber-500 transition-all duration-500"
+                  className="h-full rounded-full bg-[#F5A623] transition-all duration-500"
                   style={{ width: pct !== null ? `${pct}%` : "0%" }}
                 />
               </div>
@@ -286,10 +286,10 @@ export default function JobPage() {
                       <span
                         className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-xs ${
                           done
-                            ? "bg-emerald-500/20 text-emerald-400"
+                            ? "bg-[rgba(34,197,94,0.20)] text-[#22C55E]"
                             : active
-                              ? "bg-amber-500/20 text-amber-400"
-                              : "bg-[#1a1a1a] text-gray-600"
+                              ? "bg-[#F5A623]/20 text-[#F5A623]"
+                              : "bg-[rgba(255,255,255,0.04)] text-[#4A4A5A]"
                         }`}
                       >
                         {done ? (
@@ -300,14 +300,14 @@ export default function JobPage() {
                           <span>{index + 1}</span>
                         )}
                       </span>
-                      <span className={`text-sm ${done ? "text-gray-600 line-through" : active ? "font-medium text-white" : "text-gray-600"}`}>
+                      <span className={`text-sm ${done ? "text-[#4A4A5A] line-through" : active ? "font-medium text-[#F0F0F4]" : "text-[#4A4A5A]"}`}>
                         {step.label}
                       </span>
                       {active && firstStepIdx >= STATUS_ORDER.indexOf("detecting") && pct !== null && (
-                        <span className="ml-auto font-mono text-xs text-gray-500">{pct}%</span>
+                        <span className="ml-auto font-mono text-xs text-[#8A8A9A]">{pct}%</span>
                       )}
                       {active && !(firstStepIdx >= STATUS_ORDER.indexOf("detecting") && pct !== null) && (
-                        <span className="ml-auto h-3 w-3 animate-spin rounded-full border-2 border-[#2a2a2a] border-t-amber-500" />
+                        <span className="ml-auto h-3 w-3 animate-spin rounded-full border-2 border-[rgba(255,255,255,0.12)] border-t-[#F5A623]" />
                       )}
                     </li>
                   );
@@ -317,7 +317,7 @@ export default function JobPage() {
           )}
         </div>
 
-        <p className="mt-6 text-center font-mono text-[11px] text-gray-700">
+        <p className="mt-6 text-center font-mono text-[11px] text-[#4A4A5A]">
           {id}
         </p>
       </div>

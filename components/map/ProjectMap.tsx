@@ -5,7 +5,7 @@ import type { ProjectMapFeatureCollection } from "@/lib/project-map";
 
 const ProjectMapClient = dynamic(() => import("./ProjectMapClient"), {
   ssr: false,
-  loading: () => <div className="h-full min-h-[520px] w-full bg-neutral-950" />,
+  loading: () => <div className="h-full min-h-[520px] w-full bg-[#09090C]" />,
 });
 
 interface ProjectMapProps {

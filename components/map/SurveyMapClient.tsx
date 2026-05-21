@@ -115,8 +115,8 @@ export default function SurveyMapClient({ geojson }: SurveyMapClientProps) {
   }, [geojson, overlayMode, renderLines]);
 
   return (
-    <div className="relative h-full min-h-[520px] w-full bg-neutral-950">
-      <div className="absolute right-4 top-4 z-[500] flex overflow-hidden rounded-md border border-white/10 bg-[#0b0c0d]/90 p-1 backdrop-blur">
+    <div className="relative h-full min-h-[520px] w-full bg-[#09090C]">
+      <div className="absolute right-4 top-4 z-[500] flex overflow-hidden rounded-md border border-[rgba(255,255,255,0.10)] bg-[#0b0c0d]/90 p-1 backdrop-blur">
         {[
           ["pci", "PCI"],
           ["width", "Width mm"],
@@ -127,27 +127,27 @@ export default function SurveyMapClient({ geojson }: SurveyMapClientProps) {
             onClick={() => setOverlayMode(mode as "pci" | "width")}
             className={`rounded px-3 py-1.5 text-xs font-semibold transition-colors ${
               overlayMode === mode
-                ? "bg-amber-500 text-black"
-                : "text-gray-400 hover:bg-white/5 hover:text-white"
+                ? "bg-[#F5A623] text-[#09090C]"
+                : "text-[#8A8A9A] hover:bg-white/5 hover:text-[#F0F0F4]"
             }`}
           >
             {label}
           </button>
         ))}
       </div>
-      <div className="absolute bottom-4 left-4 z-[500] max-w-[270px] rounded-lg border border-white/10 bg-[#0b0c0d]/90 p-3 text-xs shadow-xl backdrop-blur">
-        <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-gray-500">
+      <div className="absolute bottom-4 left-4 z-[500] max-w-[270px] rounded-lg border border-[rgba(255,255,255,0.10)] bg-[#0b0c0d]/90 p-3 text-xs shadow-xl backdrop-blur">
+        <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-[#8A8A9A]">
           {overlayMode === "width" ? "Crack width legend" : "PCI legend"}
         </p>
         <div className="space-y-1.5">
           {overlayMode === "width"
             ? CRACK_WIDTH_BANDS.map((band) => (
                 <div key={band.label} className="flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-2 text-gray-300">
+                  <span className="flex items-center gap-2 text-[#F0F0F4]">
                     <span className="h-2.5 w-6 rounded-sm" style={{ background: band.color }} />
                     {band.label}
                   </span>
-                  <span className="text-gray-600">{band.detail}</span>
+                  <span className="text-[#4A4A5A]">{band.detail}</span>
                 </div>
               ))
             : [
@@ -157,14 +157,14 @@ export default function SurveyMapClient({ geojson }: SurveyMapClientProps) {
                 ["Poor 40-54", "#ef4444"],
                 ["Very poor 0-39", "#7f1d1d"],
               ].map(([label, color]) => (
-                <div key={label} className="flex items-center gap-2 text-gray-300">
+                <div key={label} className="flex items-center gap-2 text-[#F0F0F4]">
                   <span className="h-2.5 w-6 rounded-sm" style={{ background: color }} />
                   {label}
                 </div>
               ))}
         </div>
       </div>
-      <div ref={containerRef} className="h-full min-h-[520px] w-full bg-neutral-950" />
+      <div ref={containerRef} className="h-full min-h-[520px] w-full bg-[#09090C]" />
     </div>
   );
 }

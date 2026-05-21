@@ -26,7 +26,7 @@ const MODES: ModeCard[] = [
     title: "Image Batch",
     description: "Up to 1,000 JPEG/PNG images · maps geotags and EXIF GPS",
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-6 w-6">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-7 w-7">
         <rect x="3" y="3" width="18" height="18" rx="2" />
         <circle cx="8.5" cy="8.5" r="1.5" />
         <path d="M21 15l-5-5L5 21" />
@@ -38,7 +38,7 @@ const MODES: ModeCard[] = [
     title: "Handheld Video",
     description: "Single MP4/MOV · optional .SRT GPS log · frame interval picker",
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-6 w-6">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-7 w-7">
         <rect x="2" y="6" width="14" height="12" rx="2" />
         <path d="M22 8l-6 4 6 4V8z" />
       </svg>
@@ -49,7 +49,7 @@ const MODES: ModeCard[] = [
     title: "Drone Footage",
     description: "Single MP4/MOV · GPS embedded or upload .SRT file",
     icon: (
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-6 w-6">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-7 w-7">
         <path d="M12 2v4M12 18v4M2 12h4M18 12h4" />
         <circle cx="12" cy="12" r="3" />
         <path d="M5 5l3 3M19 5l-3 3M5 19l3-3M19 19l-3-3" />
@@ -85,21 +85,21 @@ export function UploadClient() {
 
   return (
     <div className="space-y-8">
-      <section className="rounded-lg border border-white/10 bg-[#101113] p-5">
+      <section className="rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116] p-5">
         <div className="flex flex-col justify-between gap-4 md:flex-row md:items-center">
           <div>
-            <p className="font-mono text-[10px] uppercase tracking-widest text-gray-600">
+            <p className="font-mono text-[11px] font-medium uppercase tracking-[0.15em] text-[#8A8A9A]">
               Project assignment
             </p>
             <h2 className="mt-1 text-base font-semibold text-white">Assign this survey</h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-[13px] text-[#8A8A9A]">
               Optional. You can also attach this upload from a project dashboard later.
             </p>
           </div>
           <select
             value={projectId}
             onChange={(event) => setProjectId(event.target.value)}
-            className="w-full rounded-md border border-white/10 bg-[#0b0c0d] px-3 py-2.5 text-sm text-white outline-none focus:border-amber-500/70 md:max-w-sm"
+            className="w-full rounded-[8px] border border-[rgba(255,255,255,0.10)] bg-[#0D0D11] px-3 py-2.5 text-sm text-[#F0F0F4] outline-none transition-colors focus:border-[rgba(245,166,35,0.50)] focus:shadow-[0_0_0_3px_rgba(245,166,35,0.10)] md:max-w-sm"
           >
             <option value="">No project</option>
             {projects.map((project) => (
@@ -121,24 +121,30 @@ export function UploadClient() {
               onClick={() => setActiveMode(mode.id)}
               role="tab"
               aria-selected={isActive}
-              className={`flex min-h-[148px] flex-col rounded-lg border p-5 text-left transition-colors ${
+              className={`relative flex min-h-[148px] flex-col rounded-[14px] border p-5 text-left transition-all duration-200 ${
                 isActive
-                  ? "border-amber-500/80 bg-amber-500/10 shadow-[0_18px_50px_rgba(245,158,11,0.08)]"
-                  : "border-white/10 bg-[#101113] hover:border-white/20 hover:bg-[#141619]"
+                  ? "border-[rgba(245,166,35,0.50)] bg-[rgba(245,166,35,0.08)] shadow-[0_18px_50px_rgba(245,166,35,0.08)]"
+                  : "border-[rgba(255,255,255,0.07)] bg-[#111116] hover:border-[rgba(255,255,255,0.13)] hover:bg-[#1A1A22]"
               }`}
             >
+              {/* Checkmark indicator for selected */}
+              {isActive && (
+                <div className="absolute top-4 right-4 flex h-5 w-5 items-center justify-center rounded-full bg-[#F5A623]">
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#09090C" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
+              )}
+
               <div
-                className={`mb-4 flex h-10 w-10 items-center justify-center rounded-md ${
-                  isActive ? "bg-amber-500 text-black" : "bg-[#1a1a1a] text-amber-500"
+                className={`mb-4 flex h-10 w-10 items-center justify-center rounded-[10px] transition-colors ${
+                  isActive ? "bg-[#F5A623] text-[#09090C]" : "bg-[rgba(255,255,255,0.04)] text-[#F5A623]"
                 }`}
               >
                 {mode.icon}
               </div>
               <h3 className="text-base font-semibold text-white">{mode.title}</h3>
-              <p className="mt-1.5 text-sm text-gray-500">{mode.description}</p>
-              <span className={`mt-auto pt-5 text-xs font-semibold ${isActive ? "text-amber-400" : "text-gray-500"}`}>
-                {isActive ? "Selected" : "Select"}
-              </span>
+              <p className="mt-1.5 text-[13px] text-[#8A8A9A]">{mode.description}</p>
             </button>
           );
         })}

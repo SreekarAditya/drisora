@@ -95,7 +95,7 @@ function DetailPanel({ segment, onClose }: { segment: PciSegment; onClose: () =>
     : 1;
 
   return (
-    <div className="mt-3 rounded-lg border border-white/10 bg-[#141416] p-4">
+    <div className="mt-3 rounded-lg border border-[rgba(255,255,255,0.10)] bg-[#141416] p-4">
       <div className="flex items-start justify-between gap-3">
         <div className="flex items-baseline gap-3">
           {segment.pci_score !== null ? (
@@ -103,20 +103,20 @@ function DetailPanel({ segment, onClose }: { segment: PciSegment; onClose: () =>
               {segment.pci_score.toFixed(0)}
             </span>
           ) : (
-            <span className="text-3xl font-semibold text-gray-500">—</span>
+            <span className="text-3xl font-semibold text-[#8A8A9A]">—</span>
           )}
           <span className="text-sm font-medium" style={{ color }}>
             {grade ?? "Pending"}
           </span>
           {segment.is_relative && (
-            <span className="rounded bg-amber-900/40 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400">
+            <span className="rounded bg-[rgba(245,166,35,0.10)] px-1.5 py-0.5 text-[10px] font-semibold text-[#F5A623]">
               RPCI
             </span>
           )}
         </div>
         <button
           onClick={onClose}
-          className="text-gray-500 hover:text-gray-300"
+          className="text-[#8A8A9A] hover:text-[#F0F0F4]"
           aria-label="Close detail panel"
         >
           ✕
@@ -126,30 +126,30 @@ function DetailPanel({ segment, onClose }: { segment: PciSegment; onClose: () =>
       {/* Metrics */}
       <div className="mt-3 grid grid-cols-2 gap-x-6 gap-y-2 sm:grid-cols-4">
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-widest text-gray-500">Distance</p>
-          <p className="mt-0.5 text-sm font-semibold text-white">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-[#8A8A9A]">Distance</p>
+          <p className="mt-0.5 text-sm font-semibold text-[#F0F0F4]">
             {fmtDist(segment.start_distance_m)} – {fmtDist(segment.end_distance_m)}
           </p>
         </div>
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-widest text-gray-500">Coverage</p>
-          <p className="mt-0.5 text-sm font-semibold text-white">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-[#8A8A9A]">Coverage</p>
+          <p className="mt-0.5 text-sm font-semibold text-[#F0F0F4]">
             {fmtDist(segment.total_length_m)} covered
           </p>
         </div>
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-widest text-gray-500">Detections</p>
-          <p className="mt-0.5 text-sm font-semibold text-white">{segment.detection_count}</p>
+          <p className="font-mono text-[10px] uppercase tracking-widest text-[#8A8A9A]">Detections</p>
+          <p className="mt-0.5 text-sm font-semibold text-[#F0F0F4]">{segment.detection_count}</p>
         </div>
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-widest text-gray-500">Segment #</p>
-          <p className="mt-0.5 text-sm font-semibold text-white">{segment.segment_index + 1}</p>
+          <p className="font-mono text-[10px] uppercase tracking-widest text-[#8A8A9A]">Segment #</p>
+          <p className="mt-0.5 text-sm font-semibold text-[#F0F0F4]">{segment.segment_index + 1}</p>
         </div>
       </div>
 
       {/* RPCI warning */}
       {segment.is_relative && (
-        <p className="mt-3 rounded border border-amber-900/40 bg-amber-950/30 px-3 py-2 text-xs text-amber-300">
+        <p className="mt-3 rounded border border-[rgba(245,166,35,0.20)] bg-[rgba(245,166,35,0.06)] px-3 py-2 text-xs text-[#FFBE4D]">
           Relative PCI — section &lt; 100 m coverage. Not directly comparable to standard IRC:82-2023 PCI.
         </p>
       )}
@@ -157,7 +157,7 @@ function DetailPanel({ segment, onClose }: { segment: PciSegment; onClose: () =>
       {/* Deduct values */}
       {segment.deduct_values && segment.deduct_values.length > 0 && (
         <div className="mt-4">
-          <p className="font-mono text-[10px] uppercase tracking-widest text-gray-500">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-[#8A8A9A]">
             Deduct values
           </p>
           <div className="mt-2 space-y-1.5">
@@ -165,7 +165,7 @@ function DetailPanel({ segment, onClose }: { segment: PciSegment; onClose: () =>
               .sort((a, b) => b.value - a.value)
               .map((d, i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <span className="w-32 shrink-0 truncate text-xs text-gray-400">{d.type}</span>
+                  <span className="w-32 shrink-0 truncate text-xs text-[#8A8A9A]">{d.type}</span>
                   <div className="h-2 flex-1 overflow-hidden rounded-full bg-white/5">
                     <div
                       className="h-full rounded-full"
@@ -176,7 +176,7 @@ function DetailPanel({ segment, onClose }: { segment: PciSegment; onClose: () =>
                       }}
                     />
                   </div>
-                  <span className="w-8 text-right text-xs font-mono text-gray-300">
+                  <span className="w-8 text-right text-xs font-mono text-[#F0F0F4]">
                     {d.value.toFixed(1)}
                   </span>
                 </div>
@@ -196,10 +196,10 @@ export function PCISegmentView({ segments, summary, className = "" }: PCISegment
   if (!segments || segments.length === 0) {
     return (
       <div
-        className={`flex flex-col items-center justify-center rounded-lg border border-white/10 bg-[#101113] p-10 text-center ${className}`}
+        className={`flex flex-col items-center justify-center rounded-lg border border-[rgba(255,255,255,0.10)] bg-[#101113] p-10 text-center ${className}`}
       >
-        <p className="text-sm font-medium text-gray-400">No segments computed yet</p>
-        <p className="mt-1 text-xs text-gray-600">Segments will appear here once processing is complete.</p>
+        <p className="text-sm font-medium text-[#8A8A9A]">No segments computed yet</p>
+        <p className="mt-1 text-xs text-[#4A4A5A]">Segments will appear here once processing is complete.</p>
       </div>
     );
   }
@@ -221,12 +221,12 @@ export function PCISegmentView({ segments, summary, className = "" }: PCISegment
   }
 
   return (
-    <div className={`rounded-lg border border-white/10 bg-[#101113] p-5 ${className}`}>
+    <div className={`rounded-lg border border-[rgba(255,255,255,0.10)] bg-[#101113] p-5 ${className}`}>
       {/* ── Summary card ── */}
       <div className="flex flex-wrap items-start gap-6">
         {/* Weighted PCI */}
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-widest text-gray-500">Weighted PCI</p>
+          <p className="font-mono text-[10px] uppercase tracking-widest text-[#8A8A9A]">Weighted PCI</p>
           <p className="mt-0.5 text-4xl font-semibold" style={{ color: summaryBand }}>
             {summary.weighted_pci.toFixed(1)}
             <span className="ml-2 text-base font-normal" style={{ color: summaryBand }}>
@@ -238,27 +238,27 @@ export function PCISegmentView({ segments, summary, className = "" }: PCISegment
         <div className="mt-1 h-10 w-px bg-white/10" />
 
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-widest text-gray-500">Total length</p>
-          <p className="mt-0.5 text-2xl font-semibold text-white">{fmtDist(summary.total_length_m)}</p>
+          <p className="font-mono text-[10px] uppercase tracking-widest text-[#8A8A9A]">Total length</p>
+          <p className="mt-0.5 text-2xl font-semibold text-[#F0F0F4]">{fmtDist(summary.total_length_m)}</p>
         </div>
 
         <div className="mt-1 h-10 w-px bg-white/10" />
 
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-widest text-gray-500">Segments</p>
-          <p className="mt-0.5 text-2xl font-semibold text-white">{summary.segment_count}</p>
+          <p className="font-mono text-[10px] uppercase tracking-widest text-[#8A8A9A]">Segments</p>
+          <p className="mt-0.5 text-2xl font-semibold text-[#F0F0F4]">{summary.segment_count}</p>
         </div>
 
         {summary.rpci_segment_count > 0 && (
           <>
             <div className="mt-1 h-10 w-px bg-white/10" />
             <div>
-              <p className="font-mono text-[10px] uppercase tracking-widest text-gray-500">
+              <p className="font-mono text-[10px] uppercase tracking-widest text-[#8A8A9A]">
                 RPCI segments
               </p>
-              <p className="mt-0.5 flex items-center gap-2 text-2xl font-semibold text-white">
+              <p className="mt-0.5 flex items-center gap-2 text-2xl font-semibold text-[#F0F0F4]">
                 {summary.rpci_segment_count}
-                <span className="rounded bg-amber-900/50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-400">
+                <span className="rounded bg-[rgba(245,166,35,0.12)] px-1.5 py-0.5 text-[10px] font-semibold text-[#F5A623]">
                   WARNING
                 </span>
               </p>
@@ -268,7 +268,7 @@ export function PCISegmentView({ segments, summary, className = "" }: PCISegment
       </div>
 
       {/* ── Segment strip ── */}
-      <div className="mt-5 overflow-x-auto rounded bg-[#0a0a0a] p-3">
+      <div className="mt-5 overflow-x-auto rounded bg-[#09090C] p-3">
         <div className="flex h-14 items-stretch gap-0.5" style={{ minWidth: "max-content" }}>
           {segments.map((seg) => {
             const grade = seg.pci_grade ?? gradeFromScore(seg.pci_score);
@@ -307,7 +307,7 @@ export function PCISegmentView({ segments, summary, className = "" }: PCISegment
                 {/* RPCI badge */}
                 {seg.is_relative && (
                   <span
-                    className="absolute right-0.5 top-0.5 rounded bg-black/60 px-1 text-amber-400"
+                    className="absolute right-0.5 top-0.5 rounded bg-black/60 px-1 text-[#F5A623]"
                     style={{ fontSize: 10, lineHeight: "14px" }}
                   >
                     RPCI
@@ -317,7 +317,7 @@ export function PCISegmentView({ segments, summary, className = "" }: PCISegment
                 {/* Pending label */}
                 {seg.pci_score === null && (
                   <span
-                    className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-white/60"
+                    className="absolute inset-0 flex items-center justify-center text-[10px] font-semibold text-[#F0F0F4]/60"
                   >
                     —
                   </span>
@@ -326,13 +326,13 @@ export function PCISegmentView({ segments, summary, className = "" }: PCISegment
                 {/* Hover tooltip */}
                 {isHovered && !isActive && (
                   <div
-                    className="pointer-events-none absolute left-1/2 z-20 -translate-x-1/2 -translate-y-full rounded border border-white/10 bg-[#1a1a1a] p-3 text-sm shadow-lg"
+                    className="pointer-events-none absolute left-1/2 z-20 -translate-x-1/2 -translate-y-full rounded border border-[rgba(255,255,255,0.10)] bg-[rgba(255,255,255,0.04)] p-3 text-sm shadow-lg"
                     style={{ bottom: "calc(100% + 6px)", minWidth: 160 }}
                   >
-                    <p className="font-semibold text-white">
+                    <p className="font-semibold text-[#F0F0F4]">
                       Segment {seg.segment_index + 1}
                     </p>
-                    <p className="mt-0.5 text-xs text-gray-400">
+                    <p className="mt-0.5 text-xs text-[#8A8A9A]">
                       {fmtDist(seg.start_distance_m)} – {fmtDist(seg.end_distance_m)}
                     </p>
                     <p className="mt-1 text-xs" style={{ color }}>
@@ -341,7 +341,7 @@ export function PCISegmentView({ segments, summary, className = "" }: PCISegment
                         : "Pending"}
                     </p>
                     {seg.is_relative && (
-                      <p className="mt-0.5 text-[10px] text-amber-400">Relative PCI</p>
+                      <p className="mt-0.5 text-[10px] text-[#F5A623]">Relative PCI</p>
                     )}
                   </div>
                 )}

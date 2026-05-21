@@ -86,9 +86,9 @@ export function ImageBatchPanel({ projectId }: { projectId?: string | null }) {
   }
 
   return (
-    <section className="rounded-lg border border-white/10 bg-[#101113] p-6 shadow-[0_20px_60px_rgba(0,0,0,0.22)]">
-      <h2 className="text-lg font-semibold text-white">Image batch</h2>
-      <p className="mt-1 text-sm text-gray-500">
+    <section className="rounded-[10px] border border-[rgba(255,255,255,0.10)] bg-[#111116] p-6 shadow-[0_24px_80px_rgba(0,0,0,0.5)]">
+      <h2 className="text-lg font-semibold text-[#F0F0F4]">Image batch</h2>
+      <p className="mt-1 text-sm text-[#8A8A9A]">
         Upload JPEG/PNG images as a batch. If the images include geotags or EXIF GPS, Drisora maps them automatically.
       </p>
 
@@ -99,10 +99,10 @@ export function ImageBatchPanel({ projectId }: { projectId?: string | null }) {
         }}
         onDragLeave={() => setDragOver(false)}
         onDrop={handleDrop}
-        className={`mt-6 flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-10 transition-colors ${
+        className={`mt-6 flex cursor-pointer flex-col items-center justify-center rounded-[10px] border-2 border-dashed p-10 transition-colors ${
           dragOver
-            ? "border-amber-500 bg-amber-500/5"
-            : "border-[#2a2a2a] bg-[#0a0a0a] hover:border-[#3a3a3a]"
+            ? "border-[#F5A623] bg-[rgba(245,166,35,0.05)]"
+            : "border-[rgba(255,255,255,0.10)] bg-[#0D0D11] hover:border-[rgba(255,255,255,0.20)]"
         }`}
       >
         <input
@@ -113,7 +113,7 @@ export function ImageBatchPanel({ projectId }: { projectId?: string | null }) {
           onChange={(e) => e.target.files && addFiles(e.target.files)}
         />
         <svg
-          className="h-10 w-10 text-gray-600"
+          className="h-10 w-10 text-[#4A4A5A]"
           viewBox="0 0 24 24"
           fill="none"
           stroke="currentColor"
@@ -121,19 +121,19 @@ export function ImageBatchPanel({ projectId }: { projectId?: string | null }) {
         >
           <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12" />
         </svg>
-        <p className="mt-3 text-sm font-medium text-white">
+        <p className="mt-3 text-sm font-medium text-[#F0F0F4]">
           Drag &amp; drop images, or click to browse
         </p>
-        <p className="mt-1 text-xs text-gray-600">JPEG and PNG · batch upload up to 1,000 files</p>
+        <p className="mt-1 text-xs text-[#4A4A5A]">JPEG and PNG · batch upload up to 1,000 files</p>
       </label>
 
       {Object.keys(fileErrors).length > 0 && (
         <div className="mt-4 space-y-1.5">
           {Object.entries(fileErrors).map(([name, reason]) => (
-            <div key={name} className="flex items-center justify-between rounded-md bg-red-500/10 px-3 py-2">
-              <span className="max-w-[70%] truncate text-xs text-red-300">{name}</span>
+            <div key={name} className="flex items-center justify-between rounded-md bg-[rgba(239,68,68,0.10)] px-3 py-2">
+              <span className="max-w-[70%] truncate text-xs text-[#EF4444]">{name}</span>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-red-400">{reason}</span>
+                <span className="text-xs text-[#EF4444]">{reason}</span>
                 <button
                   type="button"
                   onClick={() => setFileErrors((prev) => {
@@ -141,7 +141,7 @@ export function ImageBatchPanel({ projectId }: { projectId?: string | null }) {
                     delete next[name];
                     return next;
                   })}
-                  className="text-xs text-gray-600 hover:text-gray-400"
+                  className="text-xs text-[#4A4A5A] hover:text-[#8A8A9A]"
                   aria-label={`Dismiss error for ${name}`}
                 >
                   ✕
@@ -156,12 +156,12 @@ export function ImageBatchPanel({ projectId }: { projectId?: string | null }) {
         <>
           <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-3">
-              <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-semibold text-amber-400">
+              <span className="rounded-full bg-[#F5A623]/10 px-3 py-1 text-xs font-semibold text-[#F5A623]">
                 {files.length} {files.length === 1 ? "image" : "images"}
               </span>
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-[#8A8A9A]">
                 Estimated processing time:{" "}
-                <span className="text-gray-300">{eta}</span>
+                <span className="text-[#F0F0F4]">{eta}</span>
               </span>
             </div>
             <button
@@ -171,7 +171,7 @@ export function ImageBatchPanel({ projectId }: { projectId?: string | null }) {
                 setFiles([]);
                 setFileErrors({});
               }}
-              className="text-xs font-medium text-gray-500 hover:text-white"
+              className="text-xs font-medium text-[#8A8A9A] hover:text-[#F0F0F4]"
             >
               Clear all
             </button>
@@ -181,7 +181,7 @@ export function ImageBatchPanel({ projectId }: { projectId?: string | null }) {
             {files.slice(0, 48).map((f, idx) => (
               <div
                 key={idx}
-                className="group relative aspect-square overflow-hidden rounded-md border border-[#1a1a1a] bg-[#0a0a0a]"
+                className="group relative aspect-square overflow-hidden rounded-md border border-[rgba(255,255,255,0.07)] bg-[#0D0D11]"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -192,7 +192,7 @@ export function ImageBatchPanel({ projectId }: { projectId?: string | null }) {
                 <button
                   type="button"
                   onClick={() => removeAt(idx)}
-                  className="absolute right-1 top-1 hidden h-6 w-6 items-center justify-center rounded-full bg-black/80 text-xs text-white group-hover:flex"
+                  className="absolute right-1 top-1 hidden h-6 w-6 items-center justify-center rounded-full bg-[#09090C]/90 text-xs text-[#F0F0F4] group-hover:flex"
                   aria-label="Remove"
                 >
                   ×
@@ -200,7 +200,7 @@ export function ImageBatchPanel({ projectId }: { projectId?: string | null }) {
               </div>
             ))}
             {files.length > 48 && (
-              <div className="flex aspect-square items-center justify-center rounded-md border border-[#1a1a1a] bg-[#0a0a0a] text-xs text-gray-500">
+              <div className="flex aspect-square items-center justify-center rounded-md border border-[rgba(255,255,255,0.07)] bg-[#0D0D11] text-xs text-[#8A8A9A]">
                 +{files.length - 48} more
               </div>
             )}
@@ -208,10 +208,10 @@ export function ImageBatchPanel({ projectId }: { projectId?: string | null }) {
         </>
       )}
 
-      <label className="mt-5 flex items-center justify-between gap-4 rounded-lg border border-[#242424] bg-[#0a0a0a] px-4 py-3">
+      <label className="mt-5 flex items-center justify-between gap-4 rounded-[10px] border border-[rgba(255,255,255,0.07)] bg-[#0D0D11] px-4 py-3">
         <span>
-          <span className="block text-sm font-medium text-white">Metric Analysis</span>
-          <span className="mt-0.5 block text-xs text-gray-600">
+          <span className="block text-sm font-medium text-[#F0F0F4]">Metric Analysis</span>
+          <span className="mt-0.5 block text-xs text-[#4A4A5A]">
             Camera-to-surface distance and width from pixels. Adds processing time.
           </span>
         </span>
@@ -232,7 +232,7 @@ export function ImageBatchPanel({ projectId }: { projectId?: string | null }) {
       )}
 
       {uploadError && failedFiles.size === 0 && (
-        <p className="mt-4 rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-400">
+        <p className="mt-4 rounded-md bg-[rgba(239,68,68,0.10)] px-3 py-2 text-sm text-[#EF4444]">
           {uploadError}
         </p>
       )}
@@ -242,7 +242,7 @@ export function ImageBatchPanel({ projectId }: { projectId?: string | null }) {
           type="button"
           onClick={handleSubmit}
           disabled={isUploading || files.length === 0 || Object.keys(fileErrors).length > 0}
-          className="rounded-lg bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+          className="rounded-[10px] bg-[#F5A623] px-5 py-2.5 text-sm font-semibold text-[#09090C] transition-colors hover:bg-[#FFBE4D] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {phase === "creating_job"
             ? "Creating job…"
@@ -275,28 +275,28 @@ function ProgressList({
         return (
           <div key={filename}>
             <div className="mb-1 flex items-center justify-between gap-2">
-              <span className="max-w-[70%] truncate text-xs text-gray-400">
+              <span className="max-w-[70%] truncate text-xs text-[#8A8A9A]">
                 {fileLabels.get(filename) ?? filename}
               </span>
               <div className="flex items-center gap-2">
-                <span className={`text-xs ${failed ? "text-red-400" : "text-gray-500"}`}>
+                <span className={`text-xs ${failed ? "text-[#EF4444]" : "text-[#8A8A9A]"}`}>
                   {failed ? "Failed" : `${Math.round(pct * 100)}%`}
                 </span>
                 {failed && (
                   <button
                     type="button"
                     onClick={() => onRetry(filename)}
-                    className="rounded px-2 py-0.5 text-xs font-medium text-amber-400 hover:text-amber-300"
+                    className="rounded px-2 py-0.5 text-xs font-medium text-[#F5A623] hover:text-[#FFBE4D]"
                   >
                     Retry
                   </button>
                 )}
               </div>
             </div>
-            <div className="h-1.5 overflow-hidden rounded-full bg-[#1a1a1a]">
+            <div className="h-1.5 overflow-hidden rounded-full bg-[rgba(245,166,35,0.15)]">
               <div
                 className={`h-full rounded-full transition-all duration-150 ${
-                  failed ? "bg-red-500" : "bg-amber-500"
+                  failed ? "bg-[#EF4444]" : "bg-[#F5A623]"
                 }`}
                 style={{ width: `${Math.round(pct * 100)}%` }}
               />
