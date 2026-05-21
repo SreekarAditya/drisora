@@ -1,129 +1,122 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Drisora Backend
 
-## Getting Started
+Drisora Backend is a pavement condition intelligence pipeline for drone road-survey media. It converts an MP4/MOV video plus DJI SRT telemetry into defect detections, segmentation masks, metric crack features, 10 m section PCI scores, and an IRC:82-2023 PDF report.
 
-First, run the development server:
+This open-source package is backend-only. It does not include the Next.js frontend, Supabase routes or migrations, auth configuration, billing, signed URL logic, tenant logic, private bucket names, secrets, or model weights.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Pipeline Architecture
+
+```text
+Frame Extraction
+  -> DJI SRT telemetry parsing
+  -> GSD calibration from altitude
+  -> YOLOv12s crack detection
+  -> SAM2 segmentation
+  -> Depth Anything V2 metric depth estimation
+  -> crack width estimation in mm
+  -> Haversine GPS sectioning at 10 m
+  -> IRC:82-2023 PCI scoring
+  -> JSON + PDF report output
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Requirements
 
-Core verification commands:
+- Python 3.10+
+- CUDA 12+ recommended
+- NVIDIA GPU strongly recommended for YOLO, SAM2, and Depth Anything V2 Large
+- `ffmpeg` and `ffprobe` on `PATH`
+- Model checkpoints downloaded separately
 
-```bash
-npm run lint
-npm run typecheck
-npm run test:worker
-npm run eval:sample
-npm run build
-```
-
-Or run the combined artifact gate:
+## Installation
 
 ```bash
-npm run verify
+cd worker
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+pip install git+https://github.com/facebookresearch/sam2.git
+git clone https://github.com/DepthAnything/Depth-Anything-V2.git /tmp/depth-anything-v2
+export DEPTH_ANYTHING_V2_REPO=/tmp/depth-anything-v2
 ```
 
-## Learn More
+Install a CUDA-compatible PyTorch build from the official PyTorch selector for your machine before running GPU inference.
 
-To learn more about Next.js, take a look at the following resources:
+## Model Weights
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-## Research Artifact
-
-Drisora's paper track is a systems-artifact paper, not a detector benchmark paper. The current artifact path lives in:
-
-- [`docs/DRISORA_RESEARCH_READINESS.md`](docs/DRISORA_RESEARCH_READINESS.md)
-- [`docs/DRISORA_ARTIFACT_GUIDE.md`](docs/DRISORA_ARTIFACT_GUIDE.md)
-- [`docs/DRISORA_SYSTEM_PAPER_DRAFT.md`](docs/DRISORA_SYSTEM_PAPER_DRAFT.md)
-- [`evaluation/README.md`](evaluation/README.md)
-
-The evaluation command validates segment labels and generates deterministic metrics/tables from frozen exports:
+Model weights are intentionally not committed. Use the helper script to fetch the public Depth Anything V2 metric checkpoint and, when available, the project YOLO checkpoint from a URL you provide:
 
 ```bash
-node evaluation/drisora_eval.mjs compute \
-  --export evaluation/fixtures/sample_export.json \
-  --labels evaluation/fixtures/sample_labels.json \
-  --out evaluation/output/sample
+DRISORA_YOLO_WEIGHTS_URL="https://your-model-host/yolov12s_rdd2022.pt" \
+  ./scripts/download_models.sh
 ```
 
-## Cloudflare R2 CORS Setup
+The default Depth Anything V2 model is the outdoor metric Large checkpoint for highest-accuracy Drisora runs:
 
-File uploads go directly from the browser to R2 using presigned PUT URLs. The CORS policy must be applied to the R2 bucket before uploads will work.
+```text
+depth-anything/Depth-Anything-V2-Metric-VKITTI-Large
+```
 
-1. Open [Cloudflare Dashboard](https://dash.cloudflare.com/) → R2 → your bucket → **Settings** → **CORS policy**
-2. Paste the contents of [`worker/R2_CORS_CONFIG.json`](worker/R2_CORS_CONFIG.json)
-3. Save
+This uses the `vitl` encoder and a 1.34 GB checkpoint. Use `vitb` or `vits` only when you intentionally want lower VRAM or faster smoke tests.
 
-Without this, browsers will block the cross-origin PUT requests.
+## Environment
 
-## Environment Variables
+Copy `.env.example` or `worker/.env.example` and fill in local values. Required worker variables:
 
-Copy `.env.local.example` and fill in the values before running locally.
+```bash
+OBJECT_STORAGE_ENDPOINT_URL=
+OBJECT_STORAGE_ACCESS_KEY_ID=
+OBJECT_STORAGE_SECRET_ACCESS_KEY=
+OBJECT_STORAGE_BUCKET=
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+APP_CALLBACK_URL=
+WORKER_WEBHOOK_SECRET=
+RUNPOD_API_KEY=
+RUNPOD_ENDPOINT_ID=
+DRISORA_YOLO_WEIGHTS_PATH=worker/weights/yolov12s_rdd2022.pt
+DRISORA_YOLO_WEIGHTS_URL=
+DEPTH_ANYTHING_V2_REPO=/tmp/depth-anything-v2
+DEPTH_ANYTHING_V2_MODEL_PATH=/tmp/models/depth_anything_v2_metric_vkitti_vitl.pth
+DEPTH_ANYTHING_V2_ENCODER=vitl
+DRISORA_ENABLE_DEPTH_DEFAULT=1
+```
 
-**Next.js (`.env.local`):**
+## Usage: Single Video Inference
 
-| Variable | Description |
-|---|---|
-| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase browser anon key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key for trusted server routes |
-| `REPORT_TOKEN_SECRET` | Secret for signed report preview/download links |
-| `CLOUDFLARE_R2_ACCOUNT_ID` | Cloudflare account ID |
-| `CLOUDFLARE_R2_ACCESS_KEY_ID` | R2 API token key ID |
-| `CLOUDFLARE_R2_SECRET_ACCESS_KEY` | R2 API token secret |
-| `CLOUDFLARE_R2_BUCKET_NAME` | R2 bucket name |
-| `R2_PUBLIC_URL` | Public R2 URL (optional, for serving results) |
-| `UPSTASH_REDIS_REST_URL` | Upstash Redis REST URL |
-| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST token |
-| `CLOUDFLARE_R2_WEBHOOK_SECRET` | Shared secret for worker → Next.js webhook |
-| `WORKER_WEBHOOK_SECRET` | Preferred shared secret for worker → Next.js webhook |
-| `RUNPOD_API_KEY` | RunPod API key for serverless job submission |
-| `RUNPOD_ENDPOINT_ID` | RunPod serverless endpoint ID |
+```bash
+cd worker
+python run_single_video.py \
+  --video /path/to/drone_flight.mp4 \
+  --srt /path/to/drone_flight.srt \
+  --out ../outputs/drone_flight
+```
 
-**Worker (`worker/.env`):**
+The local CLI decodes all frames and enables Depth Anything V2 Large by default. Add `--sample-frames --frame-interval-seconds 1` only for faster exploratory runs.
 
-| Variable | Description |
-|---|---|
-| `CLOUDFLARE_R2_ACCOUNT_ID` | Cloudflare account ID |
-| `CLOUDFLARE_R2_ACCESS_KEY_ID` | R2 API token key ID |
-| `CLOUDFLARE_R2_SECRET_ACCESS_KEY` | R2 API token secret |
-| `CLOUDFLARE_R2_BUCKET_NAME` | R2 bucket name |
-| `NEXT_PUBLIC_APP_URL` | Deployed app URL (e.g. `https://drisora.vercel.app`) |
-| `WORKER_WEBHOOK_SECRET` | Shared secret (must match Next.js) |
-| `UPSTASH_REDIS_REST_URL` | Upstash Redis REST URL |
-| `UPSTASH_REDIS_REST_TOKEN` | Upstash Redis REST token |
-| `RUNPOD_API_KEY` | RunPod API key |
-| `RUNPOD_ENDPOINT_ID` | RunPod serverless endpoint ID |
+Outputs:
 
-Optional worker model/runtime controls:
+- `outputs/drone_flight/results.json`
+- `outputs/drone_flight/report.pdf`
+- extracted frames in a temporary directory
 
-| Variable | Description |
-|---|---|
-| `DRISORA_DETERMINISTIC_SEED` | Deterministic seed for Python/NumPy/Torch setup |
-| `DRISORA_DETERMINISTIC_EXTRACTOR` | Prefer deterministic frame extraction |
-| `DRISORA_ENABLE_DEPTHPRO_DEFAULT` | Enables DepthPro metric analysis by default when set to `1` |
-| `DRISORA_WARM_SAM2` | Preloads SAM2 during worker warmup when set to `1` |
-| `SAM2_MODEL_PATH` | Local SAM2 checkpoint path; defaults to `/tmp/models/sam2.1_hiera_small.pt` |
-| `SAM2_MODEL_URL` | SAM2 checkpoint download URL |
-| `SAM2_MODEL_CFG` | SAM2 config name |
-| `DEPTHPRO_MODEL_PATH` | Local DepthPro checkpoint path; defaults to `/tmp/models/depth_pro.pt` |
-| `DEPTHPRO_MODEL_URL` | DepthPro checkpoint download URL |
+For RunPod serverless, use `worker/handler.py` with a job payload that includes `job_id`, `user_id`, `mode`, `storage_prefix`, `file_names`, and optional pipeline settings.
+
+## Citation
+
+If you use Drisora Backend in research, cite the Drisora systems paper:
+
+```bibtex
+@misc{reddy2026drisora,
+  title = {Drisora: A Drone-Based Pavement Condition Intelligence Pipeline for IRC:82-2023 Road Surveys},
+  author = {Reddy, Sreekar Aditya},
+  year = {2026},
+  note = {Preprint in preparation}
+}
+```
+
+Also cite the upstream models and datasets listed in `NOTICE.md`.
+
+## License
+
+Drisora Backend is released under the GNU Affero General Public License v3.0. See `LICENSE` for the full text.

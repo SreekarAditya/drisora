@@ -1,4 +1,9 @@
-"""Tests for batched SAM2 and DepthPro dispatch."""
+# Drisora Backend — Pavement Condition Intelligence Pipeline
+# Copyright (C) 2026 Sreekar Aditya Reddy
+# Licensed under AGPL-3.0 — see LICENSE for details
+# https://github.com/SreekarAditya/drisora-backend
+
+"""Tests for batched SAM2 and Depth Anything V2 dispatch."""
 
 from __future__ import annotations
 
@@ -61,9 +66,9 @@ class TestSam2Batch(unittest.TestCase):
 
 
 @unittest.skipIf(np is None, "numpy is not installed in this local Python")
-class TestDepthProBatch(unittest.TestCase):
+class TestDepthAnythingV2Batch(unittest.TestCase):
     def test_infer_depth_maps_batches_model_call(self):
-        from pipeline import depthpro_inference
+        from pipeline import depth_anything_v2_inference
 
         class FakeTensor:
             def to(self, _device: str):
@@ -119,9 +124,9 @@ class TestDepthProBatch(unittest.TestCase):
 
         model = FakeModel()
         with unittest.mock.patch.dict(sys.modules, {"torch": FakeTorch}), \
-             unittest.mock.patch.object(depthpro_inference, "load_model", return_value=(model, FakeTransform(), "cuda")), \
+             unittest.mock.patch.object(depth_anything_v2_inference, "load_model", return_value=(model, FakeTransform(), "cuda")), \
              unittest.mock.patch("PIL.Image.open", return_value=FakeImage()):
-            depth_maps = depthpro_inference.infer_depth_maps(["/tmp/a.jpg", "/tmp/b.jpg"])
+            depth_maps = depth_anything_v2_inference.infer_depth_maps(["/tmp/a.jpg", "/tmp/b.jpg"])
 
         self.assertEqual(model.calls, 1)
         self.assertEqual(len(depth_maps), 2)

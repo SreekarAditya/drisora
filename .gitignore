@@ -16,6 +16,7 @@
 /evaluation/private
 __pycache__/
 *.py[cod]
+.pytest_cache/
 
 # next.js
 /.next/
@@ -23,13 +24,35 @@ __pycache__/
 
 # production
 /build
+/dist/
 
 # misc
 .DS_Store
+*.key
 *.pem
+*credentials*
+*credential*
+*api_key*
+*apikey*
+*service-account*
 .claude/
 .superpowers/
-worker/models/*.pt
+
+# model artifacts
+*.pt
+*.pth
+*.onnx
+*.engine
+*.ckpt
+worker/models/
+worker/weights/*
+!worker/weights/.gitkeep
+
+# generated outputs
+reports/
+outputs/
+worker/reports/
+worker/outputs/
 
 # debug
 npm-debug.log*

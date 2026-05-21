@@ -1,3 +1,8 @@
+# Drisora Backend — Pavement Condition Intelligence Pipeline
+# Copyright (C) 2026 Sreekar Aditya Reddy
+# Licensed under AGPL-3.0 — see LICENSE for details
+# https://github.com/SreekarAditya/drisora-backend
+
 """DJI SRT log parser.
 
 DJI drones (Mini, Air, Mavic) record one SRT entry per video frame. The

@@ -1,3 +1,8 @@
+# Drisora Backend — Pavement Condition Intelligence Pipeline
+# Copyright (C) 2026 Sreekar Aditya Reddy
+# Licensed under AGPL-3.0 — see LICENSE for details
+# https://github.com/SreekarAditya/drisora-backend
+
 """GPS deduplication utilities for drone footage frames.
 
 Uses ground-footprint overlap ratios to decide whether a new frame covers

@@ -1,3 +1,8 @@
+# Drisora Backend — Pavement Condition Intelligence Pipeline
+# Copyright (C) 2026 Sreekar Aditya Reddy
+# Licensed under AGPL-3.0 — see LICENSE for details
+# https://github.com/SreekarAditya/drisora-backend
+
 """Multi-video survey processor for Drisora pavement intelligence.
 
 Orchestrates GPS-deduped frame processing across multiple drone video files,
@@ -6,7 +11,7 @@ then computes per-segment PCI and persists results to Supabase.
 This is a legacy survey-level helper. The active RunPod path builds a
 ``drone_footage`` multi-video payload and dispatches through ``jobs.dispatcher``.
 If this helper is wired back in, GPS telemetry can come from a paired .SRT file
-or an embedded subtitle track. It does NOT run YOLO/SAM2/DepthPro itself; those are delegated to the
+or an embedded subtitle track. It does NOT run YOLO/SAM2/depth itself; those are delegated to the
 ``process_frame_fn`` callable supplied by the caller.
 """
 

@@ -1,3 +1,8 @@
+# Drisora Backend — Pavement Condition Intelligence Pipeline
+# Copyright (C) 2026 Sreekar Aditya Reddy
+# Licensed under AGPL-3.0 — see LICENSE for details
+# https://github.com/SreekarAditya/drisora-backend
+
 """Unit tests for worker utility modules.
 
 Run from the worker/ directory:
@@ -330,7 +335,7 @@ class TestAssignFramesToSegments(unittest.TestCase):
         return mod.assign_frames_to_segments
 
     def test_frames_spanning_250m(self):
-        """Frames at 0, 100, 200m → segments 0, 1, 2."""
+        """Frames at 0, 100, 200m use 10 m section indexes."""
         fn = self._get_fn()
         frames = [
             {"cumulative_distance_m": 0.0},
@@ -339,17 +344,17 @@ class TestAssignFramesToSegments(unittest.TestCase):
         ]
         result = fn(frames)
         self.assertIn(0, result)
-        self.assertIn(1, result)
-        self.assertIn(2, result)
+        self.assertIn(10, result)
+        self.assertIn(20, result)
         self.assertEqual(len(result), 3)
 
     def test_frame_at_exactly_100m(self):
-        """Frame at exactly 100 m → segment index 1."""
+        """Frame at exactly 100 m maps to 10 m section index 10."""
         fn = self._get_fn()
         frames = [{"cumulative_distance_m": 100.0}]
         result = fn(frames)
-        self.assertIn(1, result)
-        self.assertEqual(len(result[1]), 1)
+        self.assertIn(10, result)
+        self.assertEqual(len(result[10]), 1)
 
     def test_empty_input(self):
         """Empty input → empty dict."""

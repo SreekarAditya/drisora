@@ -1,8 +1,13 @@
+# Drisora Backend — Pavement Condition Intelligence Pipeline
+# Copyright (C) 2026 Sreekar Aditya Reddy
+# Licensed under AGPL-3.0 — see LICENSE for details
+# https://github.com/SreekarAditya/drisora-backend
+
 """IRC:82-2023 compliant PCI segmentation utilities.
 
-Divides a GPS-ordered frame sequence into 100-metre road sections and
+Divides a GPS-ordered frame sequence into 10-metre road sections and
 computes a PCI score per section following the IRC:82-2023 methodology.
-Sections shorter than 100 m are flagged as RPCI (Relative PCI).
+Sections shorter than 10 m are flagged as RPCI (Relative PCI).
 """
 
 from __future__ import annotations
@@ -12,8 +17,8 @@ from typing import Any
 from utils.gps_dedup import haversine_m
 from pipeline.pci_scorer import score as pci_score_frame
 
-# IRC:82-2023 segment length
-SEGMENT_LENGTH_M = 100.0
+# Drisora paper artifact section length.
+SEGMENT_LENGTH_M = 10.0
 
 # IRC:82-2023 grade thresholds
 _IRC_GRADES = [
@@ -88,10 +93,10 @@ def compute_cumulative_distances(frames_list: list[dict[str, Any]]) -> list[floa
 def assign_frames_to_segments(
     frames_with_distances: list[dict[str, Any]],
 ) -> dict[int, list[dict[str, Any]]]:
-    """Assign frames to 100-metre segments (IRC:82-2023).
+    """Assign frames to 10-metre sections.
 
     Each frame dict must have a 'cumulative_distance_m' key already set.
-    Segment index = int(distance / 100). Segment 0 = 0–100 m, etc.
+    Segment index = int(distance / 10). Segment 0 = 0-10 m, etc.
     Returns {segment_index: [list of frame dicts]}.
     Empty segments are not included.
     """
@@ -107,7 +112,7 @@ def compute_segment_pci(
     segment_frames: list[dict[str, Any]],
     detections_for_segment: list[dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Compute PCI for a single 100-metre segment.
+    """Compute PCI for a single 10-metre section.
 
     segment_frames: frames in this segment, each with cumulative_distance_m.
     detections_for_segment: all detections for frames in this segment.

@@ -1,5 +1,12 @@
+# Drisora Backend — Pavement Condition Intelligence Pipeline
+# Copyright (C) 2026 Sreekar Aditya Reddy
+# Licensed under AGPL-3.0 — see LICENSE for details
+# https://github.com/SreekarAditya/drisora-backend
+
 from __future__ import annotations
 
+import os
+import urllib.request
 from pathlib import Path
 from typing import Any
 
@@ -7,10 +14,28 @@ _MODEL: Any | None = None
 _DEVICE: str | None = None
 _LOAD_FAILED = False
 
-WEIGHTS_PATH = Path(__file__).resolve().parents[1] / "weights" / "yolov12s_rdd2022.pt"
+WEIGHTS_PATH = Path(
+    os.environ.get(
+        "DRISORA_YOLO_WEIGHTS_PATH",
+        str(Path(__file__).resolve().parents[1] / "weights" / "yolov12s_rdd2022.pt"),
+    )
+)
+WEIGHTS_URL = os.environ.get("DRISORA_YOLO_WEIGHTS_URL", "")
 CLASS_NAMES = ("D00", "D10", "D20", "D40")
 CONFIDENCE = 0.25
 IOU = 0.45
+
+
+def _ensure_weights() -> None:
+    if WEIGHTS_PATH.exists() and WEIGHTS_PATH.stat().st_size > 0:
+        return
+    if not WEIGHTS_URL:
+        raise FileNotFoundError(
+            f"YOLOv12s weights not found at {WEIGHTS_PATH}. "
+            "Set DRISORA_YOLO_WEIGHTS_URL or place the checkpoint at DRISORA_YOLO_WEIGHTS_PATH."
+        )
+    WEIGHTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    urllib.request.urlretrieve(WEIGHTS_URL, WEIGHTS_PATH)
 
 
 def load_model() -> Any:
@@ -30,6 +55,7 @@ def load_model() -> Any:
         raise
 
     _DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+    _ensure_weights()
     print(f"[YOLO] device={_DEVICE} weights={WEIGHTS_PATH}")
     try:
         model = YOLO(str(WEIGHTS_PATH))

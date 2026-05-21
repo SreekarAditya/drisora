@@ -1,10 +1,15 @@
+# Drisora Backend — Pavement Condition Intelligence Pipeline
+# Copyright (C) 2026 Sreekar Aditya Reddy
+# Licensed under AGPL-3.0 — see LICENSE for details
+# https://github.com/SreekarAditya/drisora-backend
+
 """RunPod worker entrypoint.
 
 # NOT USED IN SERVERLESS MODE — kept for local testing only.
 
-Polls Redis for queued jobs, downloads raw files from R2 to /tmp,
+Polls Redis for queued jobs, downloads raw files from object storage to /tmp,
 runs the ingest + detection pipeline frame-by-frame, uploads results
-back to R2, then POSTs a webhook to Next.js.
+back to object storage, then POSTs a webhook callback.
 """
 
 from __future__ import annotations
@@ -26,7 +31,7 @@ from redis import Redis
 from jobs.dispatcher import dispatch_job
 from pipeline.yolo_inference import run_detect
 from pipeline.sam2_inference import run_segment
-from pipeline.depthpro_inference import run_depth
+from pipeline.depth_anything_v2_inference import run_depth
 from pipeline.pci_scorer import score_frame
 
 load_dotenv()
@@ -41,26 +46,50 @@ log = logging.getLogger(__name__)
 # Config from environment
 # ---------------------------------------------------------------------------
 
-CLOUDFLARE_R2_ACCOUNT_ID = os.environ["CLOUDFLARE_R2_ACCOUNT_ID"]
-CLOUDFLARE_R2_ACCESS_KEY_ID = os.environ["CLOUDFLARE_R2_ACCESS_KEY_ID"]
-CLOUDFLARE_R2_SECRET_ACCESS_KEY = os.environ["CLOUDFLARE_R2_SECRET_ACCESS_KEY"]
-CLOUDFLARE_R2_BUCKET_NAME = os.environ["CLOUDFLARE_R2_BUCKET_NAME"]
+
+def _env(name: str) -> str:
+    value = os.environ.get(name)
+    if not value:
+        raise RuntimeError(f"Missing required environment variable: {name}")
+    return value
+
+
+def _env_any(*names: str) -> str:
+    for name in names:
+        value = os.environ.get(name)
+        if value:
+            return value
+    raise RuntimeError(f"Missing required environment variable: {' or '.join(names)}")
+
+
+def _object_storage_endpoint_url() -> str:
+    endpoint_url = os.environ.get("OBJECT_STORAGE_ENDPOINT_URL")
+    if endpoint_url:
+        return endpoint_url
+    account_id = _env("CLOUDFLARE_R2_ACCOUNT_ID")
+    return f"https://{account_id}.r2.cloudflarestorage.com"
+
+
+OBJECT_STORAGE_ENDPOINT_URL = _object_storage_endpoint_url()
+OBJECT_STORAGE_ACCESS_KEY_ID = _env_any("OBJECT_STORAGE_ACCESS_KEY_ID", "CLOUDFLARE_R2_ACCESS_KEY_ID")
+OBJECT_STORAGE_SECRET_ACCESS_KEY = _env_any("OBJECT_STORAGE_SECRET_ACCESS_KEY", "CLOUDFLARE_R2_SECRET_ACCESS_KEY")
+OBJECT_STORAGE_BUCKET = _env_any("OBJECT_STORAGE_BUCKET", "CLOUDFLARE_R2_BUCKET_NAME")
 REDIS_URL = os.environ["REDIS_URL"]
-APP_URL = os.environ["NEXT_PUBLIC_APP_URL"].rstrip("/")
-WEBHOOK_SECRET = os.environ["CLOUDFLARE_R2_WEBHOOK_SECRET"]
+APP_CALLBACK_URL = _env_any("APP_CALLBACK_URL", "NEXT_PUBLIC_APP_URL").rstrip("/")
+WEBHOOK_SECRET = _env_any("WORKER_WEBHOOK_SECRET", "CLOUDFLARE_R2_WEBHOOK_SECRET", "RUNPOD_CALLBACK_SECRET")
 
 STALE_THRESHOLD_SECONDS = 600
 POLL_INTERVAL_SECONDS = 5
 
 # ---------------------------------------------------------------------------
-# R2 client
+# S3-compatible object storage client
 # ---------------------------------------------------------------------------
 
-r2 = boto3.client(
+object_storage = boto3.client(
     "s3",
-    endpoint_url=f"https://{CLOUDFLARE_R2_ACCOUNT_ID}.r2.cloudflarestorage.com",
-    aws_access_key_id=CLOUDFLARE_R2_ACCESS_KEY_ID,
-    aws_secret_access_key=CLOUDFLARE_R2_SECRET_ACCESS_KEY,
+    endpoint_url=OBJECT_STORAGE_ENDPOINT_URL,
+    aws_access_key_id=OBJECT_STORAGE_ACCESS_KEY_ID,
+    aws_secret_access_key=OBJECT_STORAGE_SECRET_ACCESS_KEY,
     region_name="auto",
 )
 
@@ -160,7 +189,7 @@ def dequeue_job(redis: Redis) -> Dict[str, Any] | None:
 
 
 # ---------------------------------------------------------------------------
-# R2 download / upload helpers
+# Object storage download / upload helpers
 # ---------------------------------------------------------------------------
 
 def safe_file_name(file_name: str) -> str:
@@ -175,14 +204,15 @@ def safe_file_name(file_name: str) -> str:
 def download_raw_files(job: Dict[str, Any], work_dir: Path) -> None:
     user_id = job["user_id"]
     job_id = job["job_id"]
+    storage_prefix = job.get("storage_prefix") or job.get("r2_prefix") or f"uploads/{user_id}/{job_id}/raw"
     file_names = job.get("file_names", [])
     work_dir.mkdir(parents=True, exist_ok=True)
     for name in file_names:
         safe_name = safe_file_name(name)
-        key = f"uploads/{user_id}/{job_id}/raw/{safe_name}"
+        key = f"{str(storage_prefix).rstrip('/')}/{safe_name}"
         dest = work_dir / safe_name
-        log.info("Downloading s3://%s/%s → %s", CLOUDFLARE_R2_BUCKET_NAME, key, dest)
-        r2.download_file(CLOUDFLARE_R2_BUCKET_NAME, key, str(dest))
+        log.info("Downloading s3://%s/%s → %s", OBJECT_STORAGE_BUCKET, key, dest)
+        object_storage.download_file(OBJECT_STORAGE_BUCKET, key, str(dest))
 
 
 def uploaded_file_by_original_name(job: Dict[str, Any], original_name: str, work_dir: Path) -> Path | None:
@@ -280,9 +310,9 @@ def build_multi_video_files(job: Dict[str, Any], work_dir: Path) -> list[Dict[st
     return entries
 
 
-def upload_result(local_path: Path, r2_key: str) -> None:
-    log.info("Uploading %s → s3://%s/%s", local_path, CLOUDFLARE_R2_BUCKET_NAME, r2_key)
-    r2.upload_file(str(local_path), CLOUDFLARE_R2_BUCKET_NAME, r2_key)
+def upload_result(local_path: Path, storage_key: str) -> None:
+    log.info("Uploading %s → s3://%s/%s", local_path, OBJECT_STORAGE_BUCKET, storage_key)
+    object_storage.upload_file(str(local_path), OBJECT_STORAGE_BUCKET, storage_key)
 
 
 # ---------------------------------------------------------------------------
@@ -360,15 +390,19 @@ def post_webhook(
     status: str,
     error_message: str | None = None,
     average_pci: float | None = None,
+    output_storage_prefix: str | None = None,
 ) -> None:
     payload: Dict[str, Any] = {"job_id": job_id, "user_id": user_id, "status": status}
     if error_message:
         payload["error_message"] = error_message
     if average_pci is not None:
         payload["average_pci"] = average_pci
+    if output_storage_prefix is not None:
+        payload["output_storage_prefix"] = output_storage_prefix
+        payload["output_r2_prefix"] = output_storage_prefix
     try:
         resp = requests.post(
-            f"{APP_URL}/api/webhooks/job-complete",
+            f"{APP_CALLBACK_URL}/api/webhooks/job-complete",
             json=payload,
             headers={"x-webhook-secret": WEBHOOK_SECRET},
             timeout=10,
@@ -433,15 +467,22 @@ def run_job(redis: Redis, job: Dict[str, Any]) -> None:
 
         frame_batch = dispatch_job(job_id, mode, files)
 
-        output_prefix = job.get("output_r2_prefix", f"results/{job['user_id']}/{job_id}")
+        output_prefix = job.get("output_storage_prefix", f"results/{job['user_id']}/{job_id}")
         average_pci = process_frames(redis, job, frame_batch, output_prefix)
 
         job["status"] = "complete"
+        job["output_storage_prefix"] = output_prefix
         job["output_r2_prefix"] = output_prefix
         job["average_pci"] = average_pci
         save_job(redis, job)
         log.info("Job %s complete (%d frames, avg PCI %.1f)", job_id, frame_batch["frame_count"], average_pci)
-        post_webhook(job_id, job["user_id"], "complete", average_pci=average_pci)
+        post_webhook(
+            job_id,
+            job["user_id"],
+            "complete",
+            average_pci=average_pci,
+            output_storage_prefix=output_prefix,
+        )
 
     except Exception as exc:
         log.exception("Job %s failed: %s", job_id, exc)

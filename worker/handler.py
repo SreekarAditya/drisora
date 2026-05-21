@@ -1,3 +1,8 @@
+# Drisora Backend — Pavement Condition Intelligence Pipeline
+# Copyright (C) 2026 Sreekar Aditya Reddy
+# Licensed under AGPL-3.0 — see LICENSE for details
+# https://github.com/SreekarAditya/drisora-backend
+
 import hashlib
 import json
 import math
@@ -19,7 +24,7 @@ from dotenv import load_dotenv
 from PIL import Image
 
 from jobs.dispatcher import dispatch_job
-from pipeline import depthpro_inference, pci_scorer, sam2_inference, yolo_inference
+from pipeline import depth_anything_v2_inference, pci_scorer, sam2_inference, yolo_inference
 
 load_dotenv()
 
@@ -75,7 +80,7 @@ def get_sam2() -> Any:
 def get_depth() -> Any:
     global _depth
     if _depth is None:
-        _depth = depthpro_inference.load_model()
+        _depth = depth_anything_v2_inference.load_model()
     return _depth
 
 
@@ -105,15 +110,15 @@ def _option_enabled(options: dict[str, Any], name: str, default: bool = False) -
 
 
 def _depth_enabled(mode: str, options: dict[str, Any]) -> bool:
-    env_default = os.environ.get("DRISORA_ENABLE_DEPTHPRO_DEFAULT")
+    env_default = os.environ.get("DRISORA_ENABLE_DEPTH_DEFAULT")
     if env_default is not None:
         default = env_default.strip().lower() in {"1", "true", "yes", "on"}
     else:
-        default = False
+        default = True
     return _option_enabled(
         options,
         "enable_metric_analysis",
-        _option_enabled(options, "enable_depthpro", default),
+        _option_enabled(options, "enable_depth", default),
     )
 
 
@@ -130,10 +135,10 @@ def _yolo_batch_size(options: dict[str, Any]) -> int:
         return 64
 
 
-def _depthpro_batch_size(options: dict[str, Any], yolo_batch_size: int) -> int:
+def _depth_batch_size(options: dict[str, Any], yolo_batch_size: int) -> int:
     raw_value = options.get(
-        "depthpro_batch_size",
-        os.environ.get("DRISORA_DEPTHPRO_BATCH_SIZE", str(min(16, yolo_batch_size))),
+        "depth_batch_size",
+        os.environ.get("DRISORA_DEPTH_BATCH_SIZE", str(min(4, yolo_batch_size))),
     )
     try:
         return max(1, min(64, int(raw_value)))
@@ -155,7 +160,7 @@ def _warm_pipeline_models(use_depth: bool, warm_sam2: bool) -> dict[str, int | b
     started = time.perf_counter()
     timings: dict[str, int | bool] = {
         "sam2_warmup_enabled": warm_sam2,
-        "depthpro_enabled": use_depth,
+        "depth_enabled": use_depth,
     }
     print("[WARMUP] Starting model warmup...", flush=True)
     stage_started = time.perf_counter()
@@ -170,11 +175,11 @@ def _warm_pipeline_models(use_depth: bool, warm_sam2: bool) -> dict[str, int | b
         print("[WARMUP] SAM2 warmup skipped (loads on first detection)", flush=True)
     if use_depth:
         stage_started = time.perf_counter()
-        _warm_model("DepthPro", get_depth, "[WARMUP] DepthPro ready")
-        timings["depthpro_warmup_ms"] = _elapsed_ms(stage_started)
+        _warm_model("Depth Anything V2", get_depth, "[WARMUP] Depth Anything V2 ready")
+        timings["depth_warmup_ms"] = _elapsed_ms(stage_started)
     else:
-        timings["depthpro_warmup_ms"] = 0
-        print("[WARMUP] DepthPro skipped for this job", flush=True)
+        timings["depth_warmup_ms"] = 0
+        print("[WARMUP] Depth Anything V2 skipped for this job", flush=True)
     timings["total_warmup_ms"] = _elapsed_ms(started)
     print("[WARMUP] All models ready — starting frame loop", flush=True)
     return timings
@@ -189,6 +194,22 @@ def _env(name: str) -> str:
     if not value:
         raise RuntimeError(f"Missing required environment variable: {name}")
     return value
+
+
+def _env_any(*names: str) -> str:
+    for name in names:
+        value = os.environ.get(name)
+        if value:
+            return value
+    raise RuntimeError(f"Missing required environment variable: {' or '.join(names)}")
+
+
+def _object_storage_endpoint_url() -> str:
+    endpoint_url = os.environ.get("OBJECT_STORAGE_ENDPOINT_URL")
+    if endpoint_url:
+        return endpoint_url
+    account_id = _env("CLOUDFLARE_R2_ACCOUNT_ID")
+    return f"https://{account_id}.r2.cloudflarestorage.com"
 
 
 def _redis_headers(token: str) -> dict[str, str]:
@@ -239,13 +260,12 @@ def _update_job(redis_url: str, redis_token: str, job_id: str, **fields: Any) ->
     return record
 
 
-def _create_r2_client() -> Any:
-    account_id = _env("CLOUDFLARE_R2_ACCOUNT_ID")
+def _create_object_storage_client() -> Any:
     return boto3.client(
         "s3",
-        endpoint_url=f"https://{account_id}.r2.cloudflarestorage.com",
-        aws_access_key_id=_env("CLOUDFLARE_R2_ACCESS_KEY_ID"),
-        aws_secret_access_key=_env("CLOUDFLARE_R2_SECRET_ACCESS_KEY"),
+        endpoint_url=_object_storage_endpoint_url(),
+        aws_access_key_id=_env_any("OBJECT_STORAGE_ACCESS_KEY_ID", "CLOUDFLARE_R2_ACCESS_KEY_ID"),
+        aws_secret_access_key=_env_any("OBJECT_STORAGE_SECRET_ACCESS_KEY", "CLOUDFLARE_R2_SECRET_ACCESS_KEY"),
         region_name="auto",
     )
 
@@ -260,9 +280,9 @@ def _safe_file_name(file_name: str) -> str:
 
 
 def _download_raw_files(
-    r2_client: Any,
+    object_storage_client: Any,
     bucket: str,
-    r2_prefix: str,
+    storage_prefix: str,
     file_names: list[str],
     raw_dir: Path,
 ) -> list[Path]:
@@ -272,7 +292,7 @@ def _download_raw_files(
         safe_name = _safe_file_name(file_name)
         local_path = raw_dir / safe_name
         local_path.parent.mkdir(parents=True, exist_ok=True)
-        r2_client.download_file(bucket, f"{r2_prefix.rstrip('/')}/{safe_name}", str(local_path))
+        object_storage_client.download_file(bucket, f"{storage_prefix.rstrip('/')}/{safe_name}", str(local_path))
         local_files.append(local_path)
     return local_files
 
@@ -442,9 +462,11 @@ def _model_manifest() -> dict[str, Any]:
             "model_path": _model_file(getattr(sam2_inference, "MODEL_PATH")),
             "model_cfg": getattr(sam2_inference, "MODEL_CFG", None),
         },
-        "depthpro": {
-            "model_path": _model_file(getattr(depthpro_inference, "MODEL_PATH")),
-            "enabled_default": os.environ.get("DRISORA_ENABLE_DEPTHPRO_DEFAULT"),
+        "depth_anything_v2": {
+            "model_path": _model_file(getattr(depth_anything_v2_inference, "MODEL_PATH")),
+            "model_url": getattr(depth_anything_v2_inference, "MODEL_URL", None),
+            "encoder": getattr(depth_anything_v2_inference, "ENCODER", None),
+            "enabled_default": os.environ.get("DRISORA_ENABLE_DEPTH_DEFAULT"),
         },
         "pci": {
             "version": getattr(pci_scorer, "SCORING_VERSION", "legacy"),
@@ -479,8 +501,13 @@ def _frame_manifest(frames: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
-def _upload_json(r2_client: Any, bucket: str, key: str, payload: dict[str, Any] | list[Any]) -> None:
-    r2_client.put_object(
+def _upload_json(
+    object_storage_client: Any,
+    bucket: str,
+    key: str,
+    payload: dict[str, Any] | list[Any],
+) -> None:
+    object_storage_client.put_object(
         Bucket=bucket,
         Key=key,
         Body=json.dumps(payload, sort_keys=True, default=str).encode("utf-8"),
@@ -660,7 +687,7 @@ def _process_frame(
     stage_timings: dict[str, int] = {
         "yolo_ms": 0,
         "sam2_ms": 0,
-        "depthpro_ms": 0,
+        "depth_ms": 0,
         "frame_area_ms": 0,
         "pci_ms": 0,
     }
@@ -690,12 +717,12 @@ def _process_frame(
         if use_depth:
             depth_attempted = True
             if precomputed_depth_map is not None:
-                depth_result = depthpro_inference.enrich_detections(precomputed_depth_map, detections)
-                stage_timings["depthpro_ms"] = int(depth_elapsed_ms or 0)
+                depth_result = depth_anything_v2_inference.enrich_detections(precomputed_depth_map, detections)
+                stage_timings["depth_ms"] = int(depth_elapsed_ms or 0)
             else:
                 stage_started = time.perf_counter()
-                depth_result = depthpro_inference.run(str(frame_path), detections)
-                stage_timings["depthpro_ms"] = _elapsed_ms(stage_started)
+                depth_result = depth_anything_v2_inference.run(str(frame_path), detections)
+                stage_timings["depth_ms"] = _elapsed_ms(stage_started)
             detections = depth_result.get("detections", detections)
             depth_map = depth_result.get("depth_map")
         else:
@@ -720,12 +747,12 @@ def _process_frame(
 
     depth_available = depth_map is not None and getattr(depth_map, "size", 0) > 0
     if use_depth and depth_attempted and not depth_available:
-        degraded_reasons.append("depthpro_unavailable")
+        degraded_reasons.append("depth_anything_v2_unavailable")
 
     if frame_failed:
         analysis_stage = "fallback"
     elif depth_available and sam2_attempted:
-        analysis_stage = "yolo_sam2_depthpro"
+        analysis_stage = "yolo_sam2_depth_anything_v2"
     elif sam2_attempted:
         analysis_stage = "yolo_sam2"
     else:
@@ -780,8 +807,8 @@ def _process_frame(
     }
 
 
-def _upload_file(r2_client: Any, bucket: str, local_path: Path, key: str) -> None:
-    r2_client.upload_file(str(local_path), bucket, key)
+def _upload_file(object_storage_client: Any, bucket: str, local_path: Path, key: str) -> None:
+    object_storage_client.upload_file(str(local_path), bucket, key)
 
 
 def _post_webhook(
@@ -815,21 +842,27 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
     job_id = job_input["job_id"]
     user_id = job_input["user_id"]
     mode = job_input["mode"]
-    r2_prefix = job_input["r2_prefix"]
+    storage_prefix = job_input.get("storage_prefix") or job_input.get("r2_prefix")
+    if not isinstance(storage_prefix, str) or not storage_prefix:
+        raise ValueError("Job input must include storage_prefix or r2_prefix")
     file_names = job_input["file_names"]
     options = job_input.get("options") or {}
 
     redis_url = _env("UPSTASH_REDIS_REST_URL")
     redis_token = _env("UPSTASH_REDIS_REST_TOKEN")
-    bucket = _env("CLOUDFLARE_R2_BUCKET_NAME")
-    app_url = _env("NEXT_PUBLIC_APP_URL")
-    webhook_secret = os.environ.get("WORKER_WEBHOOK_SECRET") or _env("CLOUDFLARE_R2_WEBHOOK_SECRET")
+    bucket = _env_any("OBJECT_STORAGE_BUCKET", "CLOUDFLARE_R2_BUCKET_NAME")
+    app_url = _env_any("APP_CALLBACK_URL", "NEXT_PUBLIC_APP_URL")
+    webhook_secret = _env_any(
+        "WORKER_WEBHOOK_SECRET",
+        "CLOUDFLARE_R2_WEBHOOK_SECRET",
+        "RUNPOD_CALLBACK_SECRET",
+    )
 
     work_dir = Path("/tmp") / job_id
     raw_dir = work_dir / "raw"
     result_dir = work_dir / "results"
     detection_dir = result_dir / "detections"
-    output_r2_prefix = f"results/{user_id}/{job_id}/"
+    output_storage_prefix = f"results/{user_id}/{job_id}/"
     job_started = time.perf_counter()
     timing_breakdown_ms: dict[str, int] = {}
 
@@ -838,20 +871,20 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         _update_job(redis_url, redis_token, job_id, status="extracting_frames")
         _add_ms(timing_breakdown_ms, "redis_initial_update_ms", stage_started)
         stage_started = time.perf_counter()
-        r2_client = _create_r2_client()
-        _add_ms(timing_breakdown_ms, "r2_client_init_ms", stage_started)
+        object_storage_client = _create_object_storage_client()
+        _add_ms(timing_breakdown_ms, "object_storage_client_init_ms", stage_started)
         stage_started = time.perf_counter()
-        local_files = _download_raw_files(r2_client, bucket, r2_prefix, file_names, raw_dir)
+        local_files = _download_raw_files(object_storage_client, bucket, storage_prefix, file_names, raw_dir)
         _add_ms(timing_breakdown_ms, "raw_download_ms", stage_started)
         raw_file_manifest = _file_manifest(local_files)
 
         use_depth = _depth_enabled(mode, options)
         warm_sam2 = _sam2_warmup_enabled(options)
         yolo_batch_size = _yolo_batch_size(options)
-        depthpro_batch_size = _depthpro_batch_size(options, yolo_batch_size)
+        depth_batch_size = _depth_batch_size(options, yolo_batch_size)
         print(
             f"[PIPELINE] mode={mode} use_depth={use_depth} warm_sam2={warm_sam2} "
-            f"yolo_batch_size={yolo_batch_size} depthpro_batch_size={depthpro_batch_size} "
+            f"yolo_batch_size={yolo_batch_size} depth_batch_size={depth_batch_size} "
             f"options={json.dumps(options, sort_keys=True)}",
             flush=True,
         )
@@ -860,10 +893,10 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         frame_batch = dispatch_job(job_id, mode, _build_dispatch_files(mode, local_files, options))
         _add_ms(timing_breakdown_ms, "frame_extraction_ms", stage_started)
         frames = frame_batch["frames"]
-        manifest_prefix = f"{output_r2_prefix}manifests/"
+        manifest_prefix = f"{output_storage_prefix}manifests/"
         stage_started = time.perf_counter()
         _upload_json(
-            r2_client,
+            object_storage_client,
             bucket,
             f"{manifest_prefix}run_manifest.json",
             {
@@ -872,8 +905,10 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 "mode": mode,
                 "created_at": _now(),
                 "options": options,
-                "input_r2_prefix": r2_prefix,
-                "output_r2_prefix": output_r2_prefix,
+                "input_storage_prefix": storage_prefix,
+                "input_r2_prefix": storage_prefix,
+                "output_storage_prefix": output_storage_prefix,
+                "output_r2_prefix": output_storage_prefix,
                 "raw_files": raw_file_manifest,
                 "ingest": frame_batch.get("ingest_metadata", {}),
                 "frame_count": len(frames),
@@ -881,7 +916,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 "models": _model_manifest(),
                 "performance": {
                     "yolo_batch_size": yolo_batch_size,
-                    "depthpro_batch_size": depthpro_batch_size if use_depth else 0,
+                    "depth_batch_size": depth_batch_size if use_depth else 0,
                     "progress_update_target": 100,
                 },
             },
@@ -889,7 +924,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         _add_ms(timing_breakdown_ms, "run_manifest_upload_ms", stage_started)
         stage_started = time.perf_counter()
         _upload_json(
-            r2_client,
+            object_storage_client,
             bucket,
             f"{manifest_prefix}frame_manifest.json",
             {
@@ -907,7 +942,8 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             status="detecting",
             frame_count=len(frames),
             processed_count=0,
-            output_r2_prefix=output_r2_prefix,
+            output_storage_prefix=output_storage_prefix,
+            output_r2_prefix=output_storage_prefix,
         )
         _add_ms(timing_breakdown_ms, "redis_detecting_update_ms", stage_started)
         processing_started = time.perf_counter()
@@ -927,7 +963,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         frame_stage_totals_ms: dict[str, int] = {
             "yolo_ms": 0,
             "sam2_ms": 0,
-            "depthpro_ms": 0,
+            "depth_ms": 0,
             "frame_area_ms": 0,
             "pci_ms": 0,
             "frame_upload_ms": 0,
@@ -961,21 +997,21 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             if use_depth:
                 depth_started = time.perf_counter()
                 try:
-                    for depth_chunk in _chunked(frame_chunk, depthpro_batch_size):
+                    for depth_chunk in _chunked(frame_chunk, depth_batch_size):
                         depth_paths = [str(Path(frame["path"])) for frame in depth_chunk]
-                        depth_maps = depthpro_inference.infer_depth_maps(depth_paths)
+                        depth_maps = depth_anything_v2_inference.infer_depth_maps(depth_paths)
                         for frame, depth_map in zip(depth_chunk, depth_maps):
                             depth_maps_by_index[frame.get("index")] = depth_map
                     depth_batch_elapsed_ms = _elapsed_ms(depth_started)
                     depth_share_ms = int(depth_batch_elapsed_ms / max(1, len(frame_chunk)))
                     print(
-                        f"[DEPTHPRO_BATCH_RESULT {batch_index}] frames={len(depth_maps_by_index)} "
-                        f"batch_size={depthpro_batch_size} elapsed_ms={depth_batch_elapsed_ms}",
+                        f"[DEPTH_BATCH_RESULT {batch_index}] frames={len(depth_maps_by_index)} "
+                        f"batch_size={depth_batch_size} elapsed_ms={depth_batch_elapsed_ms}",
                         flush=True,
                     )
                 except Exception as exc:
                     print(
-                        f"[DEPTHPRO_BATCH {batch_index}] failed: {exc}; "
+                        f"[DEPTH_BATCH {batch_index}] failed: {exc}; "
                         "falling back to per-frame depth",
                         flush=True,
                     )
@@ -1011,10 +1047,10 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
                 stage_started = time.perf_counter()
                 _upload_file(
-                    r2_client,
+                    object_storage_client,
                     bucket,
                     frame_path,
-                    f"{output_r2_prefix}frames/{frame_path.name}",
+                    f"{output_storage_prefix}frames/{frame_path.name}",
                 )
                 _add_ms(frame_stage_totals_ms, "frame_upload_ms", stage_started)
 
@@ -1026,10 +1062,10 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
 
                 stage_started = time.perf_counter()
                 _upload_file(
-                    r2_client,
+                    object_storage_client,
                     bucket,
                     detection_path,
-                    f"{output_r2_prefix}detections/{frame_path.stem}.json",
+                    f"{output_storage_prefix}detections/{frame_path.stem}.json",
                 )
                 _add_ms(frame_stage_totals_ms, "detection_upload_ms", stage_started)
                 if processed_count == total or processed_count % progress_update_every == 0:
@@ -1059,7 +1095,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         stage_total = sum(frame_stage_totals_ms.values())
         unattributed_frame_loop_ms = max(0, end_to_end_processing_ms - stage_total)
         _upload_json(
-            r2_client,
+            object_storage_client,
             bucket,
             f"{manifest_prefix}processing_summary.json",
             {
@@ -1078,7 +1114,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 "unattributed_frame_loop_ms": unattributed_frame_loop_ms,
                 "progress_update_every_frames": progress_update_every,
                 "yolo_batch_size": yolo_batch_size,
-                "depthpro_batch_size": depthpro_batch_size if use_depth else 0,
+                "depth_batch_size": depth_batch_size if use_depth else 0,
                 "pipeline_stage_counts": pipeline_stage_counts,
                 "degraded_frame_count": degraded_frame_count,
                 "degraded_reason_counts": degraded_reason_counts,
@@ -1091,7 +1127,8 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             job_id,
             status="complete",
             average_pci=average_pci,
-            output_r2_prefix=output_r2_prefix,
+            output_storage_prefix=output_storage_prefix,
+            output_r2_prefix=output_storage_prefix,
         )
         print(
             f"[DONE] processed {processed} frames, avg_pci={average_pci:.1f}, detections={total_detections}",
@@ -1107,7 +1144,8 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 "average_pci": average_pci,
                 "frame_count": len(frames),
                 "processed_count": processed,
-                "output_r2_prefix": output_r2_prefix,
+                "output_storage_prefix": output_storage_prefix,
+                "output_r2_prefix": output_storage_prefix,
             },
         )
         if not webhook_ok:
