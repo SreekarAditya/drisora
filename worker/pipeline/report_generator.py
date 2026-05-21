@@ -49,21 +49,22 @@ def generate_irc82_pdf_report(
         ["Weighted PCI", f"{float(weighted_pci):.2f}"],
         ["PCI grade", str(summary.get("pci_grade", "Unknown"))],
         ["Total length (m)", f"{float(summary.get('total_length_m', 0.0)):.2f}"],
-        ["10 m sections", str(summary.get("segment_count", len(sections)))],
+        ["100 m GPS sections", str(summary.get("segment_count", len(sections)))],
     ]
     story.append(Table(report_rows, colWidths=[140, 330], style=_table_style()))
     story.append(Spacer(1, 16))
 
     story.append(Paragraph("Section PCI", styles["Heading2"]))
-    section_rows = [["Section", "Length (m)", "PCI", "Grade", "Relative", "Detections"]]
+    section_rows = [["Section", "Chainage (m)", "Length (m)", "PCI", "Grade", "Low confidence", "Detections"]]
     for section in sections:
         section_rows.append(
             [
-                str(section.get("segment_index", "")),
+                str(section.get("section_id", section.get("segment_index", ""))),
+                f"{float(section.get('start_distance_m', 0.0)):.1f}-{float(section.get('end_distance_m', 0.0)):.1f}",
                 f"{float(section.get('total_length_m', 0.0)):.2f}",
                 f"{float(section.get('pci_score', 0.0)):.2f}",
                 str(section.get("pci_grade", "")),
-                "yes" if section.get("is_relative") else "no",
+                "yes" if section.get("low_confidence") else "no",
                 str(section.get("detection_count", 0)),
             ]
         )

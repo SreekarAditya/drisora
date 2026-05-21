@@ -1,6 +1,6 @@
 # Drisora Backend
 
-Drisora Backend is a pavement condition intelligence pipeline for drone road-survey media. It converts an MP4/MOV video plus DJI SRT telemetry into defect detections, segmentation masks, metric crack features, 10 m section PCI scores, and an IRC:82-2023 PDF report.
+Drisora Backend is a pavement condition intelligence pipeline for drone road-survey media. It converts an MP4/MOV video plus DJI SRT telemetry into defect detections, segmentation masks, metric crack features, 100 m GPS-chainage PCI sections, and an IRC:82-2023 PDF report.
 
 This open-source package is backend-only. It does not include the Next.js frontend, Supabase routes or migrations, auth configuration, billing, signed URL logic, tenant logic, private bucket names, secrets, or model weights.
 
@@ -14,7 +14,7 @@ Frame Extraction
   -> SAM2 segmentation
   -> Depth Anything V2 metric depth estimation
   -> crack width estimation in mm
-  -> Haversine GPS sectioning at 10 m
+  -> Haversine GPS sectioning at fixed 100 m chainage
   -> IRC:82-2023 PCI scoring
   -> JSON + PDF report output
 ```

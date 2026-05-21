@@ -41,6 +41,7 @@ class SrtEntry(TypedDict):
     lon: float
     alt_m: Optional[float]
     gimbal_yaw: Optional[float]
+    gps_signal_quality: Optional[str]
 
 
 _TIMECODE_RE = re.compile(
@@ -58,6 +59,10 @@ _ALT_RE = re.compile(
     r"(?:^|\s|\[)alt(?:itude)?\s*[:=]\s*(-?\d+(?:\.\d+)?)", re.IGNORECASE
 )
 _YAW_RE = re.compile(r"gimbal_yaw\s*[:=]\s*(-?\d+(?:\.\d+)?)", re.IGNORECASE)
+_GPS_QUALITY_RE = re.compile(
+    r"(gps(?:_signal)?(?:_quality|_level|_num|_used|_status)?|satellites)\s*[:=]\s*([A-Za-z0-9_.+-]+)",
+    re.IGNORECASE,
+)
 
 
 def _timecode_to_ms(h: str, m: str, s: str, ms: str) -> int:
@@ -111,9 +116,9 @@ def parse_srt(srt_path: str | Path) -> List[SrtEntry]:
             # Skip frames without GPS — they're not useful for georeferencing.
             continue
 
-        # Prefer absolute altitude (MSL); fall back to relative or generic alt.
+        # Prefer relative altitude because section GSD needs AGL, not MSL.
         alt_m: Optional[float] = tuple_alt_m
-        for rx in (_ABS_ALT_RE, _REL_ALT_RE, _ALT_RE):
+        for rx in (_REL_ALT_RE, _ALT_RE, _ABS_ALT_RE):
             am = rx.search(block)
             if am:
                 try:
@@ -130,6 +135,11 @@ def parse_srt(srt_path: str | Path) -> List[SrtEntry]:
             except ValueError:
                 yaw = None
 
+        gps_signal_quality: Optional[str] = None
+        qm = _GPS_QUALITY_RE.search(block)
+        if qm:
+            gps_signal_quality = qm.group(2)
+
         entries.append(
             {
                 "timestamp_ms": start_ms,
@@ -137,6 +147,7 @@ def parse_srt(srt_path: str | Path) -> List[SrtEntry]:
                 "lon": lon,
                 "alt_m": alt_m,
                 "gimbal_yaw": yaw,
+                "gps_signal_quality": gps_signal_quality,
             }
         )
 

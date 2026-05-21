@@ -10,7 +10,7 @@ each entry with:
 
 - ``frame_index`` – 0-based sequential index assigned after sorting by
   timestamp.
-- ``altitude_m``  – renamed from ``alt_m`` for clarity; missing altitudes in
+- ``altitude_m``  – AGL altitude renamed from ``alt_m`` for clarity; missing altitudes in
   individual entries are filled with a 30 m fallback.  If *no* entry in the
   file contains an altitude the function raises :class:`ValueError`.
 - ``fov_deg``     – field of view in degrees, defaulting to 73.7° (DJI Mavic
@@ -90,6 +90,7 @@ def parse_dji_srt(srt_path: str | Path | None) -> list[dict[str, Any]]:
                 "altitude_m": altitude_m,
                 "fov_deg": _DEFAULT_FOV_DEG,
                 "gimbal_yaw": entry.get("gimbal_yaw"),
+                "gps_signal_quality": entry.get("gps_signal_quality"),
             }
         )
 

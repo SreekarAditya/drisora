@@ -23,10 +23,7 @@ from ingest.gps_telemetry import load_gps_telemetry
 from ingest.video_handler import attach_gps_to_frames, extract_frames
 from utils.gps_dedup import compute_footprint_radius, is_duplicate_frame
 from utils.pci_segmentation import (
-    assign_frames_to_segments,
-    build_survey_pci_summary,
-    compute_cumulative_distances,
-    compute_segment_pci,
+    build_pci_sections,
 )
 
 # Default DJI Mavic 3 FOV used when a frame has no SRT data.
@@ -276,36 +273,10 @@ def process_multi_video_survey(
         _log(logger, f"{prefix} {filename}: processed={video_processed}, skipped={video_skipped}.")
 
     # ------------------------------------------------------------------
-    # Step 6 — Compute cumulative distances and assign segments.
+    # Step 6 — Build 100 m GPS-chainage sections and PCI summary.
     # ------------------------------------------------------------------
-    _log(logger, f"{prefix} Computing cumulative distances over {len(all_processed_frames)} frames.")
-    cumulative_distances = compute_cumulative_distances(all_processed_frames)
-    for i, frame in enumerate(all_processed_frames):
-        frame["cumulative_distance_m"] = cumulative_distances[i] if i < len(cumulative_distances) else 0.0
-
-    segment_map = assign_frames_to_segments(all_processed_frames)
-
-    # Build per-segment PCI results.
-    segments_out: list[dict[str, Any]] = []
-    for seg_idx in sorted(segment_map.keys()):
-        seg_frames = segment_map[seg_idx]
-        seg_result = compute_segment_pci(seg_frames)
-        segments_out.append({
-            "segment_index": seg_idx,
-            "start_m": seg_idx * 100.0,
-            "end_m": (seg_idx + 1) * 100.0,
-            "pci_score": seg_result["pci_score"],
-            "pci_grade": seg_result["pci_grade"],
-            "is_relative": seg_result["is_relative"],
-            "detection_count": seg_result["detection_count"],
-        })
-
-    # Add segment_index into each seg_result for build_survey_pci_summary.
-    enriched_segs = [
-        {**compute_segment_pci(segment_map[si]), "segment_index": si}
-        for si in sorted(segment_map.keys())
-    ]
-    survey_summary = build_survey_pci_summary(enriched_segs)
+    _log(logger, f"{prefix} Building 100 m Haversine GPS sections over {len(all_processed_frames)} frames.")
+    segments_out, survey_summary, all_processed_frames = build_pci_sections(all_processed_frames)
 
     # ------------------------------------------------------------------
     # Step 7 — Persist to Supabase.
@@ -333,9 +304,9 @@ def process_multi_video_survey(
             {
                 "survey_id": survey_id,
                 "segment_index": s["segment_index"],
-                "start_distance_m": s["start_m"],
-                "end_distance_m": s["end_m"],
-                "total_length_m": max(0.0, s["end_m"] - s["start_m"]),
+                "start_distance_m": s["start_distance_m"],
+                "end_distance_m": s["end_distance_m"],
+                "total_length_m": s["total_length_m"],
                 "pci_score": s["pci_score"],
                 "pci_grade": s["pci_grade"],
                 "is_relative": s["is_relative"],

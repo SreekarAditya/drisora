@@ -16,12 +16,7 @@ from PIL import Image
 from jobs.dispatcher import dispatch_job
 from pipeline import depth_anything_v2_inference, pci_scorer, report_generator, sam2_inference, yolo_inference
 from utils.gsd_calibration import attach_gsd
-from utils.pci_segmentation import (
-    assign_frames_to_segments,
-    build_survey_pci_summary,
-    compute_cumulative_distances,
-    compute_segment_pci,
-)
+from utils.pci_segmentation import build_pci_sections
 
 
 def _frame_area_and_width(image_path: Path) -> tuple[int, int]:
@@ -58,21 +53,8 @@ def _process_frame(frame: dict[str, Any], enable_depth: bool) -> dict[str, Any]:
 
 
 def _section_results(frames: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    distances = compute_cumulative_distances(frames)
-    frames_with_distances = [
-        {**frame, "cumulative_distance_m": distances[index]} for index, frame in enumerate(frames)
-    ]
-    section_map = assign_frames_to_segments(frames_with_distances)
-    sections: list[dict[str, Any]] = []
-    for segment_index, segment_frames in sorted(section_map.items()):
-        detections = [
-            detection
-            for frame in segment_frames
-            for detection in (frame.get("detections") or [])
-        ]
-        section = compute_segment_pci(segment_frames, detections)
-        sections.append({"segment_index": segment_index, **section})
-    return sections, build_survey_pci_summary(sections)
+    sections, summary, _frames_with_chainage = build_pci_sections(frames)
+    return sections, summary
 
 
 def run_single_video(args: argparse.Namespace) -> dict[str, Any]:

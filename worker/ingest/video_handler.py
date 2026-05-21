@@ -374,6 +374,7 @@ def attach_gps_to_frames(
             "lon": nearest["lon"],
             "alt_m": nearest.get("alt_m"),
             "gimbal_yaw": nearest.get("gimbal_yaw"),
+            "gps_signal_quality": nearest.get("gps_signal_quality"),
         }
         out.append(merged)
 

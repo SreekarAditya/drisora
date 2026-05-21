@@ -121,6 +121,23 @@ class TestParseDjiSrt(unittest.TestCase):
             self.assertIn("fov_deg", frame)
             self.assertEqual(frame["frame_index"], i)
 
+    def test_relative_altitude_preferred_for_agl_gsd(self):
+        """Relative altitude is AGL and wins over absolute MSL altitude."""
+        from utils.srt_parser import parse_dji_srt
+
+        block = (
+            "1\n"
+            "00:00:00,000 --> 00:00:00,033\n"
+            "[latitude: 18.5412] [longitude: 73.9011]\n"
+            "[rel_alt: 12.300 abs_alt: 564.230] [gps_level: 5]\n"
+        )
+        path = self._write_srt(block)
+
+        result = parse_dji_srt(path)
+
+        self.assertAlmostEqual(result[0]["altitude_m"], 12.3, places=3)
+        self.assertEqual(result[0]["gps_signal_quality"], "5")
+
     def test_missing_fov_defaults_to_737(self):
         """When fov is not in SRT, fov_deg defaults to 73.7."""
         from utils.srt_parser import parse_dji_srt
@@ -291,7 +308,7 @@ class TestComputeCumulativeDistances(unittest.TestCase):
     def test_single_frame(self):
         """Single frame → [0.0]."""
         fn = self._get_fn()
-        result = fn([{"lat": 0.0, "lon": 0.0}])
+        result = fn([{"lat": 17.0, "lon": 78.0}])
         self.assertEqual(result, [0.0])
 
     def test_two_frames_known_distance(self):
@@ -299,23 +316,47 @@ class TestComputeCumulativeDistances(unittest.TestCase):
         from utils.gps_dedup import haversine_m
         fn = self._get_fn()
         frames = [
-            {"lat": 0.0, "lon": 0.0},
-            {"lat": 0.0, "lon": 0.001},
+            {"lat": 17.0, "lon": 78.0},
+            {"lat": 17.0, "lon": 78.0001},
         ]
         result = fn(frames)
-        expected = haversine_m(0.0, 0.0, 0.0, 0.001)
+        expected = haversine_m(17.0, 78.0, 17.0, 78.0001)
         self.assertAlmostEqual(result[1], expected, places=3)
 
-    def test_two_frames_approx_111m(self):
-        """Frames at 0.001° longitude apart ≈ 111 m at the equator."""
+    def test_two_frames_approx_11m(self):
+        """Frames at 0.0001° longitude apart are counted below the gap threshold."""
         fn = self._get_fn()
         frames = [
-            {"lat": 0.0, "lon": 0.0},
-            {"lat": 0.0, "lon": 0.001},
+            {"lat": 0.0, "lon": 10.0},
+            {"lat": 0.0, "lon": 10.0001},
         ]
         result = fn(frames)
-        # 1° of longitude at equator ≈ 111,319 m → 0.001° ≈ 111.3 m
-        self.assertAlmostEqual(result[1], 111.319, delta=1.0)
+        self.assertAlmostEqual(result[1], 11.132, delta=0.2)
+
+    def test_invalid_gps_inherits_distance(self):
+        """A 0,0 GPS fix is invalid and inherits prior chainage."""
+        fn = self._get_fn()
+        frames = [
+            {"lat": 0.0, "lon": 10.0},
+            {"lat": 0.0, "lon": 10.0001},
+            {"lat": 0.0, "lon": 0.0},
+        ]
+        result = fn(frames)
+        self.assertAlmostEqual(result[2], result[1], places=6)
+
+    def test_gps_jump_over_50m_is_not_counted(self):
+        """Telemetry jumps over 50 m are flagged and skipped in chainage."""
+        import importlib
+        import utils.pci_segmentation as mod
+        importlib.reload(mod)
+
+        frames = mod.attach_chainage_to_frames([
+            {"lat": 0.0, "lon": 10.0},
+            {"lat": 0.0, "lon": 10.001},
+        ])
+
+        self.assertTrue(frames[1]["telemetry_gap"])
+        self.assertAlmostEqual(frames[1]["cumulative_distance_m"], 0.0, places=6)
 
 
 @unittest.mock.patch.dict(
@@ -335,26 +376,43 @@ class TestAssignFramesToSegments(unittest.TestCase):
         return mod.assign_frames_to_segments
 
     def test_frames_spanning_250m(self):
-        """Frames at 0, 100, 200m use 10 m section indexes."""
+        """Frames at 0, 100, 200m use 100 m section indexes."""
+        fn = self._get_fn()
+        frames = [
+            {"cumulative_distance_m": 0.0},
+            {"cumulative_distance_m": 99.0},
+            {"cumulative_distance_m": 100.0},
+            {"cumulative_distance_m": 199.0},
+            {"cumulative_distance_m": 200.0},
+            {"cumulative_distance_m": 230.0},
+        ]
+        result = fn(frames)
+        self.assertIn(0, result)
+        self.assertIn(1, result)
+        self.assertIn(2, result)
+        self.assertEqual(len(result), 3)
+
+    def test_frame_at_exactly_100m(self):
+        """Frame at exactly 100 m maps to 100 m section index 1."""
+        fn = self._get_fn()
+        frames = [{"cumulative_distance_m": 100.0}]
+        result = fn(frames)
+        self.assertIn(1, result)
+        self.assertEqual(len(result[1]), 1)
+
+    def test_final_section_shorter_than_20m_merges_into_previous(self):
+        """A final 15 m tail is merged into the previous 100 m section."""
         fn = self._get_fn()
         frames = [
             {"cumulative_distance_m": 0.0},
             {"cumulative_distance_m": 100.0},
-            {"cumulative_distance_m": 200.0},
+            {"cumulative_distance_m": 195.0},
+            {"cumulative_distance_m": 205.0},
+            {"cumulative_distance_m": 215.0},
         ]
         result = fn(frames)
-        self.assertIn(0, result)
-        self.assertIn(10, result)
-        self.assertIn(20, result)
-        self.assertEqual(len(result), 3)
-
-    def test_frame_at_exactly_100m(self):
-        """Frame at exactly 100 m maps to 10 m section index 10."""
-        fn = self._get_fn()
-        frames = [{"cumulative_distance_m": 100.0}]
-        result = fn(frames)
-        self.assertIn(10, result)
-        self.assertEqual(len(result[10]), 1)
+        self.assertEqual(sorted(result), [0, 1])
+        self.assertEqual(len(result[1]), 4)
 
     def test_empty_input(self):
         """Empty input → empty dict."""
@@ -429,6 +487,55 @@ class TestBuildSurveyPciSummary(unittest.TestCase):
         result = fn(segments)
         self.assertEqual(result["rpci_segment_count"], 1)
         self.assertEqual(result["segment_count"], 2)
+
+
+@unittest.mock.patch.dict(
+    "sys.modules",
+    {
+        "pipeline.pci_scorer": _mock_pci_scorer_module,
+        "pipeline": unittest.mock.MagicMock(),
+    },
+)
+class TestComputeSegmentPciMetadata(unittest.TestCase):
+    """Tests for 100 m section metadata and section GSD."""
+
+    def _get_mod(self):
+        import importlib
+        import utils.pci_segmentation as mod
+        importlib.reload(mod)
+        return mod
+
+    def test_section_metadata_uses_mean_altitude_and_low_confidence(self):
+        mod = self._get_mod()
+        frames = [
+            {
+                "section_index": 0,
+                "cumulative_distance_m": 0.0,
+                "lat": 17.0,
+                "lon": 78.0,
+                "alt_m": 10.0,
+                "pci_score": 80.0,
+                "detections": [{"bbox": [0, 0, 10, 100], "mask_area_px": 200.0}],
+            },
+            {
+                "section_index": 0,
+                "cumulative_distance_m": 80.0,
+                "lat": 17.0001,
+                "lon": 78.0001,
+                "alt_m": 12.0,
+                "pci_score": 70.0,
+                "detections": [],
+            },
+        ]
+
+        result = mod.compute_segment_pci(frames, survey_end_distance_m=80.0)
+
+        expected_gsd = (9.6 * 11.0 * 1000.0) / (4.49 * 4000.0)
+        self.assertEqual(result["section_id"], "S-01")
+        self.assertAlmostEqual(result["mean_altitude_m"], 11.0, places=4)
+        self.assertAlmostEqual(result["gsd_mm_per_px"], expected_gsd, places=6)
+        self.assertTrue(result["low_confidence"])
+        self.assertAlmostEqual(result["detections"][0]["crack_width_mm"], 2.0 * expected_gsd, places=6)
 
 
 # ---------------------------------------------------------------------------

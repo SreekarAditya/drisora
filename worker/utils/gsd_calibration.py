@@ -8,40 +8,51 @@ from __future__ import annotations
 import math
 from typing import Any
 
-DEFAULT_CAMERA_FOV_DEG = 73.7
+DJI_MINI_5_PRO_SENSOR_WIDTH_MM = 9.6
+DJI_MINI_5_PRO_FOCAL_LENGTH_MM = 4.49
+DJI_MINI_5_PRO_IMAGE_WIDTH_PX = 4000
+
+
+def compute_gsd(mean_altitude_m: float) -> float:
+    """Compute DJI Mini 5 Pro ground sample distance in mm per pixel."""
+    return (
+        DJI_MINI_5_PRO_SENSOR_WIDTH_MM
+        * mean_altitude_m
+        * 1000.0
+        / (DJI_MINI_5_PRO_FOCAL_LENGTH_MM * DJI_MINI_5_PRO_IMAGE_WIDTH_PX)
+    )
 
 
 def gsd_m_per_px(
     altitude_m: float | None,
-    image_width_px: int,
-    *,
-    camera_fov_deg: float = DEFAULT_CAMERA_FOV_DEG,
+    image_width_px: int = DJI_MINI_5_PRO_IMAGE_WIDTH_PX,
 ) -> float | None:
-    """Estimate ground sample distance from SRT altitude and camera FOV."""
+    """Estimate GSD from SRT AGL altitude for the DJI Mini 5 Pro."""
     if altitude_m is None or altitude_m <= 0 or image_width_px <= 0:
         return None
-    ground_width_m = 2.0 * float(altitude_m) * math.tan(math.radians(camera_fov_deg / 2.0))
-    gsd = ground_width_m / float(image_width_px)
+    gsd_mm_px = compute_gsd(float(altitude_m))
+    if image_width_px != DJI_MINI_5_PRO_IMAGE_WIDTH_PX:
+        gsd_mm_px *= DJI_MINI_5_PRO_IMAGE_WIDTH_PX / float(image_width_px)
+    gsd = gsd_mm_px / 1000.0
     return gsd if math.isfinite(gsd) and gsd > 0 else None
 
 
 def attach_gsd(
     frame: dict[str, Any],
-    image_width_px: int,
-    *,
-    camera_fov_deg: float = DEFAULT_CAMERA_FOV_DEG,
+    image_width_px: int = DJI_MINI_5_PRO_IMAGE_WIDTH_PX,
 ) -> dict[str, Any]:
     """Return a frame copy with SRT-altitude GSD calibration fields."""
     altitude_m = frame.get("alt_m", frame.get("altitude_m"))
     gsd = gsd_m_per_px(
         float(altitude_m) if altitude_m is not None else None,
         image_width_px,
-        camera_fov_deg=camera_fov_deg,
     )
     return {
         **frame,
         "gsd_m_per_px": gsd,
-        "gsd_cm_per_px": gsd * 100.0 if gsd is not None else None,
+        "gsd_mm_per_px": gsd * 1000.0 if gsd is not None else None,
         "gsd_source": "srt_altitude" if gsd is not None else "unavailable",
-        "camera_fov_deg": camera_fov_deg,
+        "camera_model": "DJI Mini 5 Pro",
+        "sensor_width_mm": DJI_MINI_5_PRO_SENSOR_WIDTH_MM,
+        "focal_length_mm": DJI_MINI_5_PRO_FOCAL_LENGTH_MM,
     }
