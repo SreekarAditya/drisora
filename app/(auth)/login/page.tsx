@@ -54,7 +54,7 @@ export default function LoginPage() {
         </div>
 
         <div className="relative z-10 flex items-center gap-6">
-          {["IRC:82-2023", "YOLOv12s", "SAM2"].map((label) => (
+          {["IRC:82-2023", "AI-Powered", "Drone-Native"].map((label) => (
             <span key={label} className="rounded-md border border-[rgba(255,255,255,0.07)] bg-[rgba(255,255,255,0.04)] px-3 py-1.5 font-mono text-[11px] text-[#4A4A5A]">
               {label}
             </span>

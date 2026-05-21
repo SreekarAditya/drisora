@@ -658,8 +658,8 @@ export function JobReport({ results, surveyDate, orgName, pciSegments, surveySum
         <Text style={[s.kicker, { marginTop: 8 }]}>Methodology</Text>
         <Text style={s.h2}>Methodology and Accuracy Note</Text>
         <Text style={{ fontSize: 9.5, lineHeight: 1.6, color: C.text }}>
-          Drisora processes uploaded imagery or video through YOLOv12s distress detection, SAM2 mask refinement,
-          optional Depth Pro camera-to-surface estimation, and PCI scoring aligned to IRC:82-2023 reporting bands.
+          Drisora processes uploaded imagery or video through AI-powered distress detection, pixel-level mask refinement,
+          optional depth estimation for camera-to-surface measurement, and PCI scoring aligned to IRC:82-2023 reporting bands.
           Crack width in millimeters is estimated by converting pixel measurements using the available depth and camera geometry.
         </Text>
         <Text style={{ marginTop: 12, fontSize: 9.5, lineHeight: 1.6, color: C.text }}>
