@@ -20,7 +20,7 @@ export function CopyShareLinkButton({ path }: CopyShareLinkButtonProps) {
     <button
       type="button"
       onClick={handleClick}
-      className="rounded border border-neutral-700 px-4 py-2 text-sm font-semibold text-white transition hover:border-amber-500 hover:text-amber-400"
+      className="rounded-[10px] border border-[rgba(255,255,255,0.10)] px-4 py-2 text-sm font-semibold text-[#8A8A9A] transition-all duration-150 hover:border-[rgba(245,166,35,0.30)] hover:text-[#F5A623]"
     >
       {copied ? "Copied" : "Copy share link"}
     </button>

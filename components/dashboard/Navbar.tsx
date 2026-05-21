@@ -53,11 +53,8 @@ export function Navbar({ user, profile }: NavbarProps) {
   const initials = displayName.charAt(0).toUpperCase();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/[0.07] bg-[#07080a]/90 backdrop-blur-xl backdrop-saturate-150">
-      {/* Subtle top shimmer line */}
-      <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-white/10 to-transparent" />
-
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-6">
+    <header className="sticky top-0 z-40 border-b border-[rgba(255,255,255,0.07)] bg-[#09090C]/90 backdrop-blur-xl backdrop-saturate-150">
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between px-6">
         <div className="flex min-w-0 items-center gap-7">
           <DrisoraLogo href="/dashboard" size="sm" />
 
@@ -68,16 +65,16 @@ export function Navbar({ user, profile }: NavbarProps) {
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`relative rounded-md px-3 py-2 text-sm font-medium transition-all duration-150 ${
+                  className={`relative px-3 py-2 text-sm font-medium transition-colors duration-150 ${
                     active
                       ? "text-white"
-                      : "text-gray-500 hover:text-gray-200"
+                      : "text-[#8A8A9A] hover:text-[#F0F0F4]"
                   }`}
                 >
-                  {active && (
-                    <span className="absolute inset-0 rounded-md bg-white/[0.07] ring-1 ring-inset ring-white/[0.08]" />
-                  )}
                   <span className="relative">{link.label}</span>
+                  {active && (
+                    <span className="absolute inset-x-3 -bottom-[15px] h-[2px] bg-[#F5A623]" />
+                  )}
                 </Link>
               );
             })}
@@ -86,23 +83,23 @@ export function Navbar({ user, profile }: NavbarProps) {
 
         <div className="flex items-center gap-3">
           {profile?.org_name && (
-            <span className="hidden max-w-[160px] truncate text-xs text-gray-600 md:block">
+            <span className="hidden max-w-[160px] truncate rounded-md bg-[rgba(255,255,255,0.06)] px-2.5 py-1 font-mono text-[11px] text-[#4A4A5A] md:block">
               {profile.org_name}
             </span>
           )}
 
           <Link
             href="/upload"
-            className="hidden items-center gap-1.5 rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-black shadow-[0_2px_8px_rgba(245,158,11,0.25)] transition-all duration-150 hover:bg-amber-400 hover:shadow-[0_4px_16px_rgba(245,158,11,0.35)] active:scale-[0.98] md:inline-flex"
+            className="hidden items-center gap-1.5 rounded-[10px] bg-[#F5A623] px-4 py-[7px] text-sm font-semibold text-[#09090C] shadow-[0_2px_8px_rgba(245,166,35,0.25)] transition-all duration-150 hover:bg-[#FFBE4D] hover:shadow-[0_4px_16px_rgba(245,166,35,0.35)] active:scale-[0.98] md:inline-flex"
           >
-            New Survey
+            + New Survey
           </Link>
 
           <div className="relative">
             <button
               type="button"
               onClick={() => setAvatarOpen((open) => !open)}
-              className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-[#111] text-xs font-bold text-white transition-all duration-150 hover:border-white/20 hover:shadow-[0_0_0_3px_rgba(255,255,255,0.06)]"
+              className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-[rgba(255,255,255,0.10)] bg-[#111116] text-xs font-bold text-white transition-all duration-150 hover:border-[rgba(255,255,255,0.20)]"
               aria-label="Open user menu"
               aria-expanded={avatarOpen}
             >
@@ -115,30 +112,30 @@ export function Navbar({ user, profile }: NavbarProps) {
             </button>
 
             {avatarOpen && (
-              <div className="animate-fade-scale absolute right-0 mt-2 w-64 overflow-hidden rounded-xl border border-white/[0.09] bg-[#0f1012] shadow-[0_8px_40px_rgba(0,0,0,0.55),inset_0_0.5px_0_rgba(255,255,255,0.06)]">
-                <div className="border-b border-white/[0.07] px-4 py-3.5">
+              <div className="animate-fade-scale absolute right-0 mt-2 w-64 overflow-hidden rounded-[14px] border border-[rgba(255,255,255,0.09)] bg-[#111116] shadow-[0_24px_80px_rgba(0,0,0,0.6)]">
+                <div className="border-b border-[rgba(255,255,255,0.07)] px-4 py-3.5">
                   <p className="truncate text-sm font-semibold tracking-tight text-white">{displayName}</p>
-                  <p className="truncate text-xs text-gray-600">{user.email}</p>
-                  {profile?.role && <p className="mt-1 text-xs font-medium text-amber-400/80">{profile.role}</p>}
+                  <p className="truncate font-mono text-[11px] text-[#4A4A5A]">{user.email}</p>
+                  {profile?.role && <p className="mt-1 font-mono text-[11px] font-medium text-[#F5A623]/80">{profile.role}</p>}
                 </div>
                 <Link
                   href="/profile"
                   onClick={() => setAvatarOpen(false)}
-                  className="flex items-center px-4 py-3 text-sm text-gray-400 transition-colors duration-100 hover:bg-white/[0.04] hover:text-white"
+                  className="flex items-center px-4 py-3 text-sm text-[#8A8A9A] transition-colors duration-100 hover:bg-[rgba(255,255,255,0.04)] hover:text-white"
                 >
                   Edit Profile
                 </Link>
                 <Link
                   href="/about"
                   onClick={() => setAvatarOpen(false)}
-                  className="flex items-center px-4 py-3 text-sm text-gray-400 transition-colors duration-100 hover:bg-white/[0.04] hover:text-white"
+                  className="flex items-center px-4 py-3 text-sm text-[#8A8A9A] transition-colors duration-100 hover:bg-[rgba(255,255,255,0.04)] hover:text-white"
                 >
                   About Drisora
                 </Link>
                 <button
                   type="button"
                   onClick={handleSignOut}
-                  className="flex w-full items-center border-t border-white/[0.07] px-4 py-3 text-left text-sm text-red-400/90 transition-colors duration-100 hover:bg-red-500/[0.08] hover:text-red-300"
+                  className="flex w-full items-center border-t border-[rgba(255,255,255,0.07)] px-4 py-3 text-left text-sm text-red-400/90 transition-colors duration-100 hover:bg-red-500/[0.08] hover:text-red-300"
                 >
                   Sign out
                 </button>
@@ -149,7 +146,7 @@ export function Navbar({ user, profile }: NavbarProps) {
           <button
             type="button"
             onClick={() => setMenuOpen((open) => !open)}
-            className="flex h-9 w-9 items-center justify-center rounded-md border border-white/10 text-gray-500 transition-colors duration-150 hover:border-white/15 hover:bg-white/[0.04] hover:text-white lg:hidden"
+            className="flex h-9 w-9 items-center justify-center rounded-[10px] border border-[rgba(255,255,255,0.10)] text-[#8A8A9A] transition-colors duration-150 hover:border-[rgba(255,255,255,0.15)] hover:bg-[rgba(255,255,255,0.04)] hover:text-white lg:hidden"
             aria-label={menuOpen ? "Close menu" : "Open menu"}
           >
             {menuOpen ? (
@@ -168,17 +165,17 @@ export function Navbar({ user, profile }: NavbarProps) {
       </div>
 
       {menuOpen && (
-        <div className="animate-slide-down w-full border-t border-white/[0.07] bg-[#0b0c0e] px-6 py-3 lg:hidden">
+        <div className="animate-slide-down w-full border-t border-[rgba(255,255,255,0.07)] bg-[#09090C] px-6 py-3 lg:hidden">
           <nav className="space-y-0.5" aria-label="Mobile primary">
             {NAV_LINKS.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 onClick={() => setMenuOpen(false)}
-                className={`block rounded-md px-3 py-2.5 text-sm font-medium transition-colors duration-100 ${
+                className={`block rounded-[10px] px-3 py-2.5 text-sm font-medium transition-colors duration-100 ${
                   isActive(pathname, link.href)
-                    ? "bg-white/[0.07] text-white ring-1 ring-inset ring-white/[0.08]"
-                    : "text-gray-400 hover:bg-white/[0.04] hover:text-white"
+                    ? "bg-[rgba(255,255,255,0.06)] text-white"
+                    : "text-[#8A8A9A] hover:bg-[rgba(255,255,255,0.04)] hover:text-white"
                 }`}
               >
                 {link.label}
@@ -187,7 +184,7 @@ export function Navbar({ user, profile }: NavbarProps) {
             <Link
               href="/upload"
               onClick={() => setMenuOpen(false)}
-              className="block rounded-md px-3 py-2.5 text-sm font-semibold text-amber-400 transition-colors duration-100 hover:bg-amber-500/10"
+              className="block rounded-[10px] px-3 py-2.5 text-sm font-semibold text-[#F5A623] transition-colors duration-100 hover:bg-[rgba(245,166,35,0.08)]"
             >
               + New Survey
             </Link>

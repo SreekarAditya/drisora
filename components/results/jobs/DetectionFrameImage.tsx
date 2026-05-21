@@ -34,7 +34,7 @@ export function DetectionFrameImage({
   objectFit = "cover",
   className = "",
   imageClassName = "",
-  placeholderClassName = "text-xs text-gray-700",
+  placeholderClassName = "text-xs text-[#4A4A5A]",
   onError,
 }: DetectionFrameImageProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -96,7 +96,7 @@ export function DetectionFrameImage({
       )}
 
       {hasDetections && (
-        <label className="absolute left-2 top-2 z-20 inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-black/70 px-2.5 py-1 text-[11px] font-medium text-white shadow-lg backdrop-blur">
+        <label className="absolute left-2 top-2 z-20 inline-flex items-center gap-1.5 rounded-full border border-[rgba(255,255,255,0.10)] bg-[#09090C]/80 px-2.5 py-1 text-[11px] font-medium text-[#F0F0F4] shadow-lg backdrop-blur">
           <input
             type="checkbox"
             checked={showDetections}
@@ -165,7 +165,7 @@ function DetectionBoxView({
 
   return (
     <div
-      className="absolute border-2 border-amber-400 shadow-[0_0_0_1px_rgba(0,0,0,0.65)]"
+      className="absolute border-2 border-[#F5A623] shadow-[0_0_0_1px_rgba(0,0,0,0.65)]"
       style={{
         left: `${rect.left}%`,
         top: `${rect.top}%`,
@@ -173,7 +173,7 @@ function DetectionBoxView({
         height: `${rect.height}%`,
       }}
     >
-      <span className="absolute left-0 top-0 max-w-[220px] -translate-y-full truncate rounded-t bg-amber-400 px-1.5 py-0.5 text-[10px] font-semibold text-black shadow">
+      <span className="absolute left-0 top-0 max-w-[220px] -translate-y-full truncate rounded-t bg-[#F5A623] px-1.5 py-0.5 text-[10px] font-semibold text-[#09090C] shadow">
         {label}
       </span>
     </div>

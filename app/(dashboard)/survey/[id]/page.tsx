@@ -65,11 +65,11 @@ export default async function SurveyResultsPage({ params }: { params: Promise<{ 
 
   if (survey.status !== "complete") {
     return (
-      <main className="min-h-screen bg-[#0a0a0a] px-6 py-8 text-white">
+      <main className="min-h-screen bg-[#09090C] px-6 py-8 text-[#F0F0F4]">
         <div className="mx-auto max-w-3xl space-y-8">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-sm uppercase tracking-wide text-amber-500">Survey results</p>
+              <p className="text-sm uppercase tracking-wide text-[#F5A623]">Survey results</p>
               <h1 className="mt-2 text-3xl font-semibold">{survey.name}</h1>
             </div>
             <span className={`rounded-full px-3 py-1 text-sm font-medium ${STATUS_STYLES[survey.status]}`}>
@@ -77,7 +77,7 @@ export default async function SurveyResultsPage({ params }: { params: Promise<{ 
             </span>
           </div>
 
-          <section className="rounded border border-neutral-800 bg-neutral-950 p-6">
+          <section className="rounded border border-[rgba(255,255,255,0.07)] bg-[#09090C] p-6">
             <h2 className="mb-5 text-lg font-medium">Processing</h2>
             <ProcessingStatus surveyId={survey.id} initialStatus={survey.status} />
           </section>
@@ -87,33 +87,33 @@ export default async function SurveyResultsPage({ params }: { params: Promise<{ 
   }
 
   return (
-    <main className="grid min-h-screen bg-[#0a0a0a] text-white lg:grid-cols-[minmax(0,1fr)_420px]">
+    <main className="grid min-h-screen bg-[#09090C] text-[#F0F0F4] lg:grid-cols-[minmax(0,1fr)_420px]">
       <section className="h-[58vh] min-h-[520px] lg:h-screen">
         <SurveyMap geojson={geojson} />
       </section>
 
-      <aside className="space-y-6 overflow-y-auto border-l border-neutral-800 bg-[#0a0a0a] p-6 lg:h-screen">
+      <aside className="space-y-6 overflow-y-auto border-l border-[rgba(255,255,255,0.07)] bg-[#09090C] p-6 lg:h-screen">
         <header>
-          <p className="text-sm uppercase tracking-wide text-amber-500">Survey results</p>
+          <p className="text-sm uppercase tracking-wide text-[#F5A623]">Survey results</p>
           <h1 className="mt-2 text-2xl font-semibold">{survey.name}</h1>
-          {survey.location && <p className="mt-1 text-sm text-neutral-400">{survey.location}</p>}
+          {survey.location && <p className="mt-1 text-sm text-[#8A8A9A]">{survey.location}</p>}
         </header>
 
-        <section className="rounded border border-neutral-800 bg-neutral-950 p-5">
+        <section className="rounded border border-[rgba(255,255,255,0.07)] bg-[#09090C] p-5">
           <PCIGauge averagePci={averagePci} />
         </section>
 
-        <section className="rounded border border-neutral-800 bg-neutral-950 p-5">
+        <section className="rounded border border-[rgba(255,255,255,0.07)] bg-[#09090C] p-5">
           <h2 className="mb-4 text-lg font-medium">Condition Breakdown</h2>
           <ConditionBreakdown sections={sections} />
         </section>
 
-        <section className="rounded border border-neutral-800 bg-neutral-950 p-5">
+        <section className="rounded border border-[rgba(255,255,255,0.07)] bg-[#09090C] p-5">
           <h2 className="mb-4 text-lg font-medium">Priority Sections</h2>
           <PrioritySections sections={sections} />
         </section>
 
-        <section className="rounded border border-neutral-800 bg-neutral-950 p-5">
+        <section className="rounded border border-[rgba(255,255,255,0.07)] bg-[#09090C] p-5">
           <h2 className="mb-4 text-lg font-medium">Crack Types</h2>
           <CrackTypePieChart detectionsSummary={detectionsSummary} />
         </section>

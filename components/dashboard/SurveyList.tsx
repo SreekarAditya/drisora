@@ -55,8 +55,8 @@ function DroneMapIllustration() {
           DRISORA SURVEY PREVIEW
         </span>
         <div className="flex items-center gap-1">
-          <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-500" />
-          <span className="font-mono text-[10px] text-amber-500">READY</span>
+          <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-[#F5A623]" />
+          <span className="font-mono text-[10px] text-[#F5A623]">READY</span>
         </div>
       </div>
 
@@ -353,15 +353,15 @@ function EmptyState() {
           background: "rgba(245,158,11,0.07)",
         }}
       >
-        <div className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-        <span className="font-mono text-[11px] tracking-widest text-amber-400">
+        <div className="h-1.5 w-1.5 rounded-full bg-[#F5A623]" />
+        <span className="font-mono text-[11px] tracking-widest text-[#F5A623]">
           IRC:82-2023 COMPLIANT
         </span>
       </div>
 
       {/* Headline */}
       <h1
-        className="hero-anim font-heading mt-6 text-5xl font-bold uppercase leading-[0.95] tracking-tight text-white sm:text-6xl"
+        className="hero-anim font-heading mt-6 text-5xl font-bold uppercase leading-[0.95] tracking-tight text-[#F0F0F4] sm:text-6xl"
         style={{ animationDelay: "140ms" }}
       >
         Your first survey
@@ -386,7 +386,7 @@ function EmptyState() {
       >
         <Link
           href="/upload"
-          className="inline-flex items-center gap-2 rounded-md px-8 py-3 text-[14px] font-semibold text-black transition-colors hover:bg-amber-400"
+          className="inline-flex items-center gap-2 rounded-md px-8 py-3 text-[14px] font-semibold text-[#09090C] transition-colors hover:bg-[#FFBE4D]"
           style={{ background: "#f59e0b" }}
         >
           Start your first survey
@@ -419,13 +419,13 @@ function EmptyState() {
           {DELIVERABLES.map((d) => (
             <div
               key={d.title}
-              className="rounded-xl border border-[#1c1c1c] p-5 text-left transition-colors hover:border-[#2a2a2a]"
+              className="rounded-[14px] border border-[#1c1c1c] p-5 text-left transition-colors hover:border-[rgba(255,255,255,0.12)]"
               style={{ background: "#0d0d0d" }}
             >
-              <div className="mb-4 flex h-8 w-8 items-center justify-center rounded-lg border border-[#222] bg-[#111]">
+              <div className="mb-4 flex h-8 w-8 items-center justify-center rounded-lg border border-[#222] bg-[#111116]">
                 {d.icon}
               </div>
-              <h3 className="mb-1.5 text-[14px] font-semibold text-white">
+              <h3 className="mb-1.5 text-[14px] font-semibold text-[#F0F0F4]">
                 {d.title}
               </h3>
               <p className="text-[13px] leading-relaxed" style={{ color: "#555" }}>
@@ -449,12 +449,12 @@ export function SurveyList({ surveys }: SurveyListProps) {
   return (
     <main className="mx-auto max-w-7xl px-6 py-10">
       <div className="mb-8 flex items-center justify-between gap-4">
-        <h1 className="text-3xl font-semibold tracking-tight text-white">
+        <h1 className="text-3xl font-semibold tracking-tight text-[#F0F0F4]">
           Surveys
         </h1>
         <Link
           href="/upload"
-          className="rounded-md px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400"
+          className="rounded-md px-5 py-2.5 text-sm font-semibold text-[#09090C] transition-colors hover:bg-[#FFBE4D]"
           style={{ background: "#f59e0b" }}
         >
           New Survey

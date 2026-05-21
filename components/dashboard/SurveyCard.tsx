@@ -8,10 +8,10 @@ interface SurveyCardProps {
 
 const STATUS_STYLES: Record<SurveyStatus, string> = {
   uploading: "border-blue-500/20 bg-blue-500/10 text-blue-300",
-  queued: "border-amber-500/20 bg-amber-500/10 text-amber-300",
-  processing: "border-amber-500/20 bg-amber-500/10 text-amber-300",
+  queued: "border-[#F5A623]/20 bg-[#F5A623]/10 text-[#FFBE4D]",
+  processing: "border-[#F5A623]/20 bg-[#F5A623]/10 text-[#FFBE4D]",
   complete: "border-green-500/20 bg-green-500/10 text-green-300",
-  failed: "border-red-500/20 bg-red-500/10 text-red-300",
+  failed: "border-red-500/20 bg-[rgba(239,68,68,0.10)] text-red-300",
 };
 
 const STATUS_LABELS: Record<SurveyStatus, string> = {
@@ -38,10 +38,10 @@ export function SurveyCard({ survey }: SurveyCardProps) {
   return (
     <Link
       href={`/survey/${survey.id}`}
-      className="group flex min-h-48 flex-col rounded-lg border border-[#1a1a1a] bg-[#111111] p-5 transition-colors hover:border-white/10"
+      className="group flex min-h-48 flex-col rounded-lg border border-[rgba(255,255,255,0.07)] bg-[#111111] p-5 transition-colors hover:border-[rgba(255,255,255,0.10)]"
     >
       <div className="flex items-start justify-between gap-3">
-        <h2 className="line-clamp-2 text-lg font-semibold leading-tight text-white transition-colors group-hover:text-amber-400">
+        <h2 className="line-clamp-2 text-lg font-semibold leading-tight text-[#F0F0F4] transition-colors group-hover:text-[#F5A623]">
           {survey.name}
         </h2>
         <span
@@ -51,7 +51,7 @@ export function SurveyCard({ survey }: SurveyCardProps) {
         </span>
       </div>
 
-      <div className="mt-4 space-y-1 text-sm text-gray-400">
+      <div className="mt-4 space-y-1 text-sm text-[#8A8A9A]">
         <p className="line-clamp-1">{survey.location ?? "Location not recorded"}</p>
         <p>{formatDate(survey.surveyed_at ?? survey.created_at)}</p>
       </div>
@@ -65,11 +65,11 @@ export function SurveyCard({ survey }: SurveyCardProps) {
             PCI {Math.round(survey.average_pci)} · {pciBand.label}
           </span>
         ) : survey.status === "uploading" || survey.status === "processing" ? (
-          <div className="h-1.5 overflow-hidden rounded-full bg-[#1a1a1a]">
-            <div className="h-full w-2/5 rounded-full bg-amber-500" />
+          <div className="h-1.5 overflow-hidden rounded-full bg-[rgba(255,255,255,0.04)]">
+            <div className="h-full w-2/5 rounded-full bg-[#F5A623]" />
           </div>
         ) : (
-          <span className="text-xs text-gray-500">Open details</span>
+          <span className="text-xs text-[#8A8A9A]">Open details</span>
         )}
       </div>
     </Link>

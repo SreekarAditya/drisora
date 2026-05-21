@@ -56,7 +56,7 @@ export function ProjectMapLoader({
       <div className="space-y-3">
         <ProjectMap geojson={geojson} />
         {loading && (
-          <p className="text-xs text-gray-600">
+          <p className="text-xs text-[#4A4A5A]">
             Loading GPS-backed job geometry...
           </p>
         )}
@@ -67,10 +67,10 @@ export function ProjectMapLoader({
 
   if (loading) {
     return (
-      <div className="flex h-[520px] items-center justify-center rounded-lg border border-white/10 bg-[#0b0c0d] text-center">
+      <div className="flex h-[520px] items-center justify-center rounded-lg border border-[rgba(255,255,255,0.10)] bg-[#0b0c0d] text-center">
         <div className="px-6">
-          <p className="text-sm font-semibold text-white">Loading project map geometry</p>
-          <p className="mt-1 text-xs leading-5 text-gray-600">
+          <p className="text-sm font-semibold text-[#F0F0F4]">Loading project map geometry</p>
+          <p className="mt-1 text-xs leading-5 text-[#4A4A5A]">
             The rest of the project page is ready while Drisora loads GPS-backed sections.
           </p>
         </div>
@@ -79,10 +79,10 @@ export function ProjectMapLoader({
   }
 
   return (
-    <div className="flex h-[520px] items-center justify-center rounded-lg border border-white/10 bg-[#0b0c0d] text-center">
+    <div className="flex h-[520px] items-center justify-center rounded-lg border border-[rgba(255,255,255,0.10)] bg-[#0b0c0d] text-center">
       <div className="px-6">
-        <p className="text-sm font-semibold text-white">No geospatial sections linked yet</p>
-        <p className="mt-1 text-xs leading-5 text-gray-600">
+        <p className="text-sm font-semibold text-[#F0F0F4]">No geospatial sections linked yet</p>
+        <p className="mt-1 text-xs leading-5 text-[#4A4A5A]">
           {error ?? "Link a completed GPS-backed survey or upload job to build the combined campus map."}
         </p>
       </div>

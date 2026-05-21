@@ -46,7 +46,7 @@ function TrendChart({ records }: { records: LinkedRecord[] }) {
 
   if (trend.length < 2) {
     return (
-      <div className="flex h-56 items-center justify-center rounded-lg border border-white/10 bg-[#0b0c0d] text-sm text-gray-600">
+      <div className="flex h-56 items-center justify-center rounded-lg border border-[rgba(255,255,255,0.10)] bg-[#0b0c0d] text-sm text-[#4A4A5A]">
         Link at least two completed reports to plot PCI trend.
       </div>
     );
@@ -62,7 +62,7 @@ function TrendChart({ records }: { records: LinkedRecord[] }) {
   });
 
   return (
-    <div className="overflow-hidden rounded-lg border border-white/10 bg-[#0b0c0d] p-4">
+    <div className="overflow-hidden rounded-lg border border-[rgba(255,255,255,0.10)] bg-[#0b0c0d] p-4">
       <svg viewBox={`0 0 ${width} ${height}`} className="h-56 w-full">
         {[25, 50, 75, 100].map((mark) => {
           const y = pad + (1 - mark / 100) * (height - pad * 2);
@@ -253,13 +253,13 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-10">
-      <header className="mb-8 flex flex-col justify-between gap-5 border-b border-white/10 pb-6 lg:flex-row lg:items-end">
+      <header className="mb-8 flex flex-col justify-between gap-5 border-b border-[rgba(255,255,255,0.10)] pb-6 lg:flex-row lg:items-end">
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-widest text-gray-600">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">
             {typedProject.package_code ?? "Project dashboard"}
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">{typedProject.name}</h1>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-500">
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-[#F0F0F4]">{typedProject.name}</h1>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-[#8A8A9A]">
             {[typedProject.road_name, typedProject.corridor, typedProject.location].filter(Boolean).join(" · ") ||
               "Road stretch metadata not recorded."}
           </p>
@@ -267,13 +267,13 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         <div className="flex flex-wrap items-center gap-3">
           <a
             href={`/api/projects/${typedProject.id}/report`}
-            className="rounded-md border border-white/10 px-4 py-2.5 text-sm font-semibold text-gray-300 transition-colors hover:border-white/20 hover:bg-white/5 hover:text-white"
+            className="rounded-md border border-[rgba(255,255,255,0.10)] px-4 py-2.5 text-sm font-semibold text-[#F0F0F4] transition-colors hover:border-white/20 hover:bg-white/5 hover:text-[#F0F0F4]"
           >
             Combined PDF
           </a>
           <Link
             href="/upload"
-            className="rounded-md bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400"
+            className="rounded-md bg-[#F5A623] px-5 py-2.5 text-sm font-semibold text-[#09090C] transition-colors hover:bg-[#FFBE4D]"
           >
             New Survey
           </Link>
@@ -287,28 +287,28 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
           ["Active queue", active, "in progress or failed"],
           ["Crack records", detectionRows.length, "legacy detections"],
         ].map(([label, value, sub]) => (
-          <div key={label} className="rounded-lg border border-white/10 bg-[#101113] px-5 py-4">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-gray-600">{label}</p>
-            <p className="mt-1 text-2xl font-semibold text-white">{value}</p>
-            <p className="mt-0.5 text-xs text-gray-600">{sub}</p>
+          <div key={label} className="rounded-lg border border-[rgba(255,255,255,0.10)] bg-[#101113] px-5 py-4">
+            <p className="font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">{label}</p>
+            <p className="mt-1 text-2xl font-semibold text-[#F0F0F4]">{value}</p>
+            <p className="mt-0.5 text-xs text-[#4A4A5A]">{sub}</p>
           </div>
         ))}
       </section>
 
       <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="space-y-6">
-          <section className="rounded-lg border border-white/10 bg-[#101113] p-5">
+          <section className="rounded-lg border border-[rgba(255,255,255,0.10)] bg-[#101113] p-5">
             <div className="mb-4 flex items-center justify-between gap-4">
-              <h2 className="text-lg font-semibold text-white">Aggregated PCI trend</h2>
-              <span className="text-xs text-gray-600">Over survey dates</span>
+              <h2 className="text-lg font-semibold text-[#F0F0F4]">Aggregated PCI trend</h2>
+              <span className="text-xs text-[#4A4A5A]">Over survey dates</span>
             </div>
             <TrendChart records={linkedRecords} />
           </section>
 
-          <section className="rounded-lg border border-white/10 bg-[#101113] p-5">
+          <section className="rounded-lg border border-[rgba(255,255,255,0.10)] bg-[#101113] p-5">
             <div className="mb-4 flex items-center justify-between gap-4">
-              <h2 className="text-lg font-semibold text-white">Combined pavement map</h2>
-              <span className="text-xs text-gray-600">Campus-wide linked sections and 100 m PCI segments</span>
+              <h2 className="text-lg font-semibold text-[#F0F0F4]">Combined pavement map</h2>
+              <span className="text-xs text-[#4A4A5A]">Campus-wide linked sections and 100 m PCI segments</span>
             </div>
             <ProjectMapLoader
               projectId={typedProject.id}
@@ -317,13 +317,13 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             />
             <div className="mt-4 flex flex-wrap gap-3">
               {PCI_BANDS.map((band) => (
-                <span key={band.label} className="inline-flex items-center gap-2 text-xs text-gray-500">
+                <span key={band.label} className="inline-flex items-center gap-2 text-xs text-[#8A8A9A]">
                   <span className="h-2.5 w-7 rounded-sm" style={{ background: band.color }} />
                   {band.label} ({conditionCounts.find((item) => item.band.label === band.label)?.count ?? 0})
                 </span>
               ))}
               {projectMapCollection.features.some((feature) => feature.properties.is_relative) && (
-                <span className="inline-flex items-center gap-2 text-xs text-gray-500">
+                <span className="inline-flex items-center gap-2 text-xs text-[#8A8A9A]">
                   <span className="h-0.5 w-7 border-t-2 border-dashed border-gray-400" />
                   Relative PCI (&lt;100 m)
                 </span>
@@ -333,14 +333,14 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         </div>
 
         <aside className="space-y-6">
-          <section className="rounded-lg border border-white/10 bg-[#101113] p-5">
-            <h2 className="text-lg font-semibold text-white">Overall condition</h2>
+          <section className="rounded-lg border border-[rgba(255,255,255,0.10)] bg-[#101113] p-5">
+            <h2 className="text-lg font-semibold text-[#F0F0F4]">Overall condition</h2>
             <div className="mt-4 space-y-3">
               {conditionCounts.map(({ band, count }) => (
                 <div key={band.label}>
                   <div className="mb-1 flex justify-between text-xs">
-                    <span className="text-gray-400">{band.label}</span>
-                    <span className="font-mono text-gray-600">{count}</span>
+                    <span className="text-[#8A8A9A]">{band.label}</span>
+                    <span className="font-mono text-[#4A4A5A]">{count}</span>
                   </div>
                   <div className="h-1.5 overflow-hidden rounded-full bg-[#0b0c0d]">
                     <div
@@ -356,12 +356,12 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
             </div>
           </section>
 
-          <section className="rounded-lg border border-white/10 bg-[#101113] p-5">
-            <h2 className="text-lg font-semibold text-white">Engineering intelligence</h2>
+          <section className="rounded-lg border border-[rgba(255,255,255,0.10)] bg-[#101113] p-5">
+            <h2 className="text-lg font-semibold text-[#F0F0F4]">Engineering intelligence</h2>
             <div className="mt-4 space-y-4">
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-widest text-gray-600">Most common causes</p>
-                <ul className="mt-2 space-y-2 text-sm text-gray-300">
+                <p className="font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">Most common causes</p>
+                <ul className="mt-2 space-y-2 text-sm text-[#F0F0F4]">
                   {(topCauses.length > 0 ? topCauses : [{ label: "Link detection-backed surveys to compute project causes.", count: 0 }]).map((item) => (
                     <li key={item.label} className="rounded-md bg-[#0b0c0d] px-3 py-2">
                       {item.label}
@@ -370,8 +370,8 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                 </ul>
               </div>
               <div>
-                <p className="font-mono text-[10px] uppercase tracking-widest text-gray-600">Top treatments</p>
-                <ul className="mt-2 space-y-2 text-sm text-gray-300">
+                <p className="font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">Top treatments</p>
+                <ul className="mt-2 space-y-2 text-sm text-[#F0F0F4]">
                   {(topTreatments.length > 0 ? topTreatments : [{ label: "No treatment ranking available yet.", count: 0 }]).map((item) => (
                     <li key={item.label} className="rounded-md bg-[#0b0c0d] px-3 py-2">
                       {item.label}
@@ -385,7 +385,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
       </section>
 
       <section className="mt-8">
-        <h2 className="mb-4 text-lg font-semibold text-white">Assign surveys to project</h2>
+        <h2 className="mb-4 text-lg font-semibold text-[#F0F0F4]">Assign surveys to project</h2>
         <ProjectAssignForm
           projectId={typedProject.id}
           jobs={((availableJobs ?? []) as Array<{ id: string; mode: keyof typeof JOB_MODE_LABELS; status: string; created_at: string }>).map((job) => ({
@@ -403,17 +403,17 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
         />
       </section>
 
-      <section className="mt-8 overflow-hidden rounded-lg border border-white/10 bg-[#0b0c0d]">
-        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
-          <h2 className="text-lg font-semibold text-white">Linked surveys and reports</h2>
-          <span className="text-xs text-gray-600">{linkedRecords.length} records</span>
+      <section className="mt-8 overflow-hidden rounded-lg border border-[rgba(255,255,255,0.10)] bg-[#0b0c0d]">
+        <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.10)] px-5 py-4">
+          <h2 className="text-lg font-semibold text-[#F0F0F4]">Linked surveys and reports</h2>
+          <span className="text-xs text-[#4A4A5A]">{linkedRecords.length} records</span>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px]">
             <thead className="bg-[#111315]">
               <tr>
                 {["Name", "Source", "Date", "PCI", "Status", "Actions"].map((heading) => (
-                  <th key={heading} className="px-5 py-3 text-left font-mono text-[10px] uppercase tracking-widest text-gray-600">
+                  <th key={heading} className="px-5 py-3 text-left font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">
                     {heading}
                   </th>
                 ))}
@@ -424,14 +424,14 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                 const band = record.average_pci == null ? null : getPciBand(record.average_pci);
                 return (
                   <tr key={`${record.source}-${record.id}`} className="border-t border-white/5">
-                    <td className="px-5 py-3 text-sm text-gray-300">{record.label}</td>
-                    <td className="px-5 py-3 text-xs text-gray-500">{record.source === "job" ? "Upload job" : "Survey"}</td>
-                    <td className="px-5 py-3 text-sm text-gray-500">{formatDate(record.created_at)}</td>
+                    <td className="px-5 py-3 text-sm text-[#F0F0F4]">{record.label}</td>
+                    <td className="px-5 py-3 text-xs text-[#8A8A9A]">{record.source === "job" ? "Upload job" : "Survey"}</td>
+                    <td className="px-5 py-3 text-sm text-[#8A8A9A]">{formatDate(record.created_at)}</td>
                     <td className="px-5 py-3 font-mono text-sm" style={{ color: band?.color ?? "#4b5563" }}>
                       {record.average_pci == null ? "N/A" : record.average_pci.toFixed(1)}
                     </td>
                     <td className="px-5 py-3">
-                      <span className="rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-1 text-xs text-gray-400">
+                      <span className="rounded-full border border-[rgba(255,255,255,0.10)] bg-white/[0.03] px-2.5 py-1 text-xs text-[#8A8A9A]">
                         {record.status}
                       </span>
                     </td>
@@ -439,14 +439,14 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
                       <div className="flex items-center gap-2">
                         <Link
                           href={record.source === "job" ? `/jobs/${record.id}/results` : `/survey/${record.id}`}
-                          className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-gray-300 transition-colors hover:border-amber-500/40 hover:text-amber-400"
+                          className="rounded-md border border-[rgba(255,255,255,0.10)] px-3 py-1.5 text-xs text-[#F0F0F4] transition-colors hover:border-[#F5A623]/40 hover:text-[#F5A623]"
                         >
                           View
                         </Link>
                         {record.status === "complete" && (
                           <a
                             href={record.source === "job" ? `/api/jobs/${record.id}/report` : `/api/survey/${record.id}/report`}
-                            className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-gray-300 transition-colors hover:border-amber-500/40 hover:text-amber-400"
+                            className="rounded-md border border-[rgba(255,255,255,0.10)] px-3 py-1.5 text-xs text-[#F0F0F4] transition-colors hover:border-[#F5A623]/40 hover:text-[#F5A623]"
                           >
                             PDF
                           </a>
@@ -458,7 +458,7 @@ export default async function ProjectDetailPage({ params }: { params: Promise<{ 
               })}
               {linkedRecords.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-5 py-10 text-center text-sm text-gray-600">
+                  <td colSpan={6} className="px-5 py-10 text-center text-sm text-[#4A4A5A]">
                     No surveys linked yet.
                   </td>
                 </tr>

@@ -29,9 +29,9 @@ export function Breadcrumbs() {
 
   if (segments.length === 0 || pathname === "/dashboard") {
     return (
-      <div className="border-b border-white/10 bg-[#0a0a0a]">
+      <div className="border-b border-[rgba(255,255,255,0.07)] bg-[#09090C]">
         <div className="mx-auto max-w-7xl px-6 py-3">
-          <span className="font-mono text-[11px] uppercase tracking-widest text-gray-600">
+          <span className="font-mono text-[13px] text-[#F0F0F4]">
             Dashboard
           </span>
         </div>
@@ -45,12 +45,12 @@ export function Breadcrumbs() {
   });
 
   return (
-    <div className="border-b border-white/10 bg-[#0a0a0a]">
+    <div className="border-b border-[rgba(255,255,255,0.07)] bg-[#09090C]">
       <nav
         aria-label="Breadcrumb"
-        className="mx-auto flex max-w-7xl items-center gap-2 overflow-x-auto px-6 py-3 text-xs"
+        className="mx-auto flex max-w-7xl items-center gap-2 overflow-x-auto px-6 py-3 text-[13px]"
       >
-        <Link href="/dashboard" className="shrink-0 text-gray-500 transition-colors hover:text-gray-300">
+        <Link href="/dashboard" className="shrink-0 text-[#8A8A9A] transition-colors hover:text-[#F0F0F4]">
           Dashboard
         </Link>
         {crumbs.map((crumb, index) => {
@@ -60,11 +60,11 @@ export function Breadcrumbs() {
 
           return (
             <span key={crumb.href} className="flex shrink-0 items-center gap-2">
-              <span className="text-gray-700">/</span>
+              <span className="text-[#4A4A5A]">/</span>
               {isLast ? (
-                <span className="font-medium text-gray-300">{crumb.label}</span>
+                <span className="font-medium text-[#F0F0F4]">{crumb.label}</span>
               ) : (
-                <Link href={crumb.href} className="text-gray-500 transition-colors hover:text-gray-300">
+                <Link href={crumb.href} className="text-[#8A8A9A] transition-colors hover:text-[#F0F0F4]">
                   {crumb.label}
                 </Link>
               )}

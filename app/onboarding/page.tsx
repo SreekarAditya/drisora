@@ -97,34 +97,34 @@ export default function OnboardingPage() {
 
   if (checking) {
     return (
-      <main className="flex min-h-screen items-center justify-center bg-[#0a0a0a]">
-        <span className="text-sm text-gray-600">Loading…</span>
+      <main className="flex min-h-screen items-center justify-center bg-[#09090C]">
+        <span className="text-sm text-[#4A4A5A]">Loading…</span>
       </main>
     );
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-[#0a0a0a] px-6">
+    <main className="flex min-h-screen items-center justify-center bg-[#09090C] px-6">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex justify-center">
           <DrisoraLogo size="lg" showSubtext />
         </div>
 
-        <div className="rounded-xl border border-[#1a1a1a] bg-[#0f0f0f] p-8 shadow-2xl">
-          <h1 className="text-xl font-semibold text-white">
+        <div className="rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116] p-8 shadow-2xl">
+          <h1 className="text-xl font-semibold text-[#F0F0F4]">
             Set up your account
           </h1>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-[#8A8A9A]">
             Tell us a bit about yourself to personalise your workspace.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-6 space-y-4">
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-gray-400">
+              <label className="text-xs font-medium text-[#8A8A9A]">
                 Full name
               </label>
               <input
-                className="w-full rounded-md border border-[#2a2a2a] bg-[#0a0a0a] px-3 py-2.5 text-sm text-white outline-none transition-colors placeholder:text-gray-700 focus:border-amber-500"
+                className="w-full rounded-md border border-[rgba(255,255,255,0.12)] bg-[#09090C] px-3 py-2.5 text-sm text-[#F0F0F4] outline-none transition-colors placeholder:text-[#4A4A5A] focus:border-[#F5A623]"
                 type="text"
                 placeholder="Aditya Kumar"
                 value={fullName}
@@ -134,11 +134,11 @@ export default function OnboardingPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-gray-400">
+              <label className="text-xs font-medium text-[#8A8A9A]">
                 Organisation name
               </label>
               <input
-                className="w-full rounded-md border border-[#2a2a2a] bg-[#0a0a0a] px-3 py-2.5 text-sm text-white outline-none transition-colors placeholder:text-gray-700 focus:border-amber-500"
+                className="w-full rounded-md border border-[rgba(255,255,255,0.12)] bg-[#09090C] px-3 py-2.5 text-sm text-[#F0F0F4] outline-none transition-colors placeholder:text-[#4A4A5A] focus:border-[#F5A623]"
                 type="text"
                 placeholder="NHAI / IIT Bombay / …"
                 value={orgName}
@@ -148,9 +148,9 @@ export default function OnboardingPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-gray-400">Role</label>
+              <label className="text-xs font-medium text-[#8A8A9A]">Role</label>
               <select
-                className="w-full rounded-md border border-[#2a2a2a] bg-[#0a0a0a] px-3 py-2.5 text-sm text-white outline-none transition-colors focus:border-amber-500 [&>option]:bg-[#0a0a0a]"
+                className="w-full rounded-md border border-[rgba(255,255,255,0.12)] bg-[#09090C] px-3 py-2.5 text-sm text-[#F0F0F4] outline-none transition-colors focus:border-[#F5A623] [&>option]:bg-[#09090C]"
                 value={role}
                 onChange={(e) => setRole(e.target.value as Role)}
                 required
@@ -167,12 +167,12 @@ export default function OnboardingPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-medium text-gray-400">
+              <label className="text-xs font-medium text-[#8A8A9A]">
                 Phone{" "}
-                <span className="text-gray-600">(optional)</span>
+                <span className="text-[#4A4A5A]">(optional)</span>
               </label>
               <input
-                className="w-full rounded-md border border-[#2a2a2a] bg-[#0a0a0a] px-3 py-2.5 text-sm text-white outline-none transition-colors placeholder:text-gray-700 focus:border-amber-500"
+                className="w-full rounded-md border border-[rgba(255,255,255,0.12)] bg-[#09090C] px-3 py-2.5 text-sm text-[#F0F0F4] outline-none transition-colors placeholder:text-[#4A4A5A] focus:border-[#F5A623]"
                 type="tel"
                 placeholder="+91 98765 43210"
                 value={phone}
@@ -181,7 +181,7 @@ export default function OnboardingPage() {
             </div>
 
             {error && (
-              <p className="rounded-md bg-red-500/10 px-3 py-2 text-sm text-red-400">
+              <p className="rounded-md bg-[rgba(239,68,68,0.10)] px-3 py-2 text-sm text-[#EF4444]">
                 {error}
               </p>
             )}
@@ -189,7 +189,7 @@ export default function OnboardingPage() {
             <button
               type="submit"
               disabled={submitting || !role}
-              className="mt-2 w-full rounded-lg bg-amber-500 px-4 py-2.5 text-sm font-semibold text-black transition-colors hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+              className="mt-2 w-full rounded-lg bg-[#F5A623] px-4 py-2.5 text-sm font-semibold text-[#09090C] transition-colors hover:bg-[#FFBE4D] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {submitting ? "Saving…" : "Continue to dashboard →"}
             </button>

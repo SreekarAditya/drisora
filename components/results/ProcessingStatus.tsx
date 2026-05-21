@@ -23,15 +23,15 @@ export function ProcessingStatus({ surveyId, initialStatus }: ProcessingStatusPr
 
   return (
     <div className="space-y-3">
-      <div className="h-2 overflow-hidden rounded-full bg-neutral-800">
-        <div className="h-full bg-amber-500 transition-all duration-500" style={{ width: `${progress}%` }} />
+      <div className="h-[3px] overflow-hidden rounded-full bg-[rgba(245,166,35,0.15)]">
+        <div className="h-full rounded-full bg-[#F5A623] transition-all duration-500" style={{ width: `${progress}%` }} />
       </div>
       <div className="flex items-center justify-between text-sm">
-        <span className="text-neutral-300">{status.stageLabel ?? "Waiting for processing updates"}</span>
-        <span className="text-neutral-500">{progress}%</span>
+        <span className="text-[#F0F0F4]">{status.stageLabel ?? "Waiting for processing updates"}</span>
+        <span className="font-mono text-[#8A8A9A]">{progress}%</span>
       </div>
       {status.totalFrames > 0 && (
-        <p className="text-xs text-neutral-500">
+        <p className="font-mono text-xs text-[#4A4A5A]">
           Frame {status.currentFrame} of {status.totalFrames}
         </p>
       )}

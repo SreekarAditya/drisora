@@ -12,7 +12,7 @@ export default function CrackTypePieChartClient({ detectionsSummary }: CrackType
   const data = Object.entries(detectionsSummary).map(([name, value]) => ({ name, value }));
 
   if (data.length === 0) {
-    return <p className="text-sm text-neutral-400">No cracks detected.</p>;
+    return <p className="text-sm text-[#8A8A9A]">No cracks detected.</p>;
   }
 
   return (
@@ -25,8 +25,8 @@ export default function CrackTypePieChartClient({ detectionsSummary }: CrackType
             ))}
           </Pie>
           <Tooltip
-            contentStyle={{ background: "#171717", border: "1px solid #404040", color: "#fff" }}
-            itemStyle={{ color: "#fff" }}
+            contentStyle={{ background: "#1A1A22", border: "1px solid rgba(255,255,255,0.12)", color: "#F0F0F4", borderRadius: "10px" }}
+            itemStyle={{ color: "#F0F0F4" }}
           />
         </PieChart>
       </ResponsiveContainer>

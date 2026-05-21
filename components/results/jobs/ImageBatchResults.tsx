@@ -43,16 +43,16 @@ function FrameCard({ frame }: { frame: FrameResult }) {
     Object.keys(frame.crack_type_lengths_m).length > 0;
 
   return (
-    <div className="group overflow-hidden rounded-xl border border-[#1a1a1a] bg-[#0f0f0f] transition-colors hover:border-[#2a2a2a]">
+    <div className="group overflow-hidden rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116] transition-colors hover:border-[rgba(255,255,255,0.12)]">
       {/* Image */}
-      <div className="relative aspect-video w-full bg-[#111] overflow-hidden">
+      <div className="relative aspect-video w-full bg-[#0D0D11] overflow-hidden">
         <DetectionFrameImage
           frame={frame}
           alt={`Frame ${frame.index}`}
           objectFit="cover"
           className="h-full w-full"
           sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
-          placeholderClassName="text-[#2a2a2a]"
+          placeholderClassName="text-[#4A4A5A]"
         />
         {/* PCI overlay badge */}
         <div
@@ -67,27 +67,27 @@ function FrameCard({ frame }: { frame: FrameResult }) {
       <div className="p-3">
         <div className="flex items-center justify-between gap-2">
           <PciChip score={frame.pci_score} />
-          <span className="font-mono text-[10px] text-gray-700">#{frame.index + 1}</span>
+          <span className="font-mono text-[10px] text-[#4A4A5A]">#{frame.index + 1}</span>
         </div>
         {dominant && (
-          <p className="mt-1.5 text-xs text-gray-500">{dominant}</p>
+          <p className="mt-1.5 text-xs text-[#8A8A9A]">{dominant}</p>
         )}
-        <div className="mt-2 space-y-1 border-t border-[#1a1a1a] pt-2 text-[11px] text-gray-500">
+        <div className="mt-2 space-y-1 border-t border-[rgba(255,255,255,0.05)] pt-2 text-[11px] text-[#8A8A9A]">
           {hasCracks ? (
             <>
               <div className="flex justify-between gap-2">
                 <span>Max width</span>
-                <span className="font-mono text-gray-300">
+                <span className="font-mono text-[#F0F0F4]">
                   {frame.max_crack_width_mm == null ? "N/A" : `${frame.max_crack_width_mm.toFixed(1)} mm`}
                 </span>
               </div>
               <div className="flex justify-between gap-2">
                 <span>Avg width</span>
-                <span className="font-mono text-gray-300">
+                <span className="font-mono text-[#F0F0F4]">
                   {frame.avg_crack_width_mm == null ? "N/A" : `${frame.avg_crack_width_mm.toFixed(1)} mm`}
                 </span>
               </div>
-              <p className="font-mono text-[10px] text-gray-600">
+              <p className="font-mono text-[10px] text-[#4A4A5A]">
                 {crackWidthBandLabel(frame.max_crack_width_mm ?? frame.avg_crack_width_mm)}
                 {frame.crack_metrics_estimated ? " (legacy estimate)" : ""}
               </p>
@@ -107,7 +107,7 @@ export function ImageBatchResults({ results, jobId, surveyDate, orgName }: Props
 
   if (frames.length === 0) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a]">
+      <div className="min-h-screen bg-[#09090C]">
         <SummaryBar results={results} jobId={jobId} surveyDate={surveyDate} orgName={orgName} />
         <NoDetectionsState jobId={jobId} />
       </div>
@@ -127,17 +127,17 @@ export function ImageBatchResults({ results, jobId, surveyDate, orgName }: Props
   );
 
   const filterExtra = (
-    <div className="h-8 w-px bg-[#1e1e1e]" />
+    <div className="h-8 w-px bg-[rgba(255,255,255,0.07)]" />
   );
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
+    <div className="min-h-screen bg-[#09090C]">
       <SummaryBar results={results} jobId={jobId} surveyDate={surveyDate} orgName={orgName} extra={filterExtra} />
 
       <div className="mx-auto max-w-7xl px-6 py-8">
         {/* Band distribution bar */}
-        <div className="mb-8 overflow-hidden rounded-xl border border-[#1a1a1a] bg-[#0f0f0f] p-5">
-          <p className="mb-3 font-mono text-[10px] uppercase tracking-widest text-gray-600">Condition distribution</p>
+        <div className="mb-8 overflow-hidden rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116] p-5">
+          <p className="mb-3 font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">Condition distribution</p>
           <div className="flex h-3 overflow-hidden rounded-full">
             {bandCounts.map(({ band, count }) =>
               count > 0 ? (
@@ -157,8 +157,8 @@ export function ImageBatchResults({ results, jobId, surveyDate, orgName }: Props
             {bandCounts.map(({ band, count }) => (
               <div key={band.label} className="flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full" style={{ background: band.color }} />
-                <span className="text-xs text-gray-500">{band.label}</span>
-                <span className="text-xs font-medium text-gray-300">{count}</span>
+                <span className="text-xs text-[#8A8A9A]">{band.label}</span>
+                <span className="text-xs font-medium text-[#F0F0F4]">{count}</span>
               </div>
             ))}
           </div>
@@ -173,22 +173,22 @@ export function ImageBatchResults({ results, jobId, surveyDate, orgName }: Props
                 onClick={() => setFilter(opt.value)}
                 className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
                   filter === opt.value
-                    ? "border-amber-500/40 bg-amber-500/10 text-amber-400"
-                    : "border-[#1e1e1e] bg-[#0f0f0f] text-gray-500 hover:border-[#2a2a2a] hover:text-gray-300"
+                    ? "border-[rgba(245,166,35,0.40)] bg-[rgba(245,166,35,0.08)] text-[#F5A623]"
+                    : "border-[rgba(255,255,255,0.07)] bg-[#111116] text-[#8A8A9A] hover:border-[rgba(255,255,255,0.15)] hover:text-[#F0F0F4]"
                 }`}
               >
                 {opt.label}
               </button>
             ))}
           </div>
-          <span className="ml-auto text-xs text-gray-600">
+          <span className="ml-auto text-xs text-[#4A4A5A]">
             {filtered.length} of {frames.length} sections
           </span>
         </div>
 
         {/* Grid */}
         {filtered.length === 0 ? (
-          <div className="flex h-40 items-center justify-center rounded-xl border border-[#1a1a1a] text-sm text-gray-600">
+          <div className="flex h-40 items-center justify-center rounded-[14px] border border-[rgba(255,255,255,0.07)] text-sm text-[#4A4A5A]">
             No sections in this PCI band
           </div>
         ) : (
@@ -201,11 +201,11 @@ export function ImageBatchResults({ results, jobId, surveyDate, orgName }: Props
 
         {/* Worst section callout */}
         {worstFrame && (
-          <div className="mt-8 rounded-xl border border-red-500/20 bg-red-500/5 p-5">
-            <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-red-400">Worst section</p>
+          <div className="mt-8 rounded-[14px] border border-[rgba(239,68,68,0.20)] bg-[rgba(239,68,68,0.05)] p-5">
+            <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-[#EF4444]">Worst section</p>
             <div className="flex flex-wrap items-center gap-4">
               <PciChip score={worstFrame.pci_score} size="lg" />
-              <span className="text-sm text-gray-400">
+              <span className="text-sm text-[#8A8A9A]">
                 Frame #{worstFrame.index + 1}
                 {worstFrame.crack_types.length > 0 && ` · ${worstFrame.crack_types.join(", ")}`}
               </span>

@@ -151,13 +151,14 @@ export default async function ReportsPage({
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-10">
-      <header className="mb-8 flex flex-col justify-between gap-5 border-b border-white/10 pb-6 md:flex-row md:items-end">
+      <header className="mb-8 flex flex-col justify-between gap-5 border-b border-[rgba(255,255,255,0.07)] pb-6 md:flex-row md:items-end">
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-widest text-gray-600">
+          <p className="flex items-center gap-2 font-mono text-[11px] font-medium uppercase tracking-[0.15em] text-[#F5A623]">
+            <span className="inline-block h-4 w-[2px] bg-[#F5A623]" />
             Completed outputs
           </p>
-          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-white">Reports</h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-gray-500">
+          <h1 className="mt-3 text-[28px] font-semibold tracking-tight text-white">Reports</h1>
+          <p className="mt-2 max-w-2xl text-[14px] leading-6 text-[#8A8A9A]">
             Completed reports only, with quick preview, PDF download, share link, and engineering filters.
           </p>
         </div>
@@ -165,103 +166,114 @@ export default async function ReportsPage({
 
       <section className="mb-8 grid gap-4 sm:grid-cols-3">
         {[
-          ["Reports", readyReports, "after filters"],
-          ["Average PCI", avgPci == null ? "N/A" : avgPci.toFixed(1), avgPci == null ? "no PCI" : getPciBand(avgPci).label],
-          ["Projects", projectRows.length, "available filters"],
-        ].map(([label, value, sub]) => (
-          <div key={label} className="rounded-lg border border-white/10 bg-[#101113] px-5 py-4">
-            <p className="font-mono text-[10px] uppercase tracking-widest text-gray-600">{label}</p>
-            <p className="mt-1 text-2xl font-semibold text-white">{value}</p>
-            <p className="mt-0.5 text-xs text-gray-600">{sub}</p>
-          </div>
-        ))}
+          { label: "Reports", value: readyReports, sub: "after filters", color: readyReports > 0 ? "#F5A623" : undefined },
+          { label: "Average PCI", value: avgPci == null ? "N/A" : avgPci.toFixed(1), sub: avgPci == null ? "no PCI" : getPciBand(avgPci).label, color: avgPci != null ? getPciBand(avgPci).color : undefined },
+          { label: "Projects", value: projectRows.length, sub: "available filters", color: undefined },
+        ].map((s) => {
+          const isZero = s.value === 0 || s.value === "N/A";
+          return (
+            <div key={s.label} className="rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116] px-5 py-5">
+              <p className="font-mono text-[11px] font-medium uppercase tracking-[0.15em] text-[#8A8A9A]">{s.label}</p>
+              <p className="mt-2 font-mono text-[24px] font-semibold leading-none" style={{ color: isZero ? "#4A4A5A" : (s.color ?? "#F0F0F4") }}>
+                {s.value}
+              </p>
+              <p className="mt-2 text-[12px] text-[#4A4A5A]">{s.sub}</p>
+            </div>
+          );
+        })}
       </section>
 
-      <form className="mb-6 grid gap-3 rounded-lg border border-white/10 bg-[#101113] p-4 md:grid-cols-6" action="/reports">
-        <label>
-          <span className="mb-2 block text-xs text-gray-500">From</span>
-          <input
-            name="from"
-            type="date"
-            defaultValue={params.from}
-            className="w-full rounded-md border border-white/10 bg-[#0b0c0d] px-3 py-2 text-sm text-white outline-none focus:border-amber-500/70"
-          />
-        </label>
-        <label>
-          <span className="mb-2 block text-xs text-gray-500">To</span>
-          <input
-            name="to"
-            type="date"
-            defaultValue={params.to}
-            className="w-full rounded-md border border-white/10 bg-[#0b0c0d] px-3 py-2 text-sm text-white outline-none focus:border-amber-500/70"
-          />
-        </label>
-        <label>
-          <span className="mb-2 block text-xs text-gray-500">Min PCI</span>
-          <input
-            name="min_pci"
-            type="number"
-            min="0"
-            max="100"
-            defaultValue={params.min_pci}
-            className="w-full rounded-md border border-white/10 bg-[#0b0c0d] px-3 py-2 text-sm text-white outline-none focus:border-amber-500/70"
-          />
-        </label>
-        <label>
-          <span className="mb-2 block text-xs text-gray-500">Max PCI</span>
-          <input
-            name="max_pci"
-            type="number"
-            min="0"
-            max="100"
-            defaultValue={params.max_pci}
-            className="w-full rounded-md border border-white/10 bg-[#0b0c0d] px-3 py-2 text-sm text-white outline-none focus:border-amber-500/70"
-          />
-        </label>
-        <label>
-          <span className="mb-2 block text-xs text-gray-500">Project</span>
-          <select
-            name="project"
-            defaultValue={params.project ?? "all"}
-            className="w-full rounded-md border border-white/10 bg-[#0b0c0d] px-3 py-2 text-sm text-white outline-none focus:border-amber-500/70"
-          >
-            <option value="all">All projects</option>
-            {projectRows.map((project) => (
-              <option key={project.id} value={project.id}>{project.name}</option>
-            ))}
-          </select>
-        </label>
-        <label>
-          <span className="mb-2 block text-xs text-gray-500">Crack type</span>
-          <select
-            name="crack_type"
-            defaultValue={params.crack_type ?? ""}
-            className="w-full rounded-md border border-white/10 bg-[#0b0c0d] px-3 py-2 text-sm text-white outline-none focus:border-amber-500/70"
-          >
-            <option value="">All types</option>
-            <option value="Longitudinal Crack">Longitudinal</option>
-            <option value="Transverse Crack">Transverse</option>
-            <option value="Alligator Crack">Alligator</option>
-            <option value="Pothole">Pothole</option>
-          </select>
-        </label>
-        <div className="md:col-span-6 flex justify-end gap-3">
-          <Link href="/reports" className="rounded-md border border-white/10 px-4 py-2 text-sm text-gray-300 transition-colors hover:bg-white/5">
+      <form className="mb-6 rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116] p-5" action="/reports">
+        <div className="grid gap-4 md:grid-cols-6">
+          <label>
+            <span className="mb-2 block font-mono text-[11px] uppercase tracking-[0.12em] text-[#8A8A9A]">From</span>
+            <input
+              name="from"
+              type="date"
+              defaultValue={params.from}
+              className="w-full rounded-[8px] border border-[rgba(255,255,255,0.10)] bg-[#0D0D11] px-3 py-2.5 text-sm text-[#F0F0F4] outline-none transition-colors focus:border-[rgba(245,166,35,0.50)] focus:shadow-[0_0_0_3px_rgba(245,166,35,0.10)]"
+            />
+          </label>
+          <label>
+            <span className="mb-2 block font-mono text-[11px] uppercase tracking-[0.12em] text-[#8A8A9A]">To</span>
+            <input
+              name="to"
+              type="date"
+              defaultValue={params.to}
+              className="w-full rounded-[8px] border border-[rgba(255,255,255,0.10)] bg-[#0D0D11] px-3 py-2.5 text-sm text-[#F0F0F4] outline-none transition-colors focus:border-[rgba(245,166,35,0.50)] focus:shadow-[0_0_0_3px_rgba(245,166,35,0.10)]"
+            />
+          </label>
+          <label>
+            <span className="mb-2 block font-mono text-[11px] uppercase tracking-[0.12em] text-[#8A8A9A]">Min PCI</span>
+            <input
+              name="min_pci"
+              type="number"
+              min="0"
+              max="100"
+              defaultValue={params.min_pci}
+              className="w-full rounded-[8px] border border-[rgba(255,255,255,0.10)] bg-[#0D0D11] px-3 py-2.5 font-mono text-sm text-[#F0F0F4] outline-none transition-colors focus:border-[rgba(245,166,35,0.50)] focus:shadow-[0_0_0_3px_rgba(245,166,35,0.10)]"
+            />
+          </label>
+          <label>
+            <span className="mb-2 block font-mono text-[11px] uppercase tracking-[0.12em] text-[#8A8A9A]">Max PCI</span>
+            <input
+              name="max_pci"
+              type="number"
+              min="0"
+              max="100"
+              defaultValue={params.max_pci}
+              className="w-full rounded-[8px] border border-[rgba(255,255,255,0.10)] bg-[#0D0D11] px-3 py-2.5 font-mono text-sm text-[#F0F0F4] outline-none transition-colors focus:border-[rgba(245,166,35,0.50)] focus:shadow-[0_0_0_3px_rgba(245,166,35,0.10)]"
+            />
+          </label>
+          <label>
+            <span className="mb-2 block font-mono text-[11px] uppercase tracking-[0.12em] text-[#8A8A9A]">Project</span>
+            <select
+              name="project"
+              defaultValue={params.project ?? "all"}
+              className="w-full rounded-[8px] border border-[rgba(255,255,255,0.10)] bg-[#0D0D11] px-3 py-2.5 text-sm text-[#F0F0F4] outline-none transition-colors focus:border-[rgba(245,166,35,0.50)] focus:shadow-[0_0_0_3px_rgba(245,166,35,0.10)]"
+            >
+              <option value="all">All projects</option>
+              {projectRows.map((project) => (
+                <option key={project.id} value={project.id}>{project.name}</option>
+              ))}
+            </select>
+          </label>
+          <label>
+            <span className="mb-2 block font-mono text-[11px] uppercase tracking-[0.12em] text-[#8A8A9A]">Crack type</span>
+            <select
+              name="crack_type"
+              defaultValue={params.crack_type ?? ""}
+              className="w-full rounded-[8px] border border-[rgba(255,255,255,0.10)] bg-[#0D0D11] px-3 py-2.5 text-sm text-[#F0F0F4] outline-none transition-colors focus:border-[rgba(245,166,35,0.50)] focus:shadow-[0_0_0_3px_rgba(245,166,35,0.10)]"
+            >
+              <option value="">All types</option>
+              <option value="Longitudinal Crack">Longitudinal</option>
+              <option value="Transverse Crack">Transverse</option>
+              <option value="Alligator Crack">Alligator</option>
+              <option value="Pothole">Pothole</option>
+            </select>
+          </label>
+        </div>
+        <div className="mt-4 flex justify-end gap-3">
+          <Link href="/reports" className="rounded-[10px] border border-[rgba(255,255,255,0.10)] px-4 py-2 text-sm font-medium text-[#8A8A9A] transition-colors hover:border-[rgba(255,255,255,0.20)] hover:bg-[rgba(255,255,255,0.04)] hover:text-white">
             Reset
           </Link>
-          <button type="submit" className="rounded-md bg-amber-500 px-5 py-2 text-sm font-semibold text-black transition-colors hover:bg-amber-400">
+          <button type="submit" className="rounded-[10px] bg-[#F5A623] px-5 py-2 text-sm font-semibold text-[#09090C] transition-colors hover:bg-[#FFBE4D]">
             Apply filters
           </button>
         </div>
       </form>
 
-      <section className="overflow-hidden rounded-lg border border-white/10 bg-[#0b0c0d]">
+      <p className="mb-3 font-mono text-[13px] text-[#8A8A9A]">
+        Showing {rows.length} reports{avgPci != null ? ` · Avg PCI ${avgPci.toFixed(1)}` : ""}
+      </p>
+
+      <section className="overflow-hidden rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#0D0D11]">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[900px]">
-            <thead className="bg-[#111315]">
+            <thead className="bg-[#111116]">
               <tr>
                 {["Report", "Date", "Project", "PCI", "Source", "Actions"].map((heading) => (
-                  <th key={heading} className="px-5 py-3 text-left font-mono text-[10px] uppercase tracking-widest text-gray-600">
+                  <th key={heading} className="px-5 py-3 text-left font-mono text-[11px] font-medium uppercase tracking-[0.15em] text-[#4A4A5A]">
                     {heading}
                   </th>
                 ))}
@@ -275,28 +287,45 @@ export default async function ReportsPage({
                 const pdfPath = row.source === "job" ? `/api/jobs/${row.id}/report` : `/api/survey/${row.id}/report`;
 
                 return (
-                  <tr key={`${row.source}-${row.id}`} className="border-t border-white/5">
-                    <td className="px-5 py-3">
-                      <p className="text-sm font-medium text-gray-200">{row.label}</p>
-                      <p className="font-mono text-[10px] text-gray-700">{row.id.slice(0, 8)}...</p>
+                  <tr key={`${row.source}-${row.id}`} className="border-t border-[rgba(255,255,255,0.05)] transition-colors duration-100 hover:bg-[rgba(255,255,255,0.03)]">
+                    <td className="px-5 py-4">
+                      <p className="text-sm font-medium text-[#F0F0F4]">{row.label}</p>
+                      <p className="font-mono text-[10px] text-[#4A4A5A]">{row.id.slice(0, 8)}&hellip;</p>
                     </td>
-                    <td className="px-5 py-3 text-sm text-gray-500">{formatDate(row.completed_at ?? row.created_at)}</td>
-                    <td className="px-5 py-3 text-sm text-gray-500">{project?.name ?? "Unassigned"}</td>
-                    <td className="px-5 py-3 font-mono text-sm" style={{ color: band?.color ?? "#4b5563" }}>
-                      {row.average_pci == null ? "N/A" : row.average_pci.toFixed(1)}
+                    <td className="px-5 py-4 text-sm text-[#8A8A9A]">{formatDate(row.completed_at ?? row.created_at)}</td>
+                    <td className="px-5 py-4 text-sm text-[#8A8A9A]">{project?.name ?? <span className="italic text-[#4A4A5A]">Unassigned</span>}</td>
+                    <td className="px-5 py-4">
+                      {row.average_pci != null ? (
+                        <div className="flex items-center gap-2">
+                          <span className="h-2 w-2 rounded-full" style={{ backgroundColor: band?.color }} />
+                          <span className="font-mono text-[16px] font-medium" style={{ color: band?.color }}>
+                            {row.average_pci.toFixed(1)}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="font-mono text-sm text-[#4A4A5A]">N/A</span>
+                      )}
                     </td>
-                    <td className="px-5 py-3 text-sm text-gray-500">{row.source === "job" ? row.mode ? JOB_MODE_LABELS[row.mode] : "Job" : "Survey report"}</td>
-                    <td className="px-5 py-3">
+                    <td className="px-5 py-4">
+                      {row.mode ? (
+                        <span className="inline-flex items-center rounded-md border border-[rgba(245,166,35,0.30)] bg-[rgba(245,166,35,0.08)] px-2 py-0.5 font-mono text-[10px] text-[#F5A623]">
+                          {JOB_MODE_LABELS[row.mode]}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-[#8A8A9A]">Survey report</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-4">
                       <div className="flex flex-wrap items-center gap-2">
                         <Link
                           href={viewPath}
-                          className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-gray-300 transition-colors hover:border-amber-500/40 hover:text-amber-400"
+                          className="rounded-[8px] border border-[rgba(255,255,255,0.10)] px-3 py-1.5 text-xs font-medium text-[#8A8A9A] transition-all duration-100 hover:border-[rgba(245,166,35,0.30)] hover:text-[#F5A623]"
                         >
                           Quick view
                         </Link>
                         <a
                           href={pdfPath}
-                          className="rounded-md border border-white/10 px-3 py-1.5 text-xs text-gray-300 transition-colors hover:border-amber-500/40 hover:text-amber-400"
+                          className="rounded-[8px] border border-[rgba(255,255,255,0.10)] px-3 py-1.5 text-xs font-medium text-[#8A8A9A] transition-all duration-100 hover:border-[rgba(245,166,35,0.30)] hover:text-[#F5A623]"
                         >
                           Download PDF
                         </a>
@@ -308,8 +337,8 @@ export default async function ReportsPage({
               })}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={6} className="px-5 py-12 text-center text-sm text-gray-600">
-                    No completed reports match these filters.
+                  <td colSpan={6} className="px-5 py-16 text-center">
+                    <p className="text-sm text-[#4A4A5A]">No completed reports match these filters.</p>
                   </td>
                 </tr>
               )}

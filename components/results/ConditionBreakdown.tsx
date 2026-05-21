@@ -5,7 +5,7 @@ import type { RoadSectionProperties } from "@/types";
 
 const ConditionBreakdownChart = dynamic(() => import("./ConditionBreakdownChart"), {
   ssr: false,
-  loading: () => <div className="h-24 rounded border border-neutral-800 bg-neutral-950" />,
+  loading: () => <div className="h-24 animate-skeleton rounded-[10px] border border-[rgba(255,255,255,0.07)] bg-[#111116]" />,
 });
 
 interface ConditionBreakdownProps {

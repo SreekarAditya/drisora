@@ -35,8 +35,8 @@ export default function PCIGaugeChart({ averagePci }: PCIGaugeChartProps) {
         </RadialBarChart>
       </ResponsiveContainer>
       <div className="absolute inset-x-0 bottom-5 text-center">
-        <div className="text-5xl font-semibold text-white">{Math.round(value)}</div>
-        <div className="mt-1 text-xs uppercase tracking-wide text-neutral-400">Average PCI</div>
+        <div className="font-mono text-5xl font-semibold text-[#F0F0F4]">{Math.round(value)}</div>
+        <div className="mt-1 font-mono text-xs uppercase tracking-widest text-[#4A4A5A]">Average PCI</div>
       </div>
     </div>
   );

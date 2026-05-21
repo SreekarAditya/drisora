@@ -12,7 +12,7 @@ import { useMediaQuery } from "@/hooks/useMediaQuery";
 
 const DroneMapClient = dynamic(
   () => import("./DroneMapClient").then((m) => m.DroneMapClient),
-  { ssr: false, loading: () => <div className="h-full rounded-xl bg-[#0f0f0f] animate-pulse" /> },
+  { ssr: false, loading: () => <div className="h-full rounded-[14px] bg-[#111116] animate-pulse" /> },
 );
 
 interface Props {
@@ -46,10 +46,10 @@ function SegmentSidebar({
     metricRows.length > 0;
 
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-xl border border-[#1a1a1a] bg-[#0f0f0f]">
-      <div className="flex items-center justify-between border-b border-[#1a1a1a] px-4 py-3">
+    <div className="flex h-full flex-col overflow-hidden rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116]">
+      <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.07)] px-4 py-3">
         <PciChip score={frame.pci_score} />
-        <button onClick={onClose} className="text-gray-600 hover:text-gray-400">
+        <button onClick={onClose} className="text-[#4A4A5A] hover:text-[#F0F0F4]">
           <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
             <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
           </svg>
@@ -57,7 +57,7 @@ function SegmentSidebar({
       </div>
 
       {/* Overlay thumbnail */}
-      <div className="relative h-44 shrink-0 bg-[#080808]">
+      <div className="relative h-44 shrink-0 bg-[#0D0D11]">
         <DetectionFrameImage
           frame={frame}
           alt="Crack overlay"
@@ -71,7 +71,7 @@ function SegmentSidebar({
       <div className="flex-1 overflow-y-auto p-4">
         <div className="space-y-4">
           <div>
-            <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-gray-600">Condition</p>
+            <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">Condition</p>
             <p className="text-sm font-medium" style={{ color: band.color }}>
               {band.label} — PCI {frame.pci_score.toFixed(0)}
             </p>
@@ -79,22 +79,22 @@ function SegmentSidebar({
 
           {frame.lat != null && frame.lon != null && (
             <div>
-              <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-gray-600">GPS</p>
-              <p className="font-mono text-xs text-gray-400">
+              <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">GPS</p>
+              <p className="font-mono text-xs text-[#8A8A9A]">
                 {frame.lat.toFixed(6)}, {frame.lon.toFixed(6)}
               </p>
               {frame.alt_m != null && (
-                <p className="font-mono text-xs text-gray-600">{frame.alt_m.toFixed(1)} m alt</p>
+                <p className="font-mono text-xs text-[#4A4A5A]">{frame.alt_m.toFixed(1)} m alt</p>
               )}
             </div>
           )}
 
           {frame.crack_types.length > 0 && (
             <div>
-              <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-gray-600">Crack types</p>
+              <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">Crack types</p>
               <div className="flex flex-wrap gap-1.5">
                 {frame.crack_types.map((ct) => (
-                  <span key={ct} className="rounded bg-[#1a1a1a] px-2 py-0.5 text-xs text-gray-300">
+                  <span key={ct} className="rounded bg-[rgba(255,255,255,0.04)] px-2 py-0.5 text-xs text-[#F0F0F4]">
                     {ct}
                   </span>
                 ))}
@@ -102,11 +102,11 @@ function SegmentSidebar({
             </div>
           )}
 
-          <div className="rounded-lg border border-white/10 bg-[#111214] p-3">
+          <div className="rounded-[10px] border border-[rgba(255,255,255,0.10)] bg-[#111116] p-3">
             <div className="mb-2 flex items-center justify-between gap-3">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-gray-500">Crack Metrics</p>
+              <p className="font-mono text-[10px] uppercase tracking-widest text-[#8A8A9A]">Crack Metrics</p>
               {frame.crack_metrics_estimated && hasCracks && (
-                <span className="rounded-full border border-amber-500/20 bg-amber-500/10 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+                <span className="rounded-full border border-[rgba(245,166,35,0.20)] bg-[rgba(245,166,35,0.10)] px-2 py-0.5 text-[10px] font-semibold text-[#FFBE4D]">
                   Legacy estimate
                 </span>
               )}
@@ -114,60 +114,60 @@ function SegmentSidebar({
             {hasCracks ? (
               <>
                 <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-md bg-black/25 p-2">
-                    <p className="font-mono text-[10px] uppercase tracking-widest text-gray-600">Max width</p>
-                    <p className="mt-1 text-lg font-semibold text-white">
+                  <div className="rounded-md bg-[rgba(0,0,0,0.25)] p-2">
+                    <p className="font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">Max width</p>
+                    <p className="mt-1 text-lg font-semibold text-[#F0F0F4]">
                       {frame.max_crack_width_mm == null ? "N/A" : `${frame.max_crack_width_mm.toFixed(1)} mm`}
                     </p>
                   </div>
-                  <div className="rounded-md bg-black/25 p-2">
-                    <p className="font-mono text-[10px] uppercase tracking-widest text-gray-600">Avg width</p>
-                    <p className="mt-1 text-lg font-semibold text-white">
+                  <div className="rounded-md bg-[rgba(0,0,0,0.25)] p-2">
+                    <p className="font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">Avg width</p>
+                    <p className="mt-1 text-lg font-semibold text-[#F0F0F4]">
                       {frame.avg_crack_width_mm == null ? "N/A" : `${frame.avg_crack_width_mm.toFixed(1)} mm`}
                     </p>
                   </div>
                 </div>
-                <p className="mt-2 text-xs text-gray-500">
+                <p className="mt-2 text-xs text-[#8A8A9A]">
                   {crackWidthBandLabel(frame.max_crack_width_mm ?? frame.avg_crack_width_mm)}
                   {frame.camera_surface_distance_m != null ? ` from ${frame.camera_surface_distance_m.toFixed(2)} m camera distance` : ""}
                 </p>
                 {metricRows.length > 0 && (
                   <div className="mt-3 space-y-1">
                     {metricRows.map(([type, length]) => (
-                      <div key={type} className="flex justify-between gap-3 rounded bg-black/25 px-2 py-1.5 text-xs">
-                        <span className="text-gray-400">{type}</span>
-                        <span className="font-mono text-gray-200">{length.toFixed(2)} m</span>
+                      <div key={type} className="flex justify-between gap-3 rounded bg-[rgba(0,0,0,0.25)] px-2 py-1.5 text-xs">
+                        <span className="text-[#8A8A9A]">{type}</span>
+                        <span className="font-mono text-[#F0F0F4]">{length.toFixed(2)} m</span>
                       </div>
                     ))}
                   </div>
                 )}
               </>
             ) : (
-              <p className="text-sm text-gray-500">No cracks detected in this section.</p>
+              <p className="text-sm text-[#8A8A9A]">No cracks detected in this section.</p>
             )}
           </div>
 
           <div>
             <div className="mb-2 flex items-center justify-between gap-3">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-gray-600">Possible Causes</p>
+              <p className="font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">Possible Causes</p>
               <span
                 className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                   analysis.priority === "Immediate"
-                    ? "bg-red-500/10 text-red-300"
+                    ? "bg-[rgba(239,68,68,0.10)] text-[#EF4444]"
                     : analysis.priority === "Preventive"
-                      ? "bg-amber-500/10 text-amber-300"
-                      : "bg-emerald-500/10 text-emerald-300"
+                      ? "bg-[rgba(245,166,35,0.10)] text-[#FFBE4D]"
+                      : "bg-[rgba(34,197,94,0.10)] text-[#22C55E]"
                 }`}
               >
                 {analysis.priority}
               </span>
             </div>
-            <p className="text-sm font-medium text-gray-200">
+            <p className="text-sm font-medium text-[#F0F0F4]">
               {analysis.distressLabel} · {analysis.severity}
             </p>
             <ul className="mt-2 space-y-1.5">
               {analysis.possibleCauses.map((cause) => (
-                <li key={cause} className="text-sm leading-5 text-gray-500">
+                <li key={cause} className="text-sm leading-5 text-[#8A8A9A]">
                   {cause}
                 </li>
               ))}
@@ -175,13 +175,13 @@ function SegmentSidebar({
           </div>
 
           <div>
-            <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-gray-600">Recommended Action</p>
-            <p className="text-sm leading-6 text-gray-300">{analysis.recommendedMitigation}</p>
+            <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">Recommended Action</p>
+            <p className="text-sm leading-6 text-[#F0F0F4]">{analysis.recommendedMitigation}</p>
           </div>
 
           <div>
-            <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-gray-600">IRC:82-2023</p>
-            <p className="text-sm text-gray-300">{ircRecommendation(frame.pci_score)}</p>
+            <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">IRC:82-2023</p>
+            <p className="text-sm text-[#F0F0F4]">{ircRecommendation(frame.pci_score)}</p>
           </div>
         </div>
       </div>
@@ -200,7 +200,7 @@ export function DroneJobResults({ results, jobId, surveyDate, orgName }: Props) 
 
   if (frames.length === 0) {
     return (
-      <div className="min-h-screen bg-[#0a0a0a]">
+      <div className="min-h-screen bg-[#09090C]">
         <SummaryBar results={results} jobId={jobId} surveyDate={surveyDate} orgName={orgName} />
         <NoDetectionsState jobId={jobId} />
       </div>
@@ -231,10 +231,10 @@ export function DroneJobResults({ results, jobId, surveyDate, orgName }: Props) 
 
   const roadLengthExtra = totalLengthM > 0 ? (
     <>
-      <div className="h-8 w-px bg-[#1e1e1e]" />
+      <div className="h-8 w-px bg-[rgba(255,255,255,0.07)]" />
       <div>
-        <p className="font-mono text-[10px] uppercase tracking-widest text-gray-600">Road length</p>
-        <p className="mt-0.5 text-2xl font-semibold text-white">
+        <p className="font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">Road length</p>
+        <p className="mt-0.5 text-2xl font-semibold text-[#F0F0F4]">
           {totalLengthM >= 1000
             ? `${(totalLengthM / 1000).toFixed(2)} km`
             : `${totalLengthM.toFixed(0)} m`}
@@ -244,22 +244,22 @@ export function DroneJobResults({ results, jobId, surveyDate, orgName }: Props) 
   ) : null;
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a]">
+    <div className="min-h-screen bg-[#09090C]">
       <SummaryBar results={results} jobId={jobId} surveyDate={surveyDate} orgName={orgName} extra={roadLengthExtra} />
 
       <div className="mx-auto max-w-7xl px-6 py-8">
         {/* PCI band legend */}
-        <div className="mb-6 flex flex-wrap items-center gap-4 rounded-xl border border-[#1a1a1a] bg-[#0f0f0f] px-5 py-4">
+        <div className="mb-6 flex flex-wrap items-center gap-4 rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116] px-5 py-4">
           {PCI_BANDS.map((b) => (
             <div key={b.label} className="flex items-center gap-2">
               <span
                 className="h-3 w-8 rounded-sm"
                 style={{ background: b.color }}
               />
-              <span className="text-xs text-gray-500">
-                {b.label} <span className="text-gray-700">{b.range}</span>
+              <span className="text-xs text-[#8A8A9A]">
+                {b.label} <span className="text-[#4A4A5A]">{b.range}</span>
               </span>
-              <span className="font-mono text-xs text-gray-600">
+              <span className="font-mono text-xs text-[#4A4A5A]">
                 ({bandCounts.find((bc) => bc.band.label === b.label)?.count ?? 0})
               </span>
             </div>
@@ -268,18 +268,18 @@ export function DroneJobResults({ results, jobId, surveyDate, orgName }: Props) 
 
         {/* Map + sidebar */}
         <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-          <div className="h-[560px] overflow-hidden rounded-xl border border-[#1a1a1a]">
+          <div className="h-[560px] overflow-hidden rounded-[14px] border border-[rgba(255,255,255,0.07)]">
             {gpsFrames.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="mb-3 text-gray-600">
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="mb-3 text-[#4A4A5A]">
                   <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="currentColor" strokeWidth="1.5" />
                   <circle cx="12" cy="9" r="2.5" stroke="currentColor" strokeWidth="1.5" />
                 </svg>
-                <p className="text-sm font-semibold text-white">No GPS data available</p>
-                <p className="mt-1 text-xs text-gray-600">
+                <p className="text-sm font-semibold text-[#F0F0F4]">No GPS data available</p>
+                <p className="mt-1 text-xs text-[#4A4A5A]">
                   This survey has no location coordinates — the map view is unavailable.
                 </p>
-                <p className="mt-1 text-xs text-gray-700">
+                <p className="mt-1 text-xs text-[#4A4A5A]">
                   Results are still available in the crack distribution section below.
                 </p>
               </div>
@@ -297,9 +297,9 @@ export function DroneJobResults({ results, jobId, surveyDate, orgName }: Props) 
             {selectedFrame ? (
               <SegmentSidebar frame={selectedFrame} onClose={() => setSelectedFrame(null)} />
             ) : (
-              <div className="flex h-full items-center justify-center rounded-xl border border-[#1a1a1a] bg-[#0f0f0f]">
+              <div className="flex h-full items-center justify-center rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116]">
                 <div className="px-6 text-center">
-                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" className="mx-auto mb-3 text-[#2a2a2a]">
+                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" className="mx-auto mb-3 text-[#4A4A5A]">
                     <circle cx="16" cy="16" r="12" stroke="currentColor" strokeWidth="1.5" />
                     <circle cx="16" cy="16" r="4" stroke="currentColor" strokeWidth="1.5" />
                     <line x1="16" y1="4" x2="16" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -307,7 +307,7 @@ export function DroneJobResults({ results, jobId, surveyDate, orgName }: Props) 
                     <line x1="4" y1="16" x2="8" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                     <line x1="24" y1="16" x2="28" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                   </svg>
-                  <p className="text-xs text-gray-600">Click a segment on the map</p>
+                  <p className="text-xs text-[#4A4A5A]">Click a segment on the map</p>
                 </div>
               </div>
             )}
@@ -316,9 +316,9 @@ export function DroneJobResults({ results, jobId, surveyDate, orgName }: Props) 
 
         {/* Mobile bottom sheet */}
         {isMobile && selectedFrame && (
-          <div className="fixed bottom-0 left-0 right-0 z-50 h-96 overflow-hidden rounded-t-xl border-t border-[#1a1a1a] bg-[#0f0f0f]">
+          <div className="fixed bottom-0 left-0 right-0 z-50 h-96 overflow-hidden rounded-t-xl border-t border-[rgba(255,255,255,0.07)] bg-[#111116]">
             <div className="flex justify-center pt-3 pb-1">
-              <div className="h-1 w-10 rounded-full bg-[#333]" />
+              <div className="h-1 w-10 rounded-full bg-[rgba(255,255,255,0.12)]" />
             </div>
             <SegmentSidebar frame={selectedFrame} onClose={() => setSelectedFrame(null)} />
           </div>
@@ -326,15 +326,15 @@ export function DroneJobResults({ results, jobId, surveyDate, orgName }: Props) 
 
         {/* Crack distribution */}
         {Object.keys(summary.crack_type_counts).length > 0 && (
-          <div className="mt-6 overflow-hidden rounded-xl border border-[#1a1a1a] bg-[#0f0f0f] p-5">
-            <p className="mb-4 font-mono text-[10px] uppercase tracking-widest text-gray-600">Crack type distribution</p>
+          <div className="mt-6 overflow-hidden rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116] p-5">
+            <p className="mb-4 font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">Crack type distribution</p>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {Object.entries(summary.crack_type_counts)
                 .sort((a, b) => b[1] - a[1])
                 .map(([type, count]) => (
-                  <div key={type} className="flex items-center justify-between rounded-lg bg-[#111] px-3 py-2">
-                    <span className="text-sm text-gray-300">{type}</span>
-                    <span className="font-mono text-xs text-gray-500">{count}</span>
+                  <div key={type} className="flex items-center justify-between rounded-[10px] bg-[#111116] px-3 py-2">
+                    <span className="text-sm text-[#F0F0F4]">{type}</span>
+                    <span className="font-mono text-xs text-[#8A8A9A]">{count}</span>
                   </div>
                 ))}
             </div>

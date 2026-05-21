@@ -21,7 +21,7 @@ export default async function JobsLayout({ children }: { children: React.ReactNo
     .single();
 
   return (
-    <div className="min-h-screen bg-[#0a0a0a] text-white">
+    <div className="min-h-screen bg-[#09090C] text-[#F0F0F4]">
       <Navbar user={user} profile={profile} />
       <Breadcrumbs />
       {children}

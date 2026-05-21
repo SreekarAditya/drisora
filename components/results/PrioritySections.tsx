@@ -5,12 +5,12 @@ interface PrioritySectionsProps {
 }
 
 function pciBadgeClass(pci: number | null): string {
-  if (pci == null) return "bg-neutral-800 text-neutral-300";
-  if (pci >= 85) return "bg-green-500/20 text-green-300";
-  if (pci >= 70) return "bg-yellow-500/20 text-yellow-300";
-  if (pci >= 55) return "bg-orange-500/20 text-orange-300";
-  if (pci >= 40) return "bg-red-500/20 text-red-300";
-  return "bg-red-950 text-red-300";
+  if (pci == null) return "bg-[rgba(255,255,255,0.04)] text-[#8A8A9A]";
+  if (pci >= 85) return "bg-[rgba(34,197,94,0.12)] text-[#22C55E]";
+  if (pci >= 70) return "bg-[rgba(245,166,35,0.10)] text-[#F5A623]";
+  if (pci >= 55) return "bg-[rgba(249,115,22,0.12)] text-[#F97316]";
+  if (pci >= 40) return "bg-[rgba(239,68,68,0.10)] text-[#EF4444]";
+  return "bg-[rgba(239,68,68,0.15)] text-[#EF4444]";
 }
 
 export function PrioritySections({ sections }: PrioritySectionsProps) {
@@ -20,7 +20,7 @@ export function PrioritySections({ sections }: PrioritySectionsProps) {
     .slice(0, 5);
 
   if (prioritySections.length === 0) {
-    return <p className="text-sm text-neutral-400">No priority sections assigned.</p>;
+    return <p className="text-sm text-[#8A8A9A]">No priority sections assigned.</p>;
   }
 
   return (
@@ -28,11 +28,11 @@ export function PrioritySections({ sections }: PrioritySectionsProps) {
       {prioritySections.map((section) => (
         <div
           key={`${section.priority_rank}-${section.section_index}`}
-          className="flex items-center justify-between gap-4 border-b border-neutral-800 pb-3 last:border-b-0 last:pb-0"
+          className="flex items-center justify-between gap-4 border-b border-[rgba(255,255,255,0.05)] pb-3 last:border-b-0 last:pb-0"
         >
           <div className="min-w-0">
-            <div className="text-sm font-medium text-white">Section {section.section_index ?? "N/A"}</div>
-            <div className="truncate text-xs text-neutral-400">
+            <div className="text-sm font-medium text-[#F0F0F4]">Section {section.section_index ?? "N/A"}</div>
+            <div className="truncate text-xs text-[#8A8A9A]">
               {section.recommended_intervention ?? "No intervention assigned"}
             </div>
           </div>
