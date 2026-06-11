@@ -14,7 +14,6 @@ export default function LoginPage() {
     dob: "",
     tos: false,
     privacy: false,
-    professional: false,
   });
 
   const consentReady = isConsentComplete(consent);
@@ -31,7 +30,7 @@ export default function LoginPage() {
         PENDING_CONSENT_KEY,
         JSON.stringify({
           dob: consent.dob,
-          professional_capacity: consent.professional,
+          professional_capacity: true,
           tos_version: TOS_VERSION,
           pp_version: PRIVACY_VERSION,
         })

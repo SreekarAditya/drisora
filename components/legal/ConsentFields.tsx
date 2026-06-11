@@ -8,19 +8,18 @@ export type ConsentState = {
   dob: string;
   tos: boolean;
   privacy: boolean;
-  professional: boolean;
 };
 
-const EMPTY: ConsentState = { dob: "", tos: false, privacy: false, professional: false };
+const EMPTY: ConsentState = { dob: "", tos: false, privacy: false };
 
-/** True when DOB is present, age >= 18, and all three checkboxes are ticked. */
+/** True when DOB is present, age >= 18, and both consent checkboxes are ticked. */
 export function isConsentComplete(s: ConsentState): boolean {
-  return Boolean(s.dob) && meetsAgeFloor(s.dob) && s.tos && s.privacy && s.professional;
+  return Boolean(s.dob) && meetsAgeFloor(s.dob) && s.tos && s.privacy;
 }
 
 /**
- * Reusable consent capture UI: DOB field (with client-side 18+ check) plus three
- * required checkboxes (Terms, Privacy, professional capacity). Controlled — the
+ * Reusable consent capture UI: DOB field (with client-side 18+ check) plus two
+ * required checkboxes (Terms, Privacy). Controlled — the
  * parent owns validity and decides when to enable the submit/OAuth action.
  *
  * Server-side enforcement still happens in /api/consent (age re-check + audit row);
@@ -96,12 +95,6 @@ export function ConsentFields({
             .
           </>
         }
-      />
-      <Checkbox
-        checked={state.professional}
-        onChange={(v) => set("professional", v)}
-        id="consent-professional"
-        label="I confirm I am accessing Drisora in a professional capacity (road agency, municipality, contractor, engineer, surveyor, or authorized researcher)."
       />
     </div>
   );
