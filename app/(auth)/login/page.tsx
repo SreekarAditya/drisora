@@ -3,14 +3,42 @@
 import { useState } from "react";
 import { DrisoraLogo } from "@/components/branding/DrisoraLogo";
 import { createClient } from "@/lib/supabase/client";
+import { ConsentFields, isConsentComplete, type ConsentState } from "@/components/legal/ConsentFields";
+import { PENDING_CONSENT_KEY } from "@/components/legal/ConsentSync";
+import { TOS_VERSION, PRIVACY_VERSION } from "@/lib/legal/versions";
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [consent, setConsent] = useState<ConsentState>({
+    dob: "",
+    tos: false,
+    privacy: false,
+    professional: false,
+  });
+
+  const consentReady = isConsentComplete(consent);
 
   async function handleGoogleLogin() {
+    if (!consentReady) return;
     setLoading(true);
     setError(null);
+
+    // Stash the consent payload so ConsentSync can persist it server-side once the
+    // OAuth round-trip completes and the user is authenticated.
+    try {
+      window.localStorage.setItem(
+        PENDING_CONSENT_KEY,
+        JSON.stringify({
+          dob: consent.dob,
+          professional_capacity: consent.professional,
+          tos_version: TOS_VERSION,
+          pp_version: PRIVACY_VERSION,
+        })
+      );
+    } catch {
+      // Non-fatal: re-consent flow will catch a missing record on next login.
+    }
 
     const supabase = createClient();
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
@@ -76,15 +104,20 @@ export default function LoginPage() {
                 <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </div>
-            <h1 className="mt-4 text-xl font-semibold text-white">Welcome back</h1>
+            <h1 className="mt-4 text-xl font-semibold text-white">Sign in to Drisora</h1>
             <p className="mt-1 text-sm text-[#8A8A9A]">
-              Sign in to your workspace
+              Confirm your details to access your workspace
             </p>
 
-            <div className="mt-8">
+            <div className="mt-6">
+              <ConsentFields value={consent} onChange={(next) => setConsent(next)} />
+            </div>
+
+            <div className="mt-6">
               <button
                 onClick={handleGoogleLogin}
-                disabled={loading}
+                disabled={loading || !consentReady}
+                title={!consentReady ? "Confirm your date of birth and accept the terms to continue" : undefined}
                 className="flex h-12 w-full items-center justify-center gap-3 rounded-[8px] bg-white px-4 text-sm font-medium text-[#111] transition-all duration-150 hover:bg-gray-100 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 <svg className="h-5 w-5 shrink-0" viewBox="0 0 24 24" aria-hidden="true">
@@ -104,7 +137,15 @@ export default function LoginPage() {
             )}
 
             <p className="mt-6 text-center text-[12px] text-[#4A4A5A]">
-              By continuing you agree to Drisora&apos;s terms of service.
+              Read our{" "}
+              <a href="/legal/terms" className="text-[#6A6A7A] underline hover:text-[#8A8A9A]">
+                Terms
+              </a>{" "}
+              and{" "}
+              <a href="/legal/privacy" className="text-[#6A6A7A] underline hover:text-[#8A8A9A]">
+                Privacy Policy
+              </a>
+              .
             </p>
           </div>
 
