@@ -11,7 +11,7 @@ export default function DrisoraPrivacyPage() {
   return (
     <LegalLayout title="Privacy Policy" version={PRIVACY_VERSION} effectiveDate={PRIVACY_EFFECTIVE_DATE}>
       <p className="text-[#A8A8B6]">
-        This Privacy Policy explains how <strong className="text-white">[COMPANY LEGAL NAME]</strong>{" "}
+        This Privacy Policy explains how <strong className="text-white">Drisora</strong>{" "}
         (&ldquo;Drisora&rdquo;, &ldquo;we&rdquo;, &ldquo;us&rdquo;) collects, uses, stores, and
         protects your information when you use the Drisora platform (the &ldquo;Service&rdquo;). It
         should be read together with our Terms of Service. We act as a data fiduciary/controller for
@@ -77,14 +77,14 @@ export default function DrisoraPrivacyPage() {
           <li>
             <strong className="text-white">Where:</strong> data is stored with our infrastructure
             providers (e.g., Supabase/PostgreSQL with PostGIS, and object storage) in
-            [REGION(S), e.g., ap-south-1 / EU]. We apply encryption in transit (TLS) and at rest.
+            ap-south-1 (Mumbai), India. We apply encryption in transit (TLS) and at rest.
           </li>
           <li>
             <strong className="text-white">How long:</strong> account and consent records are retained
-            for the life of your account and for [RETENTION PERIOD, e.g., 7 years] thereafter where
+            for the life of your account and for 3 years thereafter where
             required for legal/audit purposes. Uploaded imagery and derived outputs are retained until
             you delete them or close your account, after which they are deleted within
-            [DELETION WINDOW, e.g., 30 days], subject to backup-rotation cycles and legal holds.
+            30 days, subject to backup-rotation cycles and legal holds.
           </li>
         </ul>
       </Section>
@@ -94,7 +94,7 @@ export default function DrisoraPrivacyPage() {
           We share data only with: (a) sub-processors that host and operate the Service under
           contract (e.g., cloud hosting, database, object storage, email); (b) authorities where
           legally compelled; and (c) parties to a corporate transaction, subject to this Policy. A list
-          of sub-processors is available at [SUB-PROCESSORS URL].
+          of sub-processors is available on request via sreekarp4@gmail.com.
         </p>
       </Section>
 
@@ -129,7 +129,7 @@ export default function DrisoraPrivacyPage() {
           GDPR), you may: access your data; correct inaccurate data; request deletion
           (&ldquo;right to be forgotten&rdquo;); export a portable copy; restrict or object to certain
           processing; withdraw consent (including the training opt-in); and lodge a complaint with a
-          supervisory authority. To exercise these rights, contact [CONTACT EMAIL]; we respond within
+          supervisory authority. To exercise these rights, contact sreekarp4@gmail.com; we respond within
           the timeframe required by law.
         </p>
       </Section>
@@ -156,8 +156,8 @@ export default function DrisoraPrivacyPage() {
           Act, 2023 as in force), with concurrent GDPR compliance for EU/EEA/UK users.
         </p>
         <p>
-          Data Protection / Grievance Officer (India): [GRIEVANCE OFFICER NAME], [CONTACT EMAIL].
-          EU Representative (Art. 27 GDPR, if applicable): [EU REPRESENTATIVE NAME / ADDRESS].
+          Data Protection / Grievance Officer (India): Sreekar Aditya, sreekarp4@gmail.com.
+          EU Representative (Art. 27 GDPR, if applicable): Not currently appointed.
         </p>
       </Section>
 

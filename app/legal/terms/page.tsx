@@ -12,7 +12,7 @@ export default function DrisoraTermsPage() {
     <LegalLayout title="Terms of Service" version={TOS_VERSION} effectiveDate={TOS_EFFECTIVE_DATE}>
       <p className="text-[#A8A8B6]">
         These Terms of Service (&ldquo;Terms&rdquo;) are a binding agreement between you and{" "}
-        <strong className="text-white">[COMPANY LEGAL NAME]</strong> (&ldquo;Drisora&rdquo;,
+        <strong className="text-white">Drisora</strong> (&ldquo;Drisora&rdquo;,
         &ldquo;we&rdquo;, &ldquo;us&rdquo;, &ldquo;our&rdquo;), operator of the Drisora platform at
         drisora.vercel.app and all related applications, APIs, and services (the
         &ldquo;Service&rdquo;).
@@ -161,8 +161,8 @@ export default function DrisoraTermsPage() {
         <p>
           7.3. In accordance with AGPL-3.0 §13, the corresponding source code for the AGPL-licensed
           backend components, as deployed, is available at{" "}
-          <a href="[SOURCE CODE / REPOSITORY URL]" className="text-[#F5A623]">
-            [SOURCE CODE / REPOSITORY URL]
+          <a href="https://github.com/SreekarAditya/drisora" className="text-[#F5A623]">
+            https://github.com/SreekarAditya/drisora
           </a>
           . Nothing in these Terms restricts any right you have under the AGPL-3.0 with respect to those
           components.
@@ -206,7 +206,7 @@ export default function DrisoraTermsPage() {
       <Section heading="9. Accounts and Security">
         <p>
           9.1. You are responsible for safeguarding your credentials and for all activity under your
-          account. Notify us immediately at [SECURITY CONTACT EMAIL] of any unauthorized use.
+          account. Notify us immediately at sreekarp4@gmail.com of any unauthorized use.
         </p>
         <p>
           9.2. You are responsible for the accuracy of your registration information, including date of
@@ -216,10 +216,10 @@ export default function DrisoraTermsPage() {
 
       <Section heading="10. Fees and Plans">
         <p>
-          10.1. Paid features are billed per the plan you select, as set out at [PRICING URL] or your
+          10.1. Paid features are billed per the plan you select, as set out at /pricing or your
           order form. Taxes (including GST) are your responsibility unless stated otherwise.
         </p>
-        <p>10.2. We may modify pricing prospectively on [NOTICE PERIOD, e.g., 30 days&rsquo;] notice.</p>
+        <p>10.2. We may modify pricing prospectively on 30 days&rsquo; notice.</p>
       </Section>
 
       <Section heading="11. Disclaimers and Warranties">
@@ -256,7 +256,7 @@ export default function DrisoraTermsPage() {
           13.2. <strong className="text-white">Aggregate liability cap.</strong> DRISORA&rsquo;S TOTAL
           AGGREGATE LIABILITY ARISING OUT OF OR RELATED TO THE SERVICE AND THESE TERMS WILL NOT EXCEED
           THE GREATER OF (A) THE TOTAL FEES YOU PAID TO DRISORA IN THE TWELVE (12) MONTHS IMMEDIATELY
-          PRECEDING THE EVENT GIVING RISE TO THE CLAIM, OR (B) [INR 10,000 / USD 100].
+          PRECEDING THE EVENT GIVING RISE TO THE CLAIM, OR (B) INR 10,000.
         </p>
         <p>
           13.3. <strong className="text-white">Safety carve-out.</strong> Because the Service is
@@ -297,7 +297,7 @@ export default function DrisoraTermsPage() {
           laws of India, including the Information Technology Act, 2000 and the Information Technology
           (Reasonable Security Practices and Procedures and Sensitive Personal Data or Information)
           Rules, 2011 (&ldquo;SPDI Rules&rdquo;), and, as and when in force, the Digital Personal Data
-          Protection Act, 2023. The courts at [CITY, e.g., Bengaluru], India have exclusive jurisdiction,
+          Protection Act, 2023. The courts at Hyderabad, India have exclusive jurisdiction,
           subject to any non-waivable rights of consumers or data subjects.
         </p>
         <p>
@@ -307,7 +307,7 @@ export default function DrisoraTermsPage() {
           international-transfer safeguards. Nothing in these Terms limits non-waivable rights you have
           under the GDPR.
         </p>
-        <p>16.3. Contact: [CONTACT EMAIL]. Grievance Officer (India): [GRIEVANCE OFFICER NAME / EMAIL].</p>
+        <p>16.3. Contact: sreekarp4@gmail.com. Grievance Officer (India): Sreekar Aditya, sreekarp4@gmail.com.</p>
       </Section>
     </LegalLayout>
   );

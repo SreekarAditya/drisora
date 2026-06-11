@@ -40,12 +40,12 @@ export function LegalLayout({
         <footer className="mt-16 border-t border-[rgba(255,255,255,0.08)] pt-6 text-[12px] text-[#6A6A7A]">
           <p>
             Questions? Contact{" "}
-            <a href="mailto:[CONTACT EMAIL]" className="text-[#F5A623]">
-              [CONTACT EMAIL]
+            <a href="mailto:sreekarp4@gmail.com" className="text-[#F5A623]">
+              sreekarp4@gmail.com
             </a>
             .
           </p>
-          <p className="mt-2">© {new Date().getFullYear()} [COMPANY LEGAL NAME]. All rights reserved.</p>
+          <p className="mt-2">© {new Date().getFullYear()} Drisora. All rights reserved.</p>
         </footer>
       </article>
     </main>
