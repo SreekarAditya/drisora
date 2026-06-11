@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
-import { TOS_VERSION, PRIVACY_VERSION } from "@/lib/legal/versions";
+import { TOS_VERSION, PRIVACY_VERSION, meetsAgeFloor, MINIMUM_AGE_YEARS } from "@/lib/legal/versions";
 
 /**
  * Blocking re-consent modal. Rendered by the authenticated layout when the user's
@@ -28,8 +28,13 @@ export function ReConsentModal({
   const [open, setOpen] = useState(stale);
   const [tos, setTos] = useState(false);
   const [privacy, setPrivacy] = useState(false);
+  const [dobInput, setDobInput] = useState(dob ?? "");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const requiresDob = !dob || !meetsAgeFloor(dob);
+  const dobReady = Boolean(dobInput) && meetsAgeFloor(dobInput);
+  const underage = Boolean(dobInput) && !meetsAgeFloor(dobInput);
+  const canSubmit = tos && privacy && (!requiresDob || dobReady) && !submitting;
 
   if (!open) return null;
 
@@ -41,14 +46,24 @@ export function ReConsentModal({
   }
 
   async function accept() {
+    if (requiresDob && !dobReady) {
+      setError(
+        dobInput
+          ? `You must be at least ${MINIMUM_AGE_YEARS} years old to use Drisora.`
+          : "Date of birth is required."
+      );
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
     const res = await fetch("/api/consent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      // dob is required by the API; reuse the value already on file.
+      // dob is required by the API; reuse the stored value unless a legacy user
+      // needs to provide it during this re-consent flow.
       body: JSON.stringify({
-        dob,
+        dob: dobInput,
         professional_capacity: true,
         tos_version: TOS_VERSION,
         pp_version: PRIVACY_VERSION,
@@ -95,11 +110,37 @@ export function ReConsentModal({
           </label>
         </div>
 
+        {requiresDob && (
+          <div className="mt-5">
+            <label htmlFor="reconsent-dob" className="mb-1.5 block text-[13px] text-[#A8A8B6]">
+              Date of birth
+            </label>
+            <input
+              id="reconsent-dob"
+              type="date"
+              required
+              value={dobInput}
+              max={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => {
+                setDobInput(e.target.value);
+                if (error === "Date of birth is required.") setError(null);
+              }}
+              className="h-11 w-full rounded-[8px] border border-[rgba(255,255,255,0.10)] bg-[#0C0C12] px-3 text-sm text-white outline-none focus:border-[#F5A623]"
+              aria-invalid={underage}
+            />
+            {underage && (
+              <p className="mt-1.5 text-[12px] text-[#EF4444]">
+                You must be at least {MINIMUM_AGE_YEARS} years old to use Drisora.
+              </p>
+            )}
+          </div>
+        )}
+
         {error && <p className="mt-4 text-[12px] text-[#EF4444]">{error}</p>}
 
         <div className="mt-6 flex gap-3">
           <button
-            disabled={!tos || !privacy || submitting}
+            disabled={!canSubmit}
             onClick={accept}
             className="h-11 flex-1 rounded-[8px] bg-[#F5A623] text-sm font-medium text-[#111] disabled:cursor-not-allowed disabled:opacity-40"
           >
