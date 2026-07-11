@@ -19,7 +19,7 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: "Drisora — Pavement Condition Intelligence",
-  description: "Automated IRC:82-2023 compliant road condition assessment from drone footage. PCI scoring, geospatial maps, and PDF reports.",
+  description: "Partial IRC:82-2023 pavement assessment from calibrated drone footage, reported as 100 m section bounds with explicit limitations.",
   icons: {
     icon: "/icon",
   },

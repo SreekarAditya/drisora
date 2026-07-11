@@ -18,7 +18,7 @@ async function ResultsContent({ id, userId }: { id: string; userId: string }) {
 
   const { data: job } = await supabase
     .from("jobs")
-    .select("id, user_id, mode, status, frame_count, gps_available, created_at, average_pci, r2_prefix")
+    .select("id, user_id, mode, status, frame_count, gps_available, created_at, r2_prefix")
     .eq("id", id)
     .single();
 

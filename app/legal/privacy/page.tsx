@@ -32,7 +32,7 @@ export default function DrisoraPrivacyPage() {
           <li>
             <strong className="text-white">User content:</strong> drone imagery and video, SRT/flight
             telemetry, geospatial coordinates, project and survey metadata, and the analytical outputs
-            (distress detections, PCI scores, reports) derived from them.
+            (distress detections, partial PCI bounds, reports) derived from them.
           </li>
           <li>
             <strong className="text-white">Usage and device data:</strong> log data, IP address,

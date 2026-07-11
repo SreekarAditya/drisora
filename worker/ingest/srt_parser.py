@@ -40,7 +40,12 @@ class SrtEntry(TypedDict):
     lat: float
     lon: float
     alt_m: Optional[float]
+    relative_altitude_m: Optional[float]
+    absolute_altitude_m: Optional[float]
+    altitude_source: str
     gimbal_yaw: Optional[float]
+    gimbal_pitch: Optional[float]
+    gimbal_roll: Optional[float]
     gps_signal_quality: Optional[str]
 
 
@@ -59,6 +64,8 @@ _ALT_RE = re.compile(
     r"(?:^|\s|\[)alt(?:itude)?\s*[:=]\s*(-?\d+(?:\.\d+)?)", re.IGNORECASE
 )
 _YAW_RE = re.compile(r"gimbal_yaw\s*[:=]\s*(-?\d+(?:\.\d+)?)", re.IGNORECASE)
+_PITCH_RE = re.compile(r"gimbal_pitch\s*[:=]\s*(-?\d+(?:\.\d+)?)", re.IGNORECASE)
+_ROLL_RE = re.compile(r"gimbal_roll\s*[:=]\s*(-?\d+(?:\.\d+)?)", re.IGNORECASE)
 _GPS_QUALITY_RE = re.compile(
     r"(gps(?:_signal)?(?:_quality|_level|_num|_used|_status)?|satellites)\s*[:=]\s*([A-Za-z0-9_.+-]+)",
     re.IGNORECASE,
@@ -116,16 +123,45 @@ def parse_srt(srt_path: str | Path) -> List[SrtEntry]:
             # Skip frames without GPS — they're not useful for georeferencing.
             continue
 
-        # Prefer relative altitude because section GSD needs AGL, not MSL.
-        alt_m: Optional[float] = tuple_alt_m
-        for rx in (_REL_ALT_RE, _ALT_RE, _ABS_ALT_RE):
-            am = rx.search(block)
-            if am:
-                try:
-                    alt_m = float(am.group(1))
-                    break
-                except ValueError:
-                    continue
+        relative_altitude_m: Optional[float] = None
+        absolute_altitude_m: Optional[float] = tuple_alt_m
+        generic_altitude_m: Optional[float] = None
+
+        rel_match = _REL_ALT_RE.search(block)
+        if rel_match:
+            try:
+                relative_altitude_m = float(rel_match.group(1))
+            except ValueError:
+                relative_altitude_m = None
+
+        abs_match = _ABS_ALT_RE.search(block)
+        if abs_match:
+            try:
+                absolute_altitude_m = float(abs_match.group(1))
+            except ValueError:
+                absolute_altitude_m = tuple_alt_m
+
+        generic_match = _ALT_RE.search(block)
+        if generic_match:
+            try:
+                generic_altitude_m = float(generic_match.group(1))
+            except ValueError:
+                generic_altitude_m = None
+
+        # Physical area/GSD must use height above ground level.  We expose a
+        # generic or MSL altitude for telemetry, but never label it as AGL.
+        if relative_altitude_m is not None:
+            alt_m = relative_altitude_m
+            altitude_source = "relative_agl"
+        elif generic_altitude_m is not None:
+            alt_m = generic_altitude_m
+            altitude_source = "generic_unknown"
+        elif absolute_altitude_m is not None:
+            alt_m = absolute_altitude_m
+            altitude_source = "absolute_msl_only"
+        else:
+            alt_m = None
+            altitude_source = "unavailable"
 
         yaw: Optional[float] = None
         ym = _YAW_RE.search(block)
@@ -134,6 +170,22 @@ def parse_srt(srt_path: str | Path) -> List[SrtEntry]:
                 yaw = float(ym.group(1))
             except ValueError:
                 yaw = None
+
+        pitch: Optional[float] = None
+        pm = _PITCH_RE.search(block)
+        if pm:
+            try:
+                pitch = float(pm.group(1))
+            except ValueError:
+                pitch = None
+
+        roll: Optional[float] = None
+        rm = _ROLL_RE.search(block)
+        if rm:
+            try:
+                roll = float(rm.group(1))
+            except ValueError:
+                roll = None
 
         gps_signal_quality: Optional[str] = None
         qm = _GPS_QUALITY_RE.search(block)
@@ -146,7 +198,12 @@ def parse_srt(srt_path: str | Path) -> List[SrtEntry]:
                 "lat": lat,
                 "lon": lon,
                 "alt_m": alt_m,
+                "relative_altitude_m": relative_altitude_m,
+                "absolute_altitude_m": absolute_altitude_m,
+                "altitude_source": altitude_source,
                 "gimbal_yaw": yaw,
+                "gimbal_pitch": pitch,
+                "gimbal_roll": roll,
                 "gps_signal_quality": gps_signal_quality,
             }
         )

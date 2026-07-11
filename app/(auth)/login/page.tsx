@@ -76,7 +76,7 @@ export default function LoginPage() {
             <span className="text-[#F5A623]">for India&apos;s Roads</span>
           </h2>
           <p className="mt-4 max-w-sm text-[14px] leading-relaxed text-[#8A8A9A]">
-            Automated IRC:82-2023 compliant PCI-scored geospatial reports from drone footage.
+            Partial IRC:82-2023 section bounds and geospatial evidence from calibrated drone footage.
           </p>
         </div>
 
@@ -149,7 +149,7 @@ export default function LoginPage() {
           </div>
 
           <p className="mt-6 text-center font-mono text-[11px] text-[#4A4A5A]">
-            Built for IRC:82-2023 compliant pavement surveys
+            Built for transparent, bounded pavement assessments
           </p>
         </div>
       </div>

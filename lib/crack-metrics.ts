@@ -1,10 +1,9 @@
 import { crackTypeLabel } from "@/lib/crack-labels";
 
-export type CrackMetricSource = "none" | "measured" | "estimated";
+export type CrackMetricSource = "none" | "measured";
 
 export interface CrackMetricInput {
   crackTypes: string[];
-  pci?: number | null;
   avgWidthMm?: number | null;
   maxWidthMm?: number | null;
   crackTypeLengthsM?: Record<string, number> | null;
@@ -12,7 +11,6 @@ export interface CrackMetricInput {
   finalDetectionCount?: number | null;
   yoloDetectionCount?: number | null;
   cameraSurfaceDistanceM?: number | null;
-  sectionLengthM?: number | null;
 }
 
 export interface DerivedCrackMetrics {
@@ -66,29 +64,21 @@ export function deriveCrackMetrics(input: CrackMetricInput): DerivedCrackMetrics
   }
 
   const crackCount = Math.max(1, evidenceCount);
-  const estimatedWidths = estimateWidths(crackTypes, input.pci, crackCount);
-  const avgWidthMm = finiteOrNull(measuredAvgWidthMm) ?? estimatedWidths.avgWidthMm;
-  const maxWidthMm =
-    finiteOrNull(measuredMaxWidthMm) ??
-    Math.max(avgWidthMm, estimatedWidths.maxWidthMm);
-  const lengthByTypeM =
-    Object.keys(normalizedLengths).length > 0
-      ? normalizedLengths
-      : estimateLengths(crackTypes, crackCount, input.sectionLengthM);
-  const estimated =
-    measuredAvgWidthMm == null ||
-    measuredMaxWidthMm == null ||
-    Object.keys(normalizedLengths).length === 0;
+  const avgWidthMm = finiteOrNull(measuredAvgWidthMm);
+  const maxWidthMm = finiteOrNull(measuredMaxWidthMm);
+  const lengthByTypeM = normalizedLengths;
+  const hasPhysicalMeasurement =
+    avgWidthMm != null || maxWidthMm != null || Object.keys(lengthByTypeM).length > 0;
 
   return {
     hasCracks: true,
     crackCount,
-    avgWidthMm: round1(avgWidthMm),
-    maxWidthMm: round1(maxWidthMm),
+    avgWidthMm: avgWidthMm == null ? null : round1(avgWidthMm),
+    maxWidthMm: maxWidthMm == null ? null : round1(maxWidthMm),
     lengthByTypeM,
     totalLengthM: round2(Object.values(lengthByTypeM).reduce((sum, value) => sum + value, 0)),
-    source: estimated ? "estimated" : "measured",
-    estimated,
+    source: hasPhysicalMeasurement ? "measured" : "none",
+    estimated: false,
   };
 }
 
@@ -112,39 +102,6 @@ function normalizeLengths(value: Record<string, number> | null | undefined) {
     out[label] = round2((out[label] ?? 0) + rawLength);
   }
   return out;
-}
-
-function estimateWidths(crackTypes: string[], pci: number | null | undefined, crackCount: number) {
-  const types = crackTypes.length > 0 ? crackTypes : ["Detected distress"];
-  const base = Math.max(...types.map((type) => typeWidth(type).avgWidthMm));
-  const pciFactor = pci == null ? 1 : pci < 40 ? 1.45 : pci < 55 ? 1.28 : pci < 70 ? 1.12 : pci < 85 ? 1 : 0.82;
-  const densityFactor = crackCount >= 8 ? 1.18 : crackCount >= 4 ? 1.08 : 1;
-  const avgWidthMm = Math.max(1.2, base * pciFactor * densityFactor);
-  const maxWidthMm = Math.max(avgWidthMm * 1.35, avgWidthMm + 0.8, Math.max(...types.map((type) => typeWidth(type).maxWidthMm)) * pciFactor);
-  return { avgWidthMm, maxWidthMm };
-}
-
-function estimateLengths(crackTypes: string[], crackCount: number, sectionLengthM: number | null | undefined) {
-  const types = crackTypes.length > 0 ? crackTypes : ["Detected distress"];
-  const countPerType = Math.max(1, Math.ceil(Math.max(crackCount, types.length) / types.length));
-  const sectionScale = Math.max(0.75, Math.min(1.5, (sectionLengthM ?? 10) / 10));
-  const out: Record<string, number> = {};
-
-  for (const type of types) {
-    const label = crackTypeLabel(type);
-    const estimate = typeWidth(label).lengthM * countPerType * sectionScale;
-    out[label] = round2((out[label] ?? 0) + estimate);
-  }
-
-  return out;
-}
-
-function typeWidth(type: string) {
-  const value = type.toLowerCase();
-  if (value.includes("alligator") || value.includes("fatigue")) return { avgWidthMm: 4.5, maxWidthMm: 7, lengthM: 5.4 };
-  if (value.includes("transverse")) return { avgWidthMm: 2.8, maxWidthMm: 4.2, lengthM: 2.6 };
-  if (value.includes("longitudinal")) return { avgWidthMm: 2.4, maxWidthMm: 3.6, lengthM: 4.2 };
-  return { avgWidthMm: 2.5, maxWidthMm: 3.8, lengthM: 2.2 };
 }
 
 function isCrackWidthApplicable(type: string) {

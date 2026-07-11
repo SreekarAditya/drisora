@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { DeleteJobButton } from "@/components/dashboard/DeleteJobButton";
 import type { JobRecord, JobStatus, JobMode } from "@/types";
-import { getPciBand, JOB_MODE_LABELS } from "@/types";
+import { JOB_MODE_LABELS } from "@/types";
 
 interface Props {
   jobs: JobRecord[];
@@ -86,15 +86,8 @@ function StatsCards({ jobs }: { jobs: JobRecord[] }) {
   const active = jobs.filter((j) => !["complete", "failed", "uploading"].includes(j.status));
   const uploading = jobs.filter((j) => j.status === "uploading");
   const failed = jobs.filter((j) => j.status === "failed");
-  const pciValues = completed
-    .map((j) => j.average_pci)
-    .filter((v): v is number => v != null);
-  const avgPci =
-    pciValues.length > 0
-      ? pciValues.reduce((a, b) => a + b, 0) / pciValues.length
-      : null;
   const totalFrames = completed.reduce((a, j) => a + (j.frame_count ?? 0), 0);
-  const poorSurveys = completed.filter((j) => (j.average_pci ?? 100) < 70).length;
+  const boundedSurveys = completed.filter((j) => j.pci_lower != null && j.pci_upper != null).length;
 
   const stats = [
     {
@@ -112,17 +105,17 @@ function StatsCards({ jobs }: { jobs: JobRecord[] }) {
       pciColor: undefined as string | undefined,
     },
     {
-      label: "Average PCI",
-      value: avgPci != null ? avgPci.toFixed(1) : "—",
-      sub: avgPci != null ? getPciBand(avgPci).label : "no data yet",
-      color: avgPci != null ? getPciBand(avgPci).color : undefined,
-      pciColor: avgPci != null ? getPciBand(avgPci).color : undefined,
+      label: "Bounded assessments",
+      value: String(boundedSurveys),
+      sub: "100 m partial PCI intervals",
+      color: boundedSurveys > 0 ? "#F5A623" : undefined,
+      pciColor: undefined as string | undefined,
     },
     {
       label: "Needs review",
-      value: String(failed.length + poorSurveys),
-      sub: failed.length > 0 ? `${failed.length} failed job${failed.length === 1 ? "" : "s"}` : `${poorSurveys} below PCI 70`,
-      color: failed.length + poorSurveys > 0 ? "#EF4444" : undefined,
+      value: String(failed.length),
+      sub: failed.length > 0 ? `${failed.length} failed job${failed.length === 1 ? "" : "s"}` : "no failed jobs",
+      color: failed.length > 0 ? "#EF4444" : undefined,
       pciColor: undefined as string | undefined,
     },
   ];
@@ -164,7 +157,7 @@ function EmptyState() {
       </div>
       <h3 className="text-[18px] font-medium text-white">No surveys yet</h3>
       <p className="mt-2 max-w-xs text-sm text-[#8A8A9A]">
-        Upload drone footage, a handheld video, or an image batch to get your first PCI report.
+        Upload calibrated drone footage for section bounds, or other media for detection-only evidence.
       </p>
       <Link
         href="/upload"
@@ -183,7 +176,6 @@ function JobRow({ job }: { job: JobRecord }) {
   const date = new Date(job.created_at).toLocaleDateString("en-IN", {
     day: "2-digit", month: "short", year: "numeric",
   });
-  const pciColor = job.average_pci != null ? getPciBand(job.average_pci).color : "#4A4A5A";
   const isActive = !["complete", "failed", "uploading"].includes(job.status);
 
   return (
@@ -199,15 +191,12 @@ function JobRow({ job }: { job: JobRecord }) {
         {job.frame_count ?? "—"}
       </td>
       <td className="px-4 py-4">
-        {job.average_pci != null ? (
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: pciColor }} />
-            <span className="font-mono text-[18px] font-medium" style={{ color: pciColor }}>
-              {job.average_pci.toFixed(1)}
-            </span>
-          </div>
+        {job.pci_lower != null && job.pci_upper != null ? (
+          <span className="font-mono text-sm font-medium text-[#F5A623]">
+            {job.pci_lower.toFixed(1)}–{job.pci_upper.toFixed(1)}
+          </span>
         ) : (
-          <span className="font-mono text-sm text-[#4A4A5A]">—</span>
+          <span className="font-mono text-xs text-[#4A4A5A]">Detection only</span>
         )}
       </td>
       <td className="px-4 py-4">
@@ -314,7 +303,7 @@ export function JobList({ jobs }: Props) {
                     Frames
                   </th>
                   <th className="px-4 py-3 text-left font-mono text-[11px] font-medium uppercase tracking-[0.15em] text-[#4A4A5A]">
-                    Avg PCI
+                    PCI bounds
                   </th>
                   <th className="px-4 py-3 text-left font-mono text-[11px] font-medium uppercase tracking-[0.15em] text-[#4A4A5A]">
                     Status

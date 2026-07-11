@@ -9,8 +9,9 @@
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "test:worker": "python3 -m unittest discover -s worker/tests -v",
-    "eval:sample": "node evaluation/drisora_eval.mjs compute --export evaluation/fixtures/sample_export.json --labels evaluation/fixtures/sample_labels.json --out evaluation/output/sample",
-    "verify": "npm run lint && npm run typecheck && npm run test:worker && npm run eval:sample && npm run build"
+    "eval:fixture": "node evaluation/drisora_eval.mjs compute --export evaluation/fixtures/sample_export.json --labels evaluation/fixtures/sample_labels.json --out evaluation/output/fixture",
+    "deploy:runpod": "node scripts/deploy_runpod_worker.mjs",
+    "verify": "npm run lint && npm run typecheck && npm run test:worker && npm run eval:fixture && npm run build"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1038.0",

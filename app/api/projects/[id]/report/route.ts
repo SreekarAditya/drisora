@@ -36,33 +36,31 @@ export async function GET(
   const [{ data: jobs }, { data: surveys }] = await Promise.all([
     supabase
       .from("jobs")
-      .select("id, mode, status, average_pci, created_at, project_id")
+      .select("id, mode, status, created_at, project_id")
       .eq("user_id", user.id)
       .eq("project_id", id)
       .is("deleted_at", null),
     supabase
       .from("surveys")
-      .select("id, name, status, average_pci, created_at, project_id")
+      .select("id, name, status, created_at, project_id")
       .eq("user_id", user.id)
       .eq("project_id", id)
       .is("deleted_at", null),
   ]);
 
   const reports = [
-    ...((jobs ?? []) as Array<{ id: string; mode: JobMode; status: string; average_pci: number | null; created_at: string }>).map((job) => ({
+    ...((jobs ?? []) as Array<{ id: string; mode: JobMode; status: string; created_at: string }>).map((job) => ({
       id: job.id,
       label: JOB_MODE_LABELS[job.mode],
       source: "job" as const,
       status: job.status,
-      average_pci: job.average_pci,
       created_at: job.created_at,
     })),
-    ...((surveys ?? []) as Array<{ id: string; name: string; status: string; average_pci: number | null; created_at: string }>).map((survey) => ({
+    ...((surveys ?? []) as Array<{ id: string; name: string; status: string; created_at: string }>).map((survey) => ({
       id: survey.id,
       label: survey.name,
       source: "survey" as const,
       status: survey.status,
-      average_pci: survey.average_pci,
       created_at: survey.created_at,
     })),
   ];

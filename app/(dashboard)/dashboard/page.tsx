@@ -9,7 +9,7 @@ async function JobListFetcher({ userId }: { userId: string }) {
   const supabase = await createClient();
   const { data: jobs, error } = await supabase
     .from("jobs")
-    .select("id, user_id, mode, status, frame_count, processed_count, gps_available, average_pci, r2_prefix, created_at, completed_at, error_message, deleted_at")
+    .select("*")
     .eq("user_id", userId)
     .is("deleted_at", null)
     .order("created_at", { ascending: false });

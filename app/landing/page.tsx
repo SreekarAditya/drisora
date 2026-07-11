@@ -8,35 +8,35 @@ const FEATURES = [
   {
     tag: "Detection",
     name: "AI Crack Detection",
-    desc: "Trained on RDD2022 across four crack classes: longitudinal, transverse, alligator, and pothole. Runs section-by-section at scale.",
+    desc: "Trained on RDD2022 across four distress classes: longitudinal, transverse, alligator, and pothole. Detections become section evidence after georeferencing.",
     stat: "4 crack classes",
     wide: true,
   },
   {
     tag: "Segmentation",
     name: "Pixel-Level Segmentation",
-    desc: "Each detected crack receives a pixel-level segmentation mask, enabling precise area measurement and severity quantification.",
-    stat: "Pixel-level accuracy",
+    desc: "Each detected distress receives a SAM2 mask. Calibrated drone jobs convert mask pixels to area with explicit GSD uncertainty.",
+    stat: "Mask evidence",
     wide: false,
   },
   {
     tag: "Scoring",
-    name: "IRC:82-2023 PCI Scorer",
-    desc: "Pavement Condition Index computed per 10 m section using the Indian Roads Congress standard.",
-    stat: "Per-10 m scoring",
+    name: "Partial IRC PCI Bounds",
+    desc: "Cracking extent and pothole number are evaluated per 100 m GPS-chainage section; four unmeasured inputs remain null.",
+    stat: "100 m bounds",
     wide: false,
   },
   {
     tag: "Geospatial",
     name: "Color-coded Map",
-    desc: "Every section plotted on an interactive map, colored by condition band. Full GeoJSON export for GIS integration.",
+    desc: "Every calibrated section is plotted on an interactive evidence map with its interval and provenance.",
     stat: "GeoJSON export",
     wide: false,
   },
   {
     tag: "Report",
-    name: "IRC-compliant PDF",
-    desc: "Cover page, executive summary, per-section PCI table, priority intervention matrix, and crack type appendix.",
+    name: "Evidence PDF",
+    desc: "Per-section PCI bounds, measured inputs, dedup counts, and a prominent statement of what was not measured.",
     stat: "Shareable link",
     wide: false,
   },
@@ -56,7 +56,7 @@ const STEPS = [
     desc: "Drop the MP4 drone footage and paired SRT telemetry file. The browser uploads directly to R2, then processing starts after the manifest is complete.",
     lines: [
       { dim: false, text: "$ drisora upload flight.mp4 survey.srt" },
-      { dim: true,  text: "▸ NH-48 Surat–Baroda Corridor  ·  2.1 GB" },
+      { dim: true,  text: "▸ Flight media  ·  paired telemetry" },
       { dim: true,  text: "▸ Direct R2 PUT  ·  signed URLs  ·  manifest lock" },
       { dim: false, text: "✓ RunPod queued — processing starts automatically" },
     ],
@@ -64,24 +64,24 @@ const STEPS = [
   {
     n: "02",
     title: "Automated CV pipeline",
-    desc: "Drisora AI detects cracks, the segmentation engine creates pixel masks, depth estimation measures crack width, then the IRC scorer computes PCI per 10 m section.",
+    desc: "Drisora detects trained distress classes, creates SAM2 masks, georeferences and deduplicates them, then reports partial PCI bounds per 100 m section.",
     lines: [
-      { dim: true,  text: "[Detect]    847 detections  /  32 sections" },
+      { dim: true,  text: "[Detect]    trained distress classes recorded" },
       { dim: true,  text: "[Segment]   pixel masks  ·  crack area mapped" },
-      { dim: true,  text: "[Metric]    camera distance  ·  crack width" },
-      { dim: false, text: "[IRC-PCI]   avg 67.3  ·  32 sections scored" },
+      { dim: true,  text: "[Metric]    relative AGL  ·  calibrated GSD" },
+      { dim: false, text: "[IRC-PCI]   bounded assessment  ·  100 m sections" },
     ],
     processing: true,
   },
   {
     n: "03",
-    title: "Full report delivered",
-    desc: "Geospatial map, PCI table, priority intervention matrix, and PDF — ready in minutes. A shareable link is generated for team access.",
+    title: "Evidence report delivered",
+    desc: "Geospatial evidence map, section-bound table, and scoped PDF are generated for technical review.",
     lines: [
-      { dim: true,  text: "✓ GeoJSON map  ·  color-coded  ·  32 sections" },
-      { dim: true,  text: "✓ PCI table  ·  intervention matrix" },
-      { dim: true,  text: "✓ PDF report  ·  IRC:82-2023 layout" },
-      { dim: false, text: "✓ Share link  →  drisora.io/r/abc123" },
+      { dim: true,  text: "✓ GeoJSON map  ·  georeferenced evidence" },
+      { dim: true,  text: "✓ PCI intervals  ·  measured inputs" },
+      { dim: true,  text: "✓ Evidence PDF  ·  explicit limitations" },
+      { dim: false, text: "✓ Shareable technical record" },
     ],
   },
 ]
@@ -95,22 +95,22 @@ const ORG_TYPES = [
 ]
 
 const SPECS = [
-  { value: "10 m",   label: "Section resolution" },
-  { value: "±2 m",   label: "GPS accuracy" },
+  { value: "100 m",  label: "Section length" },
+  { value: "AGL",    label: "Altitude source" },
   { value: "4",      label: "Crack classes" },
-  { value: "IRC:82", label: "Standard" },
+  { value: "28%",    label: "Weight measured" },
 ]
 
-// Map segments: PCI color overlays along road path
+// Map segments: bounded-assessment evidence overlays along a mock road path.
 const MAP_SEGS = [
-  { x1: 10,  x2: 68,  color: "#22c55e" },
-  { x1: 68,  x2: 125, color: "#22c55e" },
-  { x1: 125, x2: 182, color: "#eab308" },
-  { x1: 182, x2: 240, color: "#f97316" },
-  { x1: 240, x2: 297, color: "#ef4444" },
-  { x1: 297, x2: 355, color: "#f97316" },
-  { x1: 355, x2: 412, color: "#eab308" },
-  { x1: 412, x2: 470, color: "#22c55e" },
+  { x1: 10,  x2: 68,  color: "#f59e0b" },
+  { x1: 68,  x2: 125, color: "#f59e0b" },
+  { x1: 125, x2: 182, color: "#d97706" },
+  { x1: 182, x2: 240, color: "#f59e0b" },
+  { x1: 240, x2: 297, color: "#d97706" },
+  { x1: 297, x2: 355, color: "#f59e0b" },
+  { x1: 355, x2: 412, color: "#d97706" },
+  { x1: 412, x2: 470, color: "#f59e0b" },
 ]
 
 function bezierPt(t: number): { x: number; y: number } {
@@ -123,10 +123,10 @@ function bezierPt(t: number): { x: number; y: number } {
 
 function ProductPreview() {
   const markers = [
-    { approxX: 68,  label: "S-04" },
-    { approxX: 182, label: "S-11" },
-    { approxX: 297, label: "S-19" },
-    { approxX: 412, label: "S-26" },
+    { approxX: 68,  label: "S-001" },
+    { approxX: 182, label: "S-002" },
+    { approxX: 297, label: "S-003" },
+    { approxX: 412, label: "S-004" },
   ].map(({ approxX, label }) => {
     const t = (approxX - 10) / 460
     const { x, y } = bezierPt(t)
@@ -151,7 +151,7 @@ function ProductPreview() {
           <div className="h-2.5 w-2.5 rounded-full bg-[#28c840]" />
         </div>
         <span className="font-mono text-[11px] tracking-[0.1em] text-[#4A4A5A]">
-          DRISORA — NH-48 SURAT–BARODA CORRIDOR
+          DRISORA — CALIBRATED SURVEY PREVIEW
         </span>
         <div className="flex items-center gap-1.5">
           <div className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
@@ -228,17 +228,17 @@ function ProductPreview() {
         {/* Data panel */}
         <div className="flex w-40 flex-shrink-0 flex-col gap-4 border-l border-[#1A1A22] p-4" style={{ background: "#0D0D11" }}>
           <div>
-            <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.15em] text-[#4A4A5A]">PCI Score</p>
-            <span className="font-mono text-[52px] font-semibold leading-none" style={{ color: "#f97316" }}>67</span>
+            <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.15em] text-[#4A4A5A]">PCI Bounds</p>
+            <span className="font-mono text-[24px] font-semibold leading-none text-[#F5A623]">LOWER–UPPER</span>
             <div className="mt-2 inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5" style={{ background: "rgba(249,115,22,0.1)", border: "1px solid rgba(249,115,22,0.25)" }}>
-              <div className="h-1.5 w-1.5 rounded-full bg-orange-400" />
-              <span className="font-mono text-[9px] text-orange-400">FAIR</span>
+              <div className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+              <span className="font-mono text-[9px] text-amber-400">PARTIAL</span>
             </div>
           </div>
 
           <div className="space-y-2 border-t border-[#1A1A22] pt-3">
-            <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.15em] text-[#4A4A5A]">Survey</p>
-            {[["Length", "3.2 km"], ["Sections", "32"], ["Cracks", "847"]].map(([k, v]) => (
+            <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.15em] text-[#4A4A5A]">Scope</p>
+            {[["Measured", "2 of 6"], ["Weight", "28%"], ["Sections", "100 m"]].map(([k, v]) => (
               <div key={k} className="flex items-center justify-between">
                 <span className="text-[10px] text-[#4A4A5A]">{k}</span>
                 <span className="font-mono text-[10px] text-[#8A8A9A]">{v}</span>
@@ -247,12 +247,10 @@ function ProductPreview() {
           </div>
 
           <div className="flex-1 border-t border-[#1A1A22] pt-3">
-            <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.15em] text-[#4A4A5A]">Breakdown</p>
+            <p className="mb-2 font-mono text-[9px] uppercase tracking-[0.15em] text-[#4A4A5A]">Composite Weight</p>
             {[
-              { label: "Good", color: "#22c55e", pct: 37 },
-              { label: "Sat.",  color: "#eab308", pct: 22 },
-              { label: "Fair",  color: "#f97316", pct: 25 },
-              { label: "Poor",  color: "#ef4444", pct: 16 },
+              { label: "Measured", color: "#22c55e", pct: 28 },
+              { label: "Unmeasured", color: "#71717a", pct: 72 },
             ].map(({ label, color, pct }) => (
               <div key={label} className="mb-2 flex items-center gap-2">
                 <div className="h-1.5 w-1.5 flex-shrink-0 rounded-full" style={{ backgroundColor: color }} />
@@ -268,7 +266,7 @@ function ProductPreview() {
 
       {/* Status bar */}
       <div className="flex items-center gap-5 border-t border-[#1A1A22] bg-[#09090C] px-5 py-2.5">
-        {["32 sections scored", "IRC:82-2023 compliant", "PDF report ready"].map((label) => (
+        {["100 m sections", "28% weight instrumented", "Evidence PDF ready"].map((label) => (
           <div key={label} className="flex items-center gap-1.5">
             <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
             <span className="font-mono text-[10px] text-[#4A4A5A]">{label}</span>
@@ -337,7 +335,7 @@ export default function LandingPage() {
           >
             <div className="h-1.5 w-1.5 rounded-full bg-[#F5A623]" />
             <span className="font-mono text-[11px] tracking-[0.15em] text-[#F5A623]">
-              IRC:82-2023 COMPLIANT
+              PARTIAL IRC:82-2023 ASSESSMENT
             </span>
           </div>
 
@@ -359,7 +357,7 @@ export default function LandingPage() {
             style={{ animationDelay: "140ms" }}
           >
             <p className="max-w-md text-[15px] leading-relaxed text-[#8A8A9A]">
-              Upload drone footage. Get a PCI-scored geospatial report in minutes. No manual inspection. No spreadsheets.
+              Upload calibrated drone footage and telemetry. Receive 100 m section bounds with explicit measurement provenance and limitations.
             </p>
             <div className="flex flex-wrap items-center gap-3">
               <Link
@@ -513,7 +511,7 @@ export default function LandingPage() {
               </h2>
             </div>
             <p className="max-w-xs text-[14px] leading-relaxed text-[#8A8A9A]">
-              A complete pipeline — from raw footage to IRC-compliant deliverables.
+              A scoped pipeline — from calibrated footage to reviewable evidence and PCI bounds.
             </p>
           </div>
 
@@ -548,12 +546,12 @@ export default function LandingPage() {
                 Standard
               </p>
               <h2 className="text-[clamp(2.5rem,5vw,3.75rem)] font-semibold uppercase leading-none tracking-tight text-white">
-                Five condition
+                Six condition
                 <br />
                 <span className="text-[#4A4A5A]">bands. One standard.</span>
               </h2>
               <p className="mt-6 max-w-sm text-[14px] leading-relaxed text-[#8A8A9A]">
-                IRC:82-2023 defines road condition in five categories. Drisora scores every 10 m section and classifies it automatically.
+                IRC:82-2023 Table 5.5 defines six condition bands. Drisora displays them only for a complete six-input PCI; imagery-only jobs report intervals without assigning a band.
               </p>
 
               <div className="mt-10 flex h-3 overflow-hidden rounded-full">
@@ -607,7 +605,7 @@ export default function LandingPage() {
                 Start your first survey.
               </h2>
               <p className="mx-auto mt-5 max-w-sm text-[14px] leading-relaxed text-[#8A8A9A]">
-                Upload a drone flight and receive a full IRC:82-2023 compliant geospatial report in minutes.
+                Upload a calibrated drone flight and receive partial PCI bounds plus a transparent evidence report.
               </p>
               <div className="mt-10 flex flex-wrap items-center justify-center gap-3">
                 <Link href="/login" className="rounded-[10px] bg-[#F5A623] px-8 py-3 text-[14px] font-semibold text-[#09090C] transition-colors hover:bg-[#FFBE4D]">

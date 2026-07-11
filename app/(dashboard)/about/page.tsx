@@ -20,10 +20,10 @@ export default function AboutPage() {
           <h2 className="text-lg font-semibold text-white">Product story</h2>
           <div className="mt-4 grid gap-6 md:grid-cols-2">
             <p className="text-sm leading-6 text-[#8A8A9A]">
-              Road engineers need evidence that survives technical review, not just annotated frames. Drisora organizes every survey into projects, PCI trends, maps, crack metrics, and concise maintenance reports.
+              Road engineers need evidence that survives technical review, not just annotated frames. Drisora organizes calibrated section bounds, detections, maps, and measurement provenance into projects.
             </p>
             <p className="text-sm leading-6 text-[#8A8A9A]">
-              From a single drone flight to a shareable IRC:82-2023 compliant report — the entire pipeline is automated and requires no manual intervention.
+              A configured drone flight produces a scoped partial assessment. Unmeasured functional inputs stay null and field verification remains necessary.
             </p>
           </div>
         </article>
@@ -31,7 +31,7 @@ export default function AboutPage() {
         <article className="rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116] p-6">
           <h2 className="text-lg font-semibold text-white">AI stack</h2>
           <div className="mt-4 flex flex-wrap items-center gap-3">
-            {["Drisora AI", "Segmentation Engine", "Depth Estimation", "IRC Scorer"].map((node, i) => (
+            {["Drisora AI", "SAM2 Masks", "GSD Calibration", "PCI Bounds"].map((node, i) => (
               <div key={node} className="flex items-center gap-3">
                 <span className="rounded-[8px] border border-[rgba(245,166,35,0.30)] bg-[rgba(245,166,35,0.08)] px-3 py-1.5 font-mono text-[12px] font-medium text-[#F5A623]">
                   {node}
@@ -45,7 +45,7 @@ export default function AboutPage() {
             ))}
           </div>
           <p className="mt-4 text-sm leading-6 text-[#8A8A9A]">
-            Drisora AI detects distress, the segmentation engine refines crack masks, and depth estimation measures camera-to-surface distance for pixel-to-mm crack-width conversion.
+            Drisora AI detects trained distress classes, SAM2 refines masks, relative AGL and explicit camera geometry establish GSD, and cross-frame georeferencing prevents duplicate area counting.
           </p>
         </article>
 
@@ -53,13 +53,13 @@ export default function AboutPage() {
           <article className="rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116] p-6">
             <h2 className="text-lg font-semibold text-white">Accuracy notes</h2>
             <p className="mt-3 text-sm leading-6 text-[#8A8A9A]">
-              Outputs should be reviewed against field observations, surface texture, lighting, speed, and telemetry quality. Depth-derived crack width is reported as an engineering estimate, not a lab gauge measurement.
+              Outputs must be reviewed against field observations, surface texture, lighting, speed, GPS quality, camera calibration, and the reported GSD area uncertainty.
             </p>
           </article>
           <article className="rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116] p-6">
-            <h2 className="text-lg font-semibold text-white">IRC compliance</h2>
+            <h2 className="text-lg font-semibold text-white">IRC scope</h2>
             <p className="mt-3 text-sm leading-6 text-[#8A8A9A]">
-              PCI bands, 10 m section reporting, severity language, and intervention prioritization are aligned with IRC:82-2023 pavement maintenance decision workflows.
+              Only cracking extent and pothole number are instrumented, representing 28% of Table 5.4 weight. Roughness, ravelling, patching, and rut depth remain unmeasured, so PCI is an interval rather than a point.
             </p>
           </article>
         </div>

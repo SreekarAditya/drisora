@@ -1,12 +1,15 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import type { PciBounds } from "@/types";
 
 interface WebhookBody {
   job_id: string;
   user_id: string;
   status: "complete" | "failed";
   error_message?: string;
-  average_pci?: number;
+  pci_complete?: null;
+  pci_bounds?: PciBounds | null;
+  partial_pci_sections_key?: string | null;
   frame_count?: number;
   processed_count?: number;
   output_r2_prefix?: string;
@@ -37,10 +40,11 @@ export async function POST(request: NextRequest) {
     typeof body.user_id !== "string" ||
     body.user_id.length === 0 ||
     !VALID_STATUSES.has(body.status) ||
-    (body.average_pci != null && !Number.isFinite(body.average_pci)) ||
+    !validBounds(body.pci_bounds) ||
     (body.frame_count != null && (!Number.isInteger(body.frame_count) || body.frame_count < 0)) ||
     (body.processed_count != null && (!Number.isInteger(body.processed_count) || body.processed_count < 0)) ||
-    (body.output_r2_prefix != null && typeof body.output_r2_prefix !== "string");
+    (body.output_r2_prefix != null && typeof body.output_r2_prefix !== "string") ||
+    (body.partial_pci_sections_key != null && typeof body.partial_pci_sections_key !== "string");
 
   if (invalidBody) {
     return NextResponse.json({ error: "Invalid webhook payload" }, { status: 400 });
@@ -64,19 +68,26 @@ export async function POST(request: NextRequest) {
 
 async function updateSupabase(body: WebhookBody) {
   const supabase = createServiceRoleClient();
-  const update: Record<string, unknown> = {
+  const baseUpdate: Record<string, unknown> = {
     status: body.status,
     completed_at: new Date().toISOString(),
     error_message: body.error_message ?? null,
+    average_pci: null,
   };
-  if (body.average_pci != null) update.average_pci = body.average_pci;
-  if (body.frame_count != null) update.frame_count = body.frame_count;
-  if (body.processed_count != null) update.processed_count = body.processed_count;
-  if (body.output_r2_prefix) update.r2_prefix = body.output_r2_prefix;
+  if (body.frame_count != null) baseUpdate.frame_count = body.frame_count;
+  if (body.processed_count != null) baseUpdate.processed_count = body.processed_count;
+  if (body.output_r2_prefix) baseUpdate.r2_prefix = body.output_r2_prefix;
+  const intervalUpdate = {
+    ...baseUpdate,
+    pci_complete: null,
+    pci_lower: body.pci_bounds?.lower ?? null,
+    pci_upper: body.pci_bounds?.upper ?? null,
+    partial_pci_sections_key: body.partial_pci_sections_key ?? null,
+  };
 
   const { data, error } = await supabase
     .from("jobs")
-    .update(update)
+    .update(intervalUpdate)
     .eq("id", body.job_id)
     .eq("user_id", body.user_id)
     .select("id")
@@ -87,4 +98,11 @@ async function updateSupabase(body: WebhookBody) {
   }
 
   return Boolean(data);
+}
+
+function validBounds(bounds: PciBounds | null | undefined) {
+  if (bounds == null) return true;
+  return Number.isFinite(bounds.lower) && Number.isFinite(bounds.upper) &&
+    Number.isFinite(bounds.width) && bounds.lower >= 0 && bounds.upper <= 100 &&
+    bounds.lower <= bounds.upper && Math.abs(bounds.width - (bounds.upper - bounds.lower)) < 1e-6;
 }

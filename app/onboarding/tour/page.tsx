@@ -9,7 +9,7 @@ type ResultTab = "image_batch" | "handheld_video" | "drone_footage";
 
 const STEP_META = [
   { title: "Choose your survey type", subtitle: "Three modes, each built for a different scenario" },
-  { title: "What you'll get", subtitle: "Interactive AI-powered results for every mode" },
+  { title: "What you'll get", subtitle: "Detection evidence for every mode; bounds only for calibrated drone sections" },
   { title: "Here's how it works", subtitle: "From upload to report in three steps" },
 ] as const;
 
@@ -69,25 +69,25 @@ function StepOne() {
   );
 }
 
-const PCI_SAMPLES = [
-  { pci: 92, color: "#22c55e" }, { pci: 74, color: "#eab308" },
-  { pci: 58, color: "#f97316" }, { pci: 41, color: "#ef4444" },
-  { pci: 86, color: "#22c55e" }, { pci: 63, color: "#f97316" },
-  { pci: 28, color: "#7f1d1d" }, { pci: 79, color: "#eab308" },
+const DETECTION_SAMPLES = [
+  { label: "D00", color: "#F5A623" }, { label: "D10", color: "#F5A623" },
+  { label: "D20", color: "#F5A623" }, { label: "D40", color: "#F5A623" },
+  { label: "MASK", color: "#38bdf8" }, { label: "MASK", color: "#38bdf8" },
+  { label: "NONE", color: "#71717a" }, { label: "MASK", color: "#38bdf8" },
 ];
 
 function ImageBatchMockup() {
   return (
     <div className="grid grid-cols-4 gap-2">
-      {PCI_SAMPLES.map((s, i) => (
+      {DETECTION_SAMPLES.map((sample, i) => (
         <div key={i} className="relative aspect-square overflow-hidden rounded-md bg-[#111116]">
-          <div className="absolute inset-0" style={{ background: `${s.color}10` }} />
+          <div className="absolute inset-0" style={{ background: `${sample.color}10` }} />
           <div className="absolute inset-0 flex items-center justify-center text-sm text-[#4A4A5A]">🛣</div>
           <div
             className="absolute right-1 top-1 rounded px-1 py-0.5 font-mono text-[9px] font-bold"
-            style={{ background: `${s.color}22`, color: s.color, border: `1px solid ${s.color}44` }}
+            style={{ background: `${sample.color}22`, color: sample.color, border: `1px solid ${sample.color}44` }}
           >
-            {s.pci}
+            {sample.label}
           </div>
         </div>
       ))}
@@ -96,25 +96,17 @@ function ImageBatchMockup() {
 }
 
 function VideoMockup() {
-  const points = [85, 78, 72, 68, 75, 80, 65, 59, 70, 76, 82];
-  const W = 260;
-  const H = 80;
-  const stepW = W / (points.length - 1);
-  const pts = points.map((p, i) => `${i * stepW},${H - (p / 100) * H}`).join(" ");
-  const fill = `M0,${H - (points[0] / 100) * H} ${points.map((p, i) => `L${i * stepW},${H - (p / 100) * H}`).join(" ")} L${(points.length - 1) * stepW},${H} L0,${H} Z`;
+  const evidence = ["D00", "—", "D10", "D20", "—", "D40", "D00", "—"];
   return (
     <div>
-      <p className="mb-2 font-mono text-[9px] uppercase tracking-widest text-[#4A4A5A]">PCI over time</p>
-      <svg viewBox={`0 0 ${W} ${H + 16}`} className="w-full">
-        {[25, 50, 75].map((v) => (
-          <line key={v} x1="0" y1={H - (v / 100) * H} x2={W} y2={H - (v / 100) * H} stroke="#1a1a1a" strokeWidth="1" />
+      <p className="mb-3 font-mono text-[9px] uppercase tracking-widest text-[#4A4A5A]">Frame evidence timeline · no PCI inferred</p>
+      <div className="grid grid-cols-8 gap-1.5">
+        {evidence.map((label, index) => (
+          <div key={index} className="rounded border border-white/5 bg-[#111116] py-3 text-center">
+            <div className={`mx-auto h-2 w-2 rounded-full ${label === "—" ? "bg-zinc-700" : "bg-amber-400"}`} />
+            <span className="mt-2 block font-mono text-[8px] text-[#6F6F7D]">{label}</span>
+          </div>
         ))}
-        <path d={fill} fill="#f59e0b1a" />
-        <polyline points={pts} fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        {points.map((p, i) => <circle key={i} cx={i * stepW} cy={H - (p / 100) * H} r="2.5" fill="#f59e0b" />)}
-      </svg>
-      <div className="mt-1 flex justify-between font-mono text-[9px] text-[#4A4A5A]">
-        <span>Frame 0</span><span>Frame {points.length - 1}</span>
       </div>
     </div>
   );
@@ -122,10 +114,8 @@ function VideoMockup() {
 
 function DroneMockup() {
   const gps = [
-    { x: 30, y: 60, color: "#22c55e" }, { x: 65, y: 48, color: "#eab308" },
-    { x: 100, y: 38, color: "#f97316" }, { x: 140, y: 32, color: "#ef4444" },
-    { x: 180, y: 42, color: "#ef4444" }, { x: 215, y: 54, color: "#22c55e" },
-    { x: 245, y: 64, color: "#eab308" },
+    { x: 30, y: 60 }, { x: 65, y: 48 }, { x: 100, y: 38 }, { x: 140, y: 32 },
+    { x: 180, y: 42 }, { x: 215, y: 54 }, { x: 245, y: 64 },
   ];
   const pathD = `M${gps.map((p) => `${p.x},${p.y}`).join(" L")}`;
   return (
@@ -136,12 +126,12 @@ function DroneMockup() {
         <path d={pathD} fill="none" stroke="#1a1a1a" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" />
         {gps.map((p, i) => (
           <g key={i}>
-            <circle cx={p.x} cy={p.y} r="8" fill={`${p.color}22`} stroke={p.color} strokeWidth="1.5" />
-            <circle cx={p.x} cy={p.y} r="2.5" fill={p.color} />
+            <circle cx={p.x} cy={p.y} r="8" fill="#f59e0b22" stroke="#f59e0b" strokeWidth="1.5" />
+            <circle cx={p.x} cy={p.y} r="2.5" fill="#f59e0b" />
           </g>
         ))}
       </svg>
-      <p className="mt-1 text-center font-mono text-[9px] text-[#4A4A5A]">GPS route with PCI scoring</p>
+      <p className="mt-1 text-center font-mono text-[9px] text-[#4A4A5A]">GPS route · 100 m sections · PCI lower–upper bounds</p>
     </div>
   );
 }
@@ -181,8 +171,8 @@ function StepTwo({ activeTab, setActiveTab }: { activeTab: ResultTab; setActiveT
 function StepThree({ onDashboard }: { onDashboard: () => void }) {
   const steps = [
     { n: "①", label: "Upload your footage", desc: "Images, video, or drone file" },
-    { n: "②", label: "AI analyses pavement", desc: "Crack detection + PCI scoring" },
-    { n: "③", label: "Download IRC report", desc: "IRC:82-2023 compliant PDF" },
+    { n: "②", label: "AI analyses pavement", desc: "Detection + spatially deduplicated masks" },
+    { n: "③", label: "Download evidence", desc: "Partial PCI bounds + provenance PDF" },
   ];
   return (
     <div>

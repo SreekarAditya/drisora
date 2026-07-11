@@ -1,32 +1,29 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://drisora.local/schemas/drisora-labels-v1.json",
-  "title": "Drisora segment label file",
+  "$id": "https://drisora.local/schemas/drisora-labels-v2.json",
+  "title": "Drisora bounded-assessment section labels",
   "type": "object",
-  "required": ["schema_version", "survey_id", "segments"],
+  "required": ["schema_version", "source_kind", "survey_id", "segments"],
   "properties": {
-    "schema_version": {
-      "const": "drisora-labels-v1"
-    },
-    "survey_id": {
-      "type": "string",
-      "minLength": 1
-    },
-    "locked_at": {
-      "type": "string"
-    },
+    "schema_version": { "const": "drisora-labels-v2" },
+    "source_kind": { "enum": ["synthetic_fixture", "real_survey"] },
+    "survey_id": { "type": "string", "minLength": 1 },
+    "locked_at": { "type": "string" },
     "reviewers": {
       "type": "array",
       "items": {
         "type": "object",
         "required": ["reviewer_id", "reviewer_type"],
         "properties": {
-          "reviewer_id": {
-            "type": "string",
-            "minLength": 1
-          },
+          "reviewer_id": { "type": "string", "minLength": 1 },
           "reviewer_type": {
-            "enum": ["project_author", "civil_engineer", "transportation_engineer", "other"]
+            "enum": [
+              "synthetic_fixture",
+              "project_author",
+              "civil_engineer",
+              "transportation_engineer",
+              "other"
+            ]
           }
         }
       }
@@ -36,60 +33,29 @@
       "minItems": 1,
       "items": {
         "type": "object",
-        "required": [
-          "segment_id",
-          "manual_condition_band",
-          "defect_classes",
-          "reviewer_id",
-          "review_status"
-        ],
+        "required": ["section_id", "defect_classes", "reviewer_id", "review_status"],
         "properties": {
-          "segment_id": {
-            "type": "string",
-            "minLength": 1
-          },
-          "start_distance_m": {
-            "type": "number"
-          },
-          "end_distance_m": {
-            "type": "number"
-          },
-          "manual_pci": {
-            "type": "number",
-            "minimum": 0,
-            "maximum": 100
-          },
-          "manual_condition_band": {
-            "enum": ["good", "satisfactory", "fair", "poor", "very_poor"]
-          },
+          "section_id": { "type": "string", "minLength": 1 },
+          "start_distance_m": { "type": "number" },
+          "end_distance_m": { "type": "number" },
+          "reference_complete_pci": { "type": "number", "minimum": 0, "maximum": 100 },
           "defect_classes": {
             "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "items": { "type": "string" }
           },
           "major_false_positive_notes": {
             "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "items": { "type": "string" }
           },
           "major_false_negative_notes": {
             "type": "array",
-            "items": {
-              "type": "string"
-            }
+            "items": { "type": "string" }
           },
-          "reviewer_id": {
-            "type": "string",
-            "minLength": 1
-          },
+          "reviewer_id": { "type": "string", "minLength": 1 },
           "review_status": {
-            "enum": ["self_labeled", "engineer_reviewed", "adjudicated"]
+            "enum": ["synthetic_fixture", "self_labeled", "engineer_reviewed", "adjudicated"]
           },
-          "notes": {
-            "type": "string"
-          }
+          "notes": { "type": "string" }
         }
       }
     }

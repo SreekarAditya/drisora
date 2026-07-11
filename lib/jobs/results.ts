@@ -2,7 +2,14 @@ import { listR2Objects, getR2ObjectText, getPresignedGetUrl } from "@/lib/r2";
 import { crackTypeLabel, normalizeCrackTypes } from "@/lib/crack-labels";
 import { deriveCrackMetrics } from "@/lib/crack-metrics";
 import { parseDetectionAnnotations, parseImageSize } from "@/lib/detection-annotations";
-import type { FrameResult, JobResults, JobMode, JobResultsSummary } from "@/types";
+import type {
+  FrameResult,
+  JobResults,
+  JobMode,
+  JobResultsSummary,
+  PartialPciSection,
+  PciBounds,
+} from "@/types";
 
 interface RawDetection {
   frame?: {
@@ -13,7 +20,6 @@ interface RawDetection {
     alt_m?: number | null;
     alt?: number | null;
   };
-  pci_score?: number;
   crack_types?: string[];
   index?: number;
   timestamp_ms?: number | null;
@@ -58,9 +64,12 @@ const SRT_LAT_RE = /latitude\s*[:=]\s*(-?\d+(?:\.\d+)?)/i;
 const SRT_LON_RE = /longitude\s*[:=]\s*(-?\d+(?:\.\d+)?)/i;
 const SRT_GPS_TUPLE_RE =
   /GPS\s*\(\s*(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)\s*(?:,\s*(-?\d+(?:\.\d+)?))?\s*\)/i;
-const SRT_ABS_ALT_RE = /abs_alt\s*[:=]\s*(-?\d+(?:\.\d+)?)/i;
 const SRT_REL_ALT_RE = /rel_alt\s*[:=]\s*(-?\d+(?:\.\d+)?)/i;
-const SRT_ALT_RE = /(?:^|\s|\[)alt(?:itude)?\s*[:=]\s*(-?\d+(?:\.\d+)?)/i;
+
+interface RawPartialPciPayload {
+  summary?: Partial<JobResultsSummary>;
+  sections?: PartialPciSection[];
+}
 
 export async function loadJobResults(
   jobId: string,
@@ -76,10 +85,11 @@ export async function loadJobResults(
   const framePrefix = `${prefix}/frames/`;
   const rawPrefix = `uploads/${userId}/${jobId}/raw/`;
 
-  const detectionKeys = await listR2Objects(detectionPrefix);
-  if (detectionKeys.length === 0) {
-    return emptyResults(jobId, mode);
-  }
+  const [detectionKeys, partialPayload] = await Promise.all([
+    listR2Objects(detectionPrefix),
+    loadPartialPciPayload(`${prefix}/partial_pci_sections.json`),
+  ]);
+  const sections = Array.isArray(partialPayload?.sections) ? partialPayload.sections : [];
   let overlayKeys = new Set<string>();
   let frameKeys = new Set<string>();
   let rawKeys = new Set<string>();
@@ -161,7 +171,6 @@ export async function loadJobResults(
       const cameraSurfaceDistanceM = data.camera_surface_distance_m ?? data.depth_estimate ?? null;
       const metrics = deriveCrackMetrics({
         crackTypes,
-        pci: typeof data.pci_score === "number" ? data.pci_score : 0,
         avgWidthMm: data.avg_crack_width_mm ?? null,
         maxWidthMm: data.max_crack_width_mm ?? null,
         crackTypeLengthsM: data.crack_type_lengths_m ?? data.crack_lengths_m_by_type ?? {},
@@ -169,12 +178,11 @@ export async function loadJobResults(
         finalDetectionCount: data.final_detection_count ?? null,
         yoloDetectionCount: data.yolo_detection_count ?? null,
         cameraSurfaceDistanceM,
-        sectionLengthM: 10,
       });
       frames.push({
         stem,
         index: data.index ?? data.frame?.index ?? i + j,
-        pci_score: typeof data.pci_score === "number" ? data.pci_score : 0,
+        pci_score: null,
         crack_types: crackTypes,
         crack_type_lengths_m: metrics.lengthByTypeM,
         overlay_url: overlayPresigns[j],
@@ -210,9 +218,18 @@ export async function loadJobResults(
     await hydrateGpsFromUploadedSrt(jobId, userId, mode, frames);
   }
 
-  const summary = computeSummary(frames);
+  const summary = computeSummary(frames, partialPayload?.summary, sections.length);
 
-  return { job_id: jobId, mode, summary, frames };
+  return { job_id: jobId, mode, summary, frames, sections };
+}
+
+async function loadPartialPciPayload(key: string): Promise<RawPartialPciPayload | null> {
+  try {
+    const value = JSON.parse(await getR2ObjectText(key)) as RawPartialPciPayload;
+    return value && typeof value === "object" ? value : null;
+  } catch {
+    return null;
+  }
 }
 
 function countCrackDetections(detections: RawDetection["detections"]) {
@@ -299,7 +316,6 @@ function parseSrtGps(text: string): SrtGpsEntry[] {
     if (tupleMatch) {
       lon = Number(tupleMatch[1]);
       lat = Number(tupleMatch[2]);
-      alt_m = tupleMatch[3] == null ? null : Number(tupleMatch[3]);
     } else if (latMatch && lonMatch) {
       lat = Number(latMatch[1]);
       lon = Number(lonMatch[1]);
@@ -307,12 +323,9 @@ function parseSrtGps(text: string): SrtGpsEntry[] {
       continue;
     }
 
-    for (const pattern of [SRT_ABS_ALT_RE, SRT_REL_ALT_RE, SRT_ALT_RE]) {
-      const match = pattern.exec(block);
-      if (match) {
-        alt_m = Number(match[1]);
-        break;
-      }
+    const relativeAltitude = SRT_REL_ALT_RE.exec(block);
+    if (relativeAltitude) {
+      alt_m = Number(relativeAltitude[1]);
     }
 
     if (Number.isFinite(lat) && Number.isFinite(lon)) {
@@ -345,11 +358,11 @@ function nearestSrtGps(entries: SrtGpsEntry[], timestamp_ms: number) {
   return nearest;
 }
 
-function computeSummary(frames: FrameResult[]): JobResultsSummary {
-  if (frames.length === 0) {
-    return { average_pci: 0, worst_pci: 0, best_pci: 0, crack_type_counts: {}, frame_count: 0 };
-  }
-  const scores = frames.map((f) => f.pci_score);
+function computeSummary(
+  frames: FrameResult[],
+  partial: Partial<JobResultsSummary> | undefined,
+  sectionCount: number,
+): JobResultsSummary {
   const crack_type_counts: Record<string, number> = {};
   for (const f of frames) {
     for (const ct of f.crack_types) {
@@ -358,19 +371,39 @@ function computeSummary(frames: FrameResult[]): JobResultsSummary {
     }
   }
   return {
-    average_pci: scores.reduce((a, b) => a + b, 0) / scores.length,
-    worst_pci: Math.min(...scores),
-    best_pci: Math.max(...scores),
+    pci_complete: null,
+    pci_bounds: validBounds(partial?.pci_bounds),
+    measured_weight_fraction: finiteFraction(partial?.measured_weight_fraction, 0),
+    unmeasured_weight_fraction: finiteFraction(partial?.unmeasured_weight_fraction, 1),
     crack_type_counts,
     frame_count: frames.length,
+    segment_count: sectionCount,
+    assessment_scope:
+      typeof partial?.assessment_scope === "string" ? partial.assessment_scope : "detection_only",
   };
 }
 
-function emptyResults(jobId: string, mode: JobMode): JobResults {
+function finiteFraction(value: unknown, fallback: number) {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1
+    ? value
+    : fallback;
+}
+
+function validBounds(value: unknown): PciBounds | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Partial<PciBounds>;
+  if (
+    typeof candidate.lower !== "number" ||
+    typeof candidate.upper !== "number" ||
+    !Number.isFinite(candidate.lower) ||
+    !Number.isFinite(candidate.upper) ||
+    candidate.upper < candidate.lower
+  ) {
+    return null;
+  }
   return {
-    job_id: jobId,
-    mode,
-    summary: { average_pci: 0, worst_pci: 0, best_pci: 0, crack_type_counts: {}, frame_count: 0 },
-    frames: [],
+    lower: candidate.lower,
+    upper: candidate.upper,
+    width: candidate.upper - candidate.lower,
   };
 }

@@ -28,7 +28,12 @@ class FrameBatchItem(TypedDict):
     lat: Optional[float]
     lon: Optional[float]
     alt_m: Optional[float]
+    relative_altitude_m: Optional[float]
+    absolute_altitude_m: Optional[float]
+    altitude_source: Optional[str]
     gimbal_yaw: Optional[float]
+    gimbal_pitch: Optional[float]
+    gimbal_roll: Optional[float]
 
 
 class FrameBatch(TypedDict):
@@ -112,7 +117,12 @@ def _dispatch_image_batch(job_id: str, files: Dict[str, Any]) -> FrameBatch:
             "lat": r["lat"],
             "lon": r["lon"],
             "alt_m": r["alt"],
+            "relative_altitude_m": None,
+            "absolute_altitude_m": r["alt"],
+            "altitude_source": "exif_unknown" if r["alt"] is not None else None,
             "gimbal_yaw": None,
+            "gimbal_pitch": None,
+            "gimbal_roll": None,
         }
         for r in records
     ]
@@ -149,7 +159,12 @@ def _dispatch_handheld_video(job_id: str, files: Dict[str, Any]) -> FrameBatch:
             "lat": f.get("lat"),
             "lon": f.get("lon"),
             "alt_m": f.get("alt_m"),
+            "relative_altitude_m": f.get("relative_altitude_m"),
+            "absolute_altitude_m": f.get("absolute_altitude_m"),
+            "altitude_source": f.get("altitude_source"),
             "gimbal_yaw": f.get("gimbal_yaw"),
+            "gimbal_pitch": f.get("gimbal_pitch"),
+            "gimbal_roll": f.get("gimbal_roll"),
         }
         for f in enriched
     ]
@@ -192,7 +207,12 @@ def _dispatch_drone_footage(job_id: str, files: Dict[str, Any]) -> FrameBatch:
             "lat": f.get("lat"),
             "lon": f.get("lon"),
             "alt_m": f.get("alt_m"),
+            "relative_altitude_m": f.get("relative_altitude_m"),
+            "absolute_altitude_m": f.get("absolute_altitude_m"),
+            "altitude_source": f.get("altitude_source"),
             "gimbal_yaw": f.get("gimbal_yaw"),
+            "gimbal_pitch": f.get("gimbal_pitch"),
+            "gimbal_roll": f.get("gimbal_roll"),
         }
         for f in enriched
     ]
@@ -244,7 +264,12 @@ def _dispatch_multi_drone_footage(job_id: str, files: Dict[str, Any]) -> FrameBa
                     "lat": frame.get("lat"),
                     "lon": frame.get("lon"),
                     "alt_m": frame.get("alt_m"),
+                    "relative_altitude_m": frame.get("relative_altitude_m"),
+                    "absolute_altitude_m": frame.get("absolute_altitude_m"),
+                    "altitude_source": frame.get("altitude_source"),
                     "gimbal_yaw": frame.get("gimbal_yaw"),
+                    "gimbal_pitch": frame.get("gimbal_pitch"),
+                    "gimbal_roll": frame.get("gimbal_roll"),
                 }
             )
 

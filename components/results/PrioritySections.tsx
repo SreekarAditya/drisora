@@ -4,15 +4,6 @@ interface PrioritySectionsProps {
   sections: RoadSectionProperties[];
 }
 
-function pciBadgeClass(pci: number | null): string {
-  if (pci == null) return "bg-[rgba(255,255,255,0.04)] text-[#8A8A9A]";
-  if (pci >= 85) return "bg-[rgba(34,197,94,0.12)] text-[#22C55E]";
-  if (pci >= 70) return "bg-[rgba(245,166,35,0.10)] text-[#F5A623]";
-  if (pci >= 55) return "bg-[rgba(249,115,22,0.12)] text-[#F97316]";
-  if (pci >= 40) return "bg-[rgba(239,68,68,0.10)] text-[#EF4444]";
-  return "bg-[rgba(239,68,68,0.15)] text-[#EF4444]";
-}
-
 export function PrioritySections({ sections }: PrioritySectionsProps) {
   const prioritySections = [...sections]
     .filter((section) => section.priority_rank != null)
@@ -36,8 +27,8 @@ export function PrioritySections({ sections }: PrioritySectionsProps) {
               {section.recommended_intervention ?? "No intervention assigned"}
             </div>
           </div>
-          <span className={`shrink-0 rounded-full px-2 py-1 text-xs font-semibold ${pciBadgeClass(section.pci_score)}`}>
-            PCI {section.pci_score == null ? "N/A" : Math.round(section.pci_score)}
+          <span className="shrink-0 rounded-full bg-[rgba(255,255,255,0.04)] px-2 py-1 text-xs font-semibold text-[#8A8A9A]">
+            Legacy point suppressed
           </span>
         </div>
       ))}

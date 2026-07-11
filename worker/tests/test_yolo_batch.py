@@ -18,6 +18,17 @@ if _WORKER_DIR not in sys.path:
 
 
 class TestYoloBatch(unittest.TestCase):
+    def test_detector_failure_raises_instead_of_returning_no_detections(self):
+        from pipeline import yolo_inference
+
+        with unittest.mock.patch.object(
+            yolo_inference,
+            "load_model",
+            side_effect=RuntimeError("checkpoint unavailable"),
+        ):
+            with self.assertRaisesRegex(yolo_inference.DetectorError, "checkpoint unavailable"):
+                yolo_inference.run("/tmp/frame.jpg")
+
     def test_run_list_uses_single_batched_predict_call(self):
         from pipeline import yolo_inference
 

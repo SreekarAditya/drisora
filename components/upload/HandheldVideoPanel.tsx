@@ -29,7 +29,6 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
   const [video, setVideo] = useState<File | null>(null);
   const [srt, setSrt] = useState<File | null>(null);
   const [frameProfile, setFrameProfile] = useState<FrameProfile>("all_frames");
-  const [enableMetricAnalysis, setEnableMetricAnalysis] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [srtDragOver, setSrtDragOver] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
@@ -85,8 +84,6 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
         gps_source: srt ? "srt" : "none",
         has_srt: srt !== null,
         srt_name: srt?.name ?? null,
-        enable_metric_analysis: enableMetricAnalysis,
-        enable_depthpro: enableMetricAnalysis,
       },
     });
   }
@@ -230,21 +227,6 @@ export function HandheldVideoPanel({ projectId }: { projectId?: string | null })
           })}
         </div>
       </div>
-
-      <label className="mt-5 flex items-center justify-between gap-4 rounded-[10px] border border-[rgba(255,255,255,0.07)] bg-[#0D0D11] px-4 py-3">
-        <span>
-          <span className="block text-sm font-medium text-[#F0F0F4]">Metric Analysis</span>
-          <span className="mt-0.5 block text-xs text-[#4A4A5A]">
-            Camera-to-surface distance and width from pixels. Adds processing time.
-          </span>
-        </span>
-        <input
-          type="checkbox"
-          checked={enableMetricAnalysis}
-          onChange={(e) => setEnableMetricAnalysis(e.target.checked)}
-          className="h-4 w-4 shrink-0 accent-amber-500"
-        />
-      </label>
 
       {(isUploading || (phase === "error" && failedFiles.size > 0)) &&
         progress.size > 0 && (

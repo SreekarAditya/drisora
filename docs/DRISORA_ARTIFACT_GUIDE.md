@@ -1,122 +1,54 @@
 # Drisora Artifact Guide
 
-This guide is for reproducing a Drisora systems-artifact run. It does not require committing secrets or private survey media.
-
-## Repo Verification
-
-Run the local gates:
+## Verify the repository
 
 ```bash
+npm install
 npm run lint
 npm run typecheck
 npm run test:worker
-npm run eval:sample
 npm run build
 ```
 
-Or run the combined gate:
+`npm run verify` runs the repository's combined gate. The worker acceptance suite covers all road classes, all five MDR surface curves, nine Appendix-2 source input rows, null unmeasured inputs, detector/SAM failure behavior, pothole area conversion, relative-AGL GSD, area uncertainty, GPS sectioning, and spatial deduplication.
+
+## Configure a drone assessment
+
+Required job options:
+
+- `road_class`: `HIGHWAY`, `MDR_RURAL`, or `URBAN`;
+- `surface_type`: required for MDR/rural (`SD`, `OGPC`, `MSS`, `SDBC`, or `BC`);
+- `carriageway_width_m`;
+- camera geometry (horizontal FOV, sensor/focal pair, or explicit estimated GSD);
+- `camera_calibration_source`;
+- `gsd_relative_error_pct`;
+- all-frame extraction for section aggregation.
+
+The SRT must contain latitude, longitude, relative altitude, yaw, and near-nadir pitch for each usable frame. Absolute MSL is never substituted for AGL.
+
+## Verify a result
+
+Inspect `partial_pci_sections.json` and confirm:
+
+- `pci_complete` is null;
+- every interval width is 72;
+- measured weight is 0.28 and unmeasured weight is 0.72;
+- ravelling, patching, rut depth, and roughness are null;
+- each section has raw and unique detection counts;
+- model hashes, seed, build commit, GSD source/error, and dedup method are present.
+
+Cross-check `processing_summary.json` for processed counts and timing and `run_manifest.json` for input/model hashes. A successful request alone is not evidence of a valid assessment.
+
+## Reproduce the container
+
+`worker/Dockerfile` installs exact Python packages, pins the SAM2 commit, verifies the SAM2 checkpoint, copies and verifies the YOLO checkpoint, compiles the worker, and fixes deterministic seeds. Build with:
 
 ```bash
-npm run verify
+docker build --platform linux/amd64 \
+  --build-arg DRISORA_BUILD_SHA=$(git rev-parse HEAD) \
+  -f worker/Dockerfile worker
 ```
 
-## Environment Variables
+## Research acceptance
 
-Use `.env.local.example` for the Next.js app and `worker/.env.example` for the worker. Keep real secrets in local env files or deployment secret stores only.
-
-Required service groups:
-
-- Supabase: URL, anon key, service role key
-- Cloudflare R2: account ID, access key ID, secret key, bucket name
-- Upstash Redis: REST URL and token
-- RunPod: API key and endpoint ID
-- Worker webhook: `WORKER_WEBHOOK_SECRET`
-- App URL: `NEXT_PUBLIC_APP_URL`
-
-## Model Assets
-
-YOLO weights are expected under `worker/weights/`.
-
-SAM2 and DepthPro are downloaded at runtime by the worker pipeline when absent:
-
-- `SAM2_MODEL_PATH=/tmp/models/sam2.1_hiera_small.pt`
-- `SAM2_MODEL_URL=https://dl.fbaipublicfiles.com/segment_anything_2/092824/sam2.1_hiera_small.pt`
-- `DEPTHPRO_MODEL_PATH=/tmp/models/depth_pro.pt`
-- `DEPTHPRO_MODEL_URL=https://ml-site.cdn-apple.com/models/depth-pro/depth_pro.pt`
-
-For a locked paper artifact, record the SHA256 hashes emitted in `run_manifest.json` after the first successful run. Do not commit large model checkpoints unless the repository policy changes.
-
-## Worker Outputs
-
-Each successful worker job writes manifests under:
-
-```text
-results/<user_id>/<job_id>/manifests/
-```
-
-Expected files:
-
-- `run_manifest.json`: job options, input/output prefixes, raw file hashes, runtime versions, model paths and hashes
-- `frame_manifest.json`: extracted frame inventory and optional frame hashes
-- `processing_summary.json`: processed frame count, average PCI, total detections, timing, frames/minute, pipeline stage counts, degraded-frame counts
-
-Each frame detection JSON includes:
-
-- PCI score and condition
-- detections
-- YOLO/SAM2/DepthPro counters
-- metric fields where available
-- `analysis_stage`
-- `degraded_reasons`
-
-## Evaluation Bundle
-
-The normalized evaluation path is:
-
-```text
-evaluation/
-  fixtures/
-  schema/
-  output/      # ignored by git
-  private/     # ignored by git
-```
-
-For each real survey, prepare:
-
-- one Drisora export JSON using `drisora-eval-export-v1`
-- one label JSON using `drisora-labels-v1`
-- optional media and GPS paths stored outside git or under ignored private storage
-
-If you have a saved `JobResults` JSON from the app plus worker manifests, normalize it first:
-
-```bash
-node evaluation/drisora_eval.mjs export \
-  --job-results <job_results.json> \
-  --survey-id <survey_id> \
-  --processing-summary <processing_summary.json> \
-  --run-manifest <run_manifest.json> \
-  --out evaluation/output/<survey_id>
-```
-
-Run:
-
-```bash
-node evaluation/drisora_eval.mjs validate --labels <labels.json>
-node evaluation/drisora_eval.mjs compute --export <export.json> --labels <labels.json> --out evaluation/output/<survey_id>
-```
-
-Outputs:
-
-- `metrics.json`
-- `metrics.csv`
-- `paper_tables.md`
-
-## Real-Survey Artifact Acceptance
-
-A minimally reproducible artifact is complete when another engineer can:
-
-1. Configure env vars without secrets being present in git.
-2. Process at least one sample survey from upload through PDF report.
-3. Find the worker manifests for that job.
-4. Run the evaluation command against frozen export and label files.
-5. Regenerate the reported tables without spreadsheet edits.
+Code reproducibility is not empirical validation. A paper artifact additionally requires frozen real surveys, manual six-parameter field measurements, engineer-reviewed labels, uncertainty analysis, failure cases, image/detector metrics, and archived raw inputs plus outputs.

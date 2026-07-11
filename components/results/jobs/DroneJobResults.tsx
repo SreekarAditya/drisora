@@ -1,19 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import dynamic from "next/dynamic";
-import { SummaryBar, PciChip, NoDetectionsState } from "./shared";
 import { DetectionFrameImage } from "./DetectionFrameImage";
-import { analyzeDistress } from "@/lib/civil-intelligence";
-import { crackWidthBandLabel } from "@/lib/crack-metrics";
-import { getPciBand, ircRecommendation, PCI_BANDS } from "@/types";
-import type { JobResults, FrameResult } from "@/types";
-import { useMediaQuery } from "@/hooks/useMediaQuery";
-
-const DroneMapClient = dynamic(
-  () => import("./DroneMapClient").then((m) => m.DroneMapClient),
-  { ssr: false, loading: () => <div className="h-full rounded-[14px] bg-[#111116] animate-pulse" /> },
-);
+import { NoDetectionsState, PciBoundsChip, SummaryBar } from "./shared";
+import type { FrameResult, JobResults, PartialPciSection } from "@/types";
 
 interface Props {
   results: JobResults;
@@ -22,325 +11,100 @@ interface Props {
   orgName: string;
 }
 
-function SegmentSidebar({
-  frame,
-  onClose,
-}: {
-  frame: FrameResult;
-  onClose: () => void;
-}) {
-  const band = getPciBand(frame.pci_score);
-  const analysis = analyzeDistress({
-    crackTypes: frame.crack_types,
-    pci: frame.pci_score,
-    avgWidthMm: frame.avg_crack_width_mm,
-    maxWidthMm: frame.max_crack_width_mm,
-    crackCount: frame.final_detection_count ?? frame.yolo_detection_count ?? frame.crack_types.length,
-    sectionLengthM: 10,
-  });
-  const metricRows = Object.entries(frame.crack_type_lengths_m);
-  const hasCracks =
-    frame.crack_types.length > 0 ||
-    (frame.final_detection_count ?? frame.yolo_detection_count ?? 0) > 0 ||
-    frame.max_crack_width_mm != null ||
-    metricRows.length > 0;
-
+export function DroneJobResults({ results, jobId, surveyDate, orgName }: Props) {
+  const { frames, sections } = results;
   return (
-    <div className="flex h-full flex-col overflow-hidden rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116]">
-      <div className="flex items-center justify-between border-b border-[rgba(255,255,255,0.07)] px-4 py-3">
-        <PciChip score={frame.pci_score} />
-        <button onClick={onClose} className="text-[#4A4A5A] hover:text-[#F0F0F4]">
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <path d="M2 2l10 10M12 2L2 12" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-        </button>
-      </div>
-
-      {/* Overlay thumbnail */}
-      <div className="relative h-44 shrink-0 bg-[#0D0D11]">
-        <DetectionFrameImage
-          frame={frame}
-          alt="Crack overlay"
-          objectFit="cover"
-          className="h-full w-full"
-          sizes="360px"
-        />
-      </div>
-
-      {/* Details */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="space-y-4">
-          <div>
-            <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">Condition</p>
-            <p className="text-sm font-medium" style={{ color: band.color }}>
-              {band.label} — PCI {frame.pci_score.toFixed(0)}
-            </p>
-          </div>
-
-          {frame.lat != null && frame.lon != null && (
-            <div>
-              <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">GPS</p>
-              <p className="font-mono text-xs text-[#8A8A9A]">
-                {frame.lat.toFixed(6)}, {frame.lon.toFixed(6)}
+    <div className="min-h-screen bg-[#09090C]">
+      <SummaryBar results={results} jobId={jobId} surveyDate={surveyDate} orgName={orgName} />
+      {frames.length === 0 && sections.length === 0 ? (
+        <NoDetectionsState jobId={jobId} />
+      ) : (
+        <main className="mx-auto max-w-7xl space-y-8 px-6 py-8">
+          <section className="overflow-hidden rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116]">
+            <div className="border-b border-[rgba(255,255,255,0.07)] px-5 py-4">
+              <h2 className="font-semibold text-[#F0F0F4]">100 m chainage sections</h2>
+              <p className="mt-1 text-xs text-[#8A8A9A]">
+                Bounds use spatially deduplicated SAM2 mask area. The final section may be shorter than 100 m and is marked partial.
               </p>
-              {frame.alt_m != null && (
-                <p className="font-mono text-xs text-[#4A4A5A]">{frame.alt_m.toFixed(1)} m alt</p>
-              )}
             </div>
-          )}
-
-          {frame.crack_types.length > 0 && (
-            <div>
-              <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">Crack types</p>
-              <div className="flex flex-wrap gap-1.5">
-                {frame.crack_types.map((ct) => (
-                  <span key={ct} className="rounded bg-[rgba(255,255,255,0.04)] px-2 py-0.5 text-xs text-[#F0F0F4]">
-                    {ct}
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="rounded-[10px] border border-[rgba(255,255,255,0.10)] bg-[#111116] p-3">
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-[#8A8A9A]">Crack Metrics</p>
-              {frame.crack_metrics_estimated && hasCracks && (
-                <span className="rounded-full border border-[rgba(245,166,35,0.20)] bg-[rgba(245,166,35,0.10)] px-2 py-0.5 text-[10px] font-semibold text-[#FFBE4D]">
-                  Legacy estimate
-                </span>
-              )}
-            </div>
-            {hasCracks ? (
-              <>
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="rounded-md bg-[rgba(0,0,0,0.25)] p-2">
-                    <p className="font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">Max width</p>
-                    <p className="mt-1 text-lg font-semibold text-[#F0F0F4]">
-                      {frame.max_crack_width_mm == null ? "N/A" : `${frame.max_crack_width_mm.toFixed(1)} mm`}
-                    </p>
-                  </div>
-                  <div className="rounded-md bg-[rgba(0,0,0,0.25)] p-2">
-                    <p className="font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">Avg width</p>
-                    <p className="mt-1 text-lg font-semibold text-[#F0F0F4]">
-                      {frame.avg_crack_width_mm == null ? "N/A" : `${frame.avg_crack_width_mm.toFixed(1)} mm`}
-                    </p>
-                  </div>
-                </div>
-                <p className="mt-2 text-xs text-[#8A8A9A]">
-                  {crackWidthBandLabel(frame.max_crack_width_mm ?? frame.avg_crack_width_mm)}
-                  {frame.camera_surface_distance_m != null ? ` from ${frame.camera_surface_distance_m.toFixed(2)} m camera distance` : ""}
-                </p>
-                {metricRows.length > 0 && (
-                  <div className="mt-3 space-y-1">
-                    {metricRows.map(([type, length]) => (
-                      <div key={type} className="flex justify-between gap-3 rounded bg-[rgba(0,0,0,0.25)] px-2 py-1.5 text-xs">
-                        <span className="text-[#8A8A9A]">{type}</span>
-                        <span className="font-mono text-[#F0F0F4]">{length.toFixed(2)} m</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </>
+            {sections.length === 0 ? (
+              <p className="px-5 py-8 text-sm text-[#8A8A9A]">No section assessment was produced for this job.</p>
             ) : (
-              <p className="text-sm text-[#8A8A9A]">No cracks detected in this section.</p>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] text-left text-sm">
+                  <thead className="bg-[rgba(255,255,255,0.025)] font-mono text-[10px] uppercase tracking-wider text-[#4A4A5A]">
+                    <tr>
+                      <th className="px-5 py-3">Section</th>
+                      <th className="px-5 py-3">Chainage</th>
+                      <th className="px-5 py-3">PCI bounds</th>
+                      <th className="px-5 py-3">Cracking extent</th>
+                      <th className="px-5 py-3">Pothole number</th>
+                      <th className="px-5 py-3">Dedup</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {sections.map((section) => <SectionRow key={section.section_id} section={section} />)}
+                  </tbody>
+                </table>
+              </div>
             )}
-          </div>
+          </section>
 
-          <div>
-            <div className="mb-2 flex items-center justify-between gap-3">
-              <p className="font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">Possible Causes</p>
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                  analysis.priority === "Immediate"
-                    ? "bg-[rgba(239,68,68,0.10)] text-[#EF4444]"
-                    : analysis.priority === "Preventive"
-                      ? "bg-[rgba(245,166,35,0.10)] text-[#FFBE4D]"
-                      : "bg-[rgba(34,197,94,0.10)] text-[#22C55E]"
-                }`}
-              >
-                {analysis.priority}
-              </span>
+          <section>
+            <div className="mb-4 flex items-end justify-between gap-3">
+              <div>
+                <h2 className="font-semibold text-[#F0F0F4]">Frame evidence</h2>
+                <p className="mt-1 text-xs text-[#8A8A9A]">Frames are evidence inputs, not PCI sections.</p>
+              </div>
+              <span className="font-mono text-xs text-[#4A4A5A]">{frames.length} frames</span>
             </div>
-            <p className="text-sm font-medium text-[#F0F0F4]">
-              {analysis.distressLabel} · {analysis.severity}
-            </p>
-            <ul className="mt-2 space-y-1.5">
-              {analysis.possibleCauses.map((cause) => (
-                <li key={cause} className="text-sm leading-5 text-[#8A8A9A]">
-                  {cause}
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">Recommended Action</p>
-            <p className="text-sm leading-6 text-[#F0F0F4]">{analysis.recommendedMitigation}</p>
-          </div>
-
-          <div>
-            <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">IRC:82-2023</p>
-            <p className="text-sm text-[#F0F0F4]">{ircRecommendation(frame.pci_score)}</p>
-          </div>
-        </div>
-      </div>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {frames.map((frame) => <FrameCard key={frame.stem} frame={frame} />)}
+            </div>
+          </section>
+        </main>
+      )}
     </div>
   );
 }
 
-export function DroneJobResults({ results, jobId, surveyDate, orgName }: Props) {
-  const [selectedFrame, setSelectedFrame] = useState<FrameResult | null>(null);
-  const isMobile = useMediaQuery("(max-width: 1023px)");
-  const handleSelect = useCallback((frame: FrameResult) => {
-    setSelectedFrame(frame);
-  }, []);
-
-  const { frames, summary } = results;
-
-  if (frames.length === 0) {
-    return (
-      <div className="min-h-screen bg-[#09090C]">
-        <SummaryBar results={results} jobId={jobId} surveyDate={surveyDate} orgName={orgName} />
-        <NoDetectionsState jobId={jobId} />
-      </div>
-    );
-  }
-
-  const gpsFrames = frames.filter((f) => f.lat != null && f.lon != null);
-
-  // Compute road length as sum of Haversine distances between consecutive GPS frames
-  const totalLengthM = gpsFrames.reduce((acc, f, i) => {
-    if (i === 0) return acc;
-    const prev = gpsFrames[i - 1];
-    const R = 6371000;
-    const dLat = ((f.lat! - prev.lat!) * Math.PI) / 180;
-    const dLon = ((f.lon! - prev.lon!) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) ** 2 +
-      Math.cos((prev.lat! * Math.PI) / 180) *
-        Math.cos((f.lat! * Math.PI) / 180) *
-        Math.sin(dLon / 2) ** 2;
-    return acc + R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  }, 0);
-
-  const bandCounts = PCI_BANDS.map((b) => ({
-    band: b,
-    count: frames.filter((f) => f.pci_score >= b.min && f.pci_score <= b.max).length,
-  }));
-
-  const roadLengthExtra = totalLengthM > 0 ? (
-    <>
-      <div className="h-8 w-px bg-[rgba(255,255,255,0.07)]" />
-      <div>
-        <p className="font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">Road length</p>
-        <p className="mt-0.5 text-2xl font-semibold text-[#F0F0F4]">
-          {totalLengthM >= 1000
-            ? `${(totalLengthM / 1000).toFixed(2)} km`
-            : `${totalLengthM.toFixed(0)} m`}
-        </p>
-      </div>
-    </>
-  ) : null;
-
+function SectionRow({ section }: { section: PartialPciSection }) {
+  const crack = section.assessment?.measured?.cracking;
+  const pothole = section.assessment?.measured?.pothole;
   return (
-    <div className="min-h-screen bg-[#09090C]">
-      <SummaryBar results={results} jobId={jobId} surveyDate={surveyDate} orgName={orgName} extra={roadLengthExtra} />
+    <tr className="border-t border-[rgba(255,255,255,0.06)] text-[#F0F0F4]">
+      <td className="px-5 py-4 font-medium">
+        {section.section_id}
+        {section.is_relative && <span className="ml-2 text-[10px] uppercase text-[#F5A623]">partial</span>}
+      </td>
+      <td className="px-5 py-4 font-mono text-xs text-[#8A8A9A]">
+        {section.start_distance_m.toFixed(0)}–{section.end_distance_m.toFixed(0)} m
+      </td>
+      <td className="px-5 py-4"><PciBoundsChip bounds={section.pci_bounds} /></td>
+      <td className="px-5 py-4 font-mono">{crack?.extent_pct == null ? "—" : `${crack.extent_pct.toFixed(3)}%`}</td>
+      <td className="px-5 py-4 font-mono">{pothole?.number == null ? "—" : pothole.number.toFixed(2)}</td>
+      <td className="px-5 py-4 font-mono text-xs text-[#8A8A9A]">{section.raw_detection_count} → {section.unique_detection_count}</td>
+    </tr>
+  );
+}
 
-      <div className="mx-auto max-w-7xl px-6 py-8">
-        {/* PCI band legend */}
-        <div className="mb-6 flex flex-wrap items-center gap-4 rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116] px-5 py-4">
-          {PCI_BANDS.map((b) => (
-            <div key={b.label} className="flex items-center gap-2">
-              <span
-                className="h-3 w-8 rounded-sm"
-                style={{ background: b.color }}
-              />
-              <span className="text-xs text-[#8A8A9A]">
-                {b.label} <span className="text-[#4A4A5A]">{b.range}</span>
-              </span>
-              <span className="font-mono text-xs text-[#4A4A5A]">
-                ({bandCounts.find((bc) => bc.band.label === b.label)?.count ?? 0})
-              </span>
-            </div>
-          ))}
+function FrameCard({ frame }: { frame: FrameResult }) {
+  const count = frame.final_detection_count ?? frame.yolo_detection_count ?? 0;
+  return (
+    <article className="overflow-hidden rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116]">
+      <div className="aspect-video bg-[#0D0D11]">
+        <DetectionFrameImage frame={frame} alt={`Frame ${frame.index + 1}`} objectFit="cover" className="h-full w-full" sizes="(max-width: 768px) 100vw, 25vw" />
+      </div>
+      <div className="space-y-2 p-3 text-xs">
+        <div className="flex items-center justify-between">
+          <span className="font-mono text-[#8A8A9A]">Frame #{frame.index + 1}</span>
+          <span className={count > 0 ? "text-[#F5A623]" : "text-[#22C55E]"}>{count} detections</span>
         </div>
-
-        {/* Map + sidebar */}
-        <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
-          <div className="h-[560px] overflow-hidden rounded-[14px] border border-[rgba(255,255,255,0.07)]">
-            {gpsFrames.length === 0 ? (
-              <div className="flex h-full flex-col items-center justify-center px-6 text-center">
-                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" className="mb-3 text-[#4A4A5A]">
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" stroke="currentColor" strokeWidth="1.5" />
-                  <circle cx="12" cy="9" r="2.5" stroke="currentColor" strokeWidth="1.5" />
-                </svg>
-                <p className="text-sm font-semibold text-[#F0F0F4]">No GPS data available</p>
-                <p className="mt-1 text-xs text-[#4A4A5A]">
-                  This survey has no location coordinates — the map view is unavailable.
-                </p>
-                <p className="mt-1 text-xs text-[#4A4A5A]">
-                  Results are still available in the crack distribution section below.
-                </p>
-              </div>
-            ) : (
-              <DroneMapClient
-                frames={frames}
-                onSelect={handleSelect}
-                selectedStem={selectedFrame?.stem ?? null}
-              />
-            )}
-          </div>
-
-          {/* Desktop sidebar (hidden on mobile — bottom sheet used instead) */}
-          <div className="hidden h-[560px] lg:block">
-            {selectedFrame ? (
-              <SegmentSidebar frame={selectedFrame} onClose={() => setSelectedFrame(null)} />
-            ) : (
-              <div className="flex h-full items-center justify-center rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116]">
-                <div className="px-6 text-center">
-                  <svg width="32" height="32" viewBox="0 0 32 32" fill="none" className="mx-auto mb-3 text-[#4A4A5A]">
-                    <circle cx="16" cy="16" r="12" stroke="currentColor" strokeWidth="1.5" />
-                    <circle cx="16" cy="16" r="4" stroke="currentColor" strokeWidth="1.5" />
-                    <line x1="16" y1="4" x2="16" y2="8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                    <line x1="16" y1="24" x2="16" y2="28" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                    <line x1="4" y1="16" x2="8" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                    <line x1="24" y1="16" x2="28" y2="16" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                  </svg>
-                  <p className="text-xs text-[#4A4A5A]">Click a segment on the map</p>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Mobile bottom sheet */}
-        {isMobile && selectedFrame && (
-          <div className="fixed bottom-0 left-0 right-0 z-50 h-96 overflow-hidden rounded-t-xl border-t border-[rgba(255,255,255,0.07)] bg-[#111116]">
-            <div className="flex justify-center pt-3 pb-1">
-              <div className="h-1 w-10 rounded-full bg-[rgba(255,255,255,0.12)]" />
-            </div>
-            <SegmentSidebar frame={selectedFrame} onClose={() => setSelectedFrame(null)} />
-          </div>
-        )}
-
-        {/* Crack distribution */}
-        {Object.keys(summary.crack_type_counts).length > 0 && (
-          <div className="mt-6 overflow-hidden rounded-[14px] border border-[rgba(255,255,255,0.07)] bg-[#111116] p-5">
-            <p className="mb-4 font-mono text-[10px] uppercase tracking-widest text-[#4A4A5A]">Crack type distribution</p>
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-              {Object.entries(summary.crack_type_counts)
-                .sort((a, b) => b[1] - a[1])
-                .map(([type, count]) => (
-                  <div key={type} className="flex items-center justify-between rounded-[10px] bg-[#111116] px-3 py-2">
-                    <span className="text-sm text-[#F0F0F4]">{type}</span>
-                    <span className="font-mono text-xs text-[#8A8A9A]">{count}</span>
-                  </div>
-                ))}
-            </div>
-          </div>
+        <p className="text-[#8A8A9A]">{frame.crack_types.length ? frame.crack_types.join(", ") : "No trained distress found"}</p>
+        {frame.lat != null && frame.lon != null && (
+          <p className="font-mono text-[10px] text-[#4A4A5A]">{frame.lat.toFixed(6)}, {frame.lon.toFixed(6)}</p>
         )}
       </div>
-    </div>
+    </article>
   );
 }
