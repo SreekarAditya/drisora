@@ -271,14 +271,15 @@ Pre-publication results on 2026-07-11:
 - SAM2 SHA-256: `6d1aa6f30de5c92224f8172114de081d104bbd23dd9dc5c58996f0cad5dc4d38`.
 - Supabase project `xkwzxuduyhgmbcryfkob`: `ACTIVE_HEALTHY`; migration `20260711123936_partial_pci_bounds` is applied; live `information_schema` returned all four nullable interval-contract columns.
 
-The final publication record additionally contains:
+Final publication record:
 
-- the local and container test totals;
-- the Git commit pushed to `origin/main`;
-- the synchronized public backend commit;
-- the immutable container digest;
-- the RunPod template and endpoint IDs using that digest;
-- live database confirmation of `pci_lower`, `pci_upper`, `pci_complete`, and `partial_pci_sections_key`.
+- Verified source/image commit on `SreekarAditya/drisora` `main`: `5d741ad5cf0eaa9ff9da4ea4182302ab843a5a3a`.
+- Synchronized public `SreekarAditya/drisora-backend` `main`: `97c7012cec072ee20d24e7dc3a75a74eb7c2ec17`.
+- Container tag: `sreekaraditya/drisora-worker:serverless-pass2-5d741ad5cf0e`.
+- Immutable multi-platform image digest used by RunPod: `sha256:b673d59ab7034d0c44a8b0c683cc8196d23395939a47c6602aee5abb081462c6`.
+- Executable `linux/amd64` manifest: `sha256:66688539b84d38596fc63f1794bb9b79e0b173f1918b06b002f3eebee9b209ae`; its OCI metadata reports `DRISORA_BUILD_SHA` and `org.opencontainers.image.revision` as the verified source commit above.
+- RunPod endpoint `d457qtzarj30v5` references serverless template `8vnf9yq94x`, which was re-read after update with the exact digest-qualified image and `python handler.py`; no RunPod API key or obsolete depth keys are present in template environment metadata.
+- Supabase project `xkwzxuduyhgmbcryfkob` is `ACTIVE_HEALTHY`; migration `20260711123936_partial_pci_bounds` is applied, and live schema inspection confirmed nullable `pci_lower`, `pci_upper`, `pci_complete`, and `partial_pci_sections_key` columns.
 
 ## Remaining research boundary
 
