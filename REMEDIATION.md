@@ -274,7 +274,7 @@ Pre-publication results on 2026-07-11:
 Final publication record:
 
 - Verified source/image commit on `SreekarAditya/drisora` `main`: `5d741ad5cf0eaa9ff9da4ea4182302ab843a5a3a`.
-- Synchronized public `SreekarAditya/drisora-backend` `main`: `97c7012cec072ee20d24e7dc3a75a74eb7c2ec17`.
+- Verified synchronized public-backend code commit: `97c7012cec072ee20d24e7dc3a75a74eb7c2ec17`.
 - Container tag: `sreekaraditya/drisora-worker:serverless-pass2-5d741ad5cf0e`.
 - Immutable multi-platform image digest used by RunPod: `sha256:b673d59ab7034d0c44a8b0c683cc8196d23395939a47c6602aee5abb081462c6`.
 - Executable `linux/amd64` manifest: `sha256:66688539b84d38596fc63f1794bb9b79e0b173f1918b06b002f3eebee9b209ae`; its OCI metadata reports `DRISORA_BUILD_SHA` and `org.opencontainers.image.revision` as the verified source commit above.
