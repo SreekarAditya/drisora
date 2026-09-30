@@ -2,19 +2,15 @@
 
 import { useState } from "react";
 import { useUpload } from "@/hooks/useUpload";
-import {
-  EMPTY_PARTIAL_PCI_CONFIG,
-  PartialPciConfigFields,
-  partialPciConfigIsValid,
-  partialPciOptions,
-  type PartialPciConfigState,
-} from "@/components/upload/PartialPciConfigFields";
 
 type SurveyMode = "single" | "multi";
 type FrameProfile = "all_frames" | "0.25s" | "0.5s" | "1s";
 
 const FRAME_PROFILES: Array<{ value: FrameProfile; label: string; hint: string }> = [
-  { value: "all_frames", label: "All frames (required)", hint: "Preserves spatial coverage for section aggregation" },
+  { value: "all_frames", label: "All frames", hint: "Auto-detects FPS and duration" },
+  { value: "0.25s", label: "Every 0.25s", hint: "Dense review" },
+  { value: "0.5s", label: "Every 0.5s", hint: "Detailed survey" },
+  { value: "1s", label: "Every 1s", hint: "Fast preview" },
 ];
 
 function frameProfileOptions(profile: FrameProfile) {
@@ -61,7 +57,7 @@ function SingleVideoPanel({
   const [video, setVideo] = useState<File | null>(null);
   const [srt, setSrt] = useState<File | null>(null);
   const [frameProfile, setFrameProfile] = useState<FrameProfile>("all_frames");
-  const [pciConfig, setPciConfig] = useState<PartialPciConfigState>(EMPTY_PARTIAL_PCI_CONFIG);
+  const [enableMetricAnalysis, setEnableMetricAnalysis] = useState(false);
   const [videoDrag, setVideoDrag] = useState(false);
   const [srtDrag, setSrtDrag] = useState(false);
   const [videoError, setVideoError] = useState<string | null>(null);
@@ -94,7 +90,7 @@ function SingleVideoPanel({
     setSingleSrt(event.dataTransfer.files?.[0] ?? null);
   }
 
-  const canSubmit = !!video && partialPciConfigIsValid(pciConfig);
+  const canSubmit = !!video;
   const isUploading =
     phase === "uploading" || phase === "presigning" || phase === "creating_job";
 
@@ -111,7 +107,8 @@ function SingleVideoPanel({
         has_srt: srt !== null,
         srt_name: srt?.name ?? null,
         ...frameProfileOptions(frameProfile),
-        ...partialPciOptions(pciConfig),
+        enable_metric_analysis: enableMetricAnalysis,
+        enable_depthpro: enableMetricAnalysis,
       },
     });
   }
@@ -244,7 +241,20 @@ function SingleVideoPanel({
         </div>
       </div>
 
-      <PartialPciConfigFields value={pciConfig} onChange={setPciConfig} />
+      <label className="mt-5 flex items-center justify-between gap-4 rounded-[10px] border border-[rgba(255,255,255,0.07)] bg-[#0D0D11] px-4 py-3">
+        <span>
+          <span className="block text-sm font-medium text-[#F0F0F4]">Metric Analysis</span>
+          <span className="mt-0.5 block text-xs text-[#4A4A5A]">
+            Camera-to-surface distance and width from pixels. Adds processing time.
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          checked={enableMetricAnalysis}
+          onChange={(e) => setEnableMetricAnalysis(e.target.checked)}
+          className="h-4 w-4 shrink-0 accent-amber-500"
+        />
+      </label>
 
       {(isUploading || (phase === "error" && failedFiles.size > 0)) &&
         progress.size > 0 && (
@@ -470,7 +480,7 @@ function MultiVideoPanel({
     { id: crypto.randomUUID(), video: null, srt: null, videoError: null },
   ]);
   const [frameProfile, setFrameProfile] = useState<FrameProfile>("all_frames");
-  const [pciConfig, setPciConfig] = useState<PartialPciConfigState>(EMPTY_PARTIAL_PCI_CONFIG);
+  const [enableMetricAnalysis, setEnableMetricAnalysis] = useState(false);
 
   function addPair() {
     setPairs((prev) => [
@@ -511,7 +521,7 @@ function MultiVideoPanel({
   const hasVideoErrors = pairs.some((p) => p.videoError !== null);
 
   async function handleSubmit() {
-    if (!allHaveVideo || hasVideoErrors || !partialPciConfigIsValid(pciConfig)) return;
+    if (!allHaveVideo || hasVideoErrors) return;
     const videos = pairs.map((p) => p.video!);
     const srts = pairs.flatMap((p) => (p.srt ? [p.srt] : []));
     const allFiles = [...videos, ...srts];
@@ -530,7 +540,8 @@ function MultiVideoPanel({
         video_filenames: pairs.map((p) => p.video!.name),
         srt_filenames: pairs.map((p) => p.srt?.name ?? null),
         ...frameProfileOptions(frameProfile),
-        ...partialPciOptions(pciConfig),
+        enable_metric_analysis: enableMetricAnalysis,
+        enable_depthpro: enableMetricAnalysis,
       },
     });
   }
@@ -589,7 +600,20 @@ function MultiVideoPanel({
         </div>
       </div>
 
-      <PartialPciConfigFields value={pciConfig} onChange={setPciConfig} />
+      <label className="mt-5 flex items-center justify-between gap-4 rounded-[10px] border border-[rgba(255,255,255,0.07)] bg-[#0D0D11] px-4 py-3">
+        <span>
+          <span className="block text-sm font-medium text-[#F0F0F4]">Metric Analysis</span>
+          <span className="mt-0.5 block text-xs text-[#4A4A5A]">
+            Camera-to-surface distance and width from pixels. Adds processing time.
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          checked={enableMetricAnalysis}
+          onChange={(e) => setEnableMetricAnalysis(e.target.checked)}
+          className="h-4 w-4 shrink-0 accent-amber-500"
+        />
+      </label>
 
       {(isUploading || (phase === "error" && failedFiles.size > 0)) &&
         progress.size > 0 && (
@@ -614,13 +638,7 @@ function MultiVideoPanel({
         <button
           type="button"
           onClick={handleSubmit}
-          disabled={
-            isUploading ||
-            !allHaveVideo ||
-            hasVideoErrors ||
-            pairs.length === 0 ||
-            !partialPciConfigIsValid(pciConfig)
-          }
+          disabled={isUploading || !allHaveVideo || hasVideoErrors || pairs.length === 0}
           className="rounded-[10px] bg-[#F5A623] px-5 py-2.5 text-sm font-semibold text-[#09090C] transition-colors hover:bg-[#FFBE4D] disabled:cursor-not-allowed disabled:opacity-50"
         >
           {phase === "creating_job"

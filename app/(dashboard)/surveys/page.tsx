@@ -15,7 +15,7 @@ export default async function SurveysPage() {
 
   const { data, error } = await supabase
     .from("jobs")
-    .select("*")
+    .select("id, user_id, project_id, mode, status, frame_count, processed_count, gps_available, average_pci, r2_prefix, created_at, completed_at, error_message, deleted_at")
     .eq("user_id", user.id)
     .neq("status", "complete")
     .is("deleted_at", null)

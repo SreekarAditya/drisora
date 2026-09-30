@@ -19,18 +19,11 @@ export const JOB_MODE_LABELS: Record<JobMode, string> = {
 };
 
 export function ircRecommendation(pci: number): string {
-  if (pci > 90) return "Routine Maintenance";
-  if (pci > 80) return "Preventive Maintenance";
-  if (pci > 60) return "Renewal";
-  if (pci > 40) return "Minor Rehabilitation (based on structural evaluation)";
-  if (pci > 20) return "Major Rehabilitation / Structural Overlay";
+  if (pci >= 85) return "No maintenance required";
+  if (pci >= 70) return "Preventive maintenance";
+  if (pci >= 55) return "Minor rehabilitation";
+  if (pci >= 40) return "Major rehabilitation";
   return "Reconstruction";
-}
-
-export interface PciBounds {
-  lower: number;
-  upper: number;
-  width: number;
 }
 
 export interface JobRecord {
@@ -43,10 +36,6 @@ export interface JobRecord {
   processed_count: number;
   gps_available: boolean;
   average_pci: number | null;
-  pci_lower?: number | null;
-  pci_upper?: number | null;
-  pci_complete?: number | null;
-  partial_pci_sections_key?: string | null;
   r2_prefix: string | null;
   created_at: string;
   completed_at: string | null;
@@ -69,10 +58,6 @@ export interface ProcessingJobRecord {
   created_at: string;
   error_message: string | null;
   average_pci?: number | null;
-  pci_complete?: null;
-  pci_bounds?: PciBounds | null;
-  partial_pci?: JobResultsSummary | null;
-  partial_pci_sections_key?: string | null;
   completed_at?: string | null;
   options: Record<string, unknown>;
   file_names: string[];
@@ -82,7 +67,7 @@ export interface ProcessingJobRecord {
 export interface FrameResult {
   stem: string;
   index: number;
-  pci_score: null;
+  pci_score: number;
   crack_types: string[];
   crack_type_lengths_m: Record<string, number>;
   overlay_url: string | null;
@@ -96,11 +81,11 @@ export interface FrameResult {
   avg_crack_width_mm: number | null;
   max_crack_width_mm: number | null;
   crack_metrics_estimated?: boolean;
-  crack_metrics_source?: "none" | "measured";
+  crack_metrics_source?: "none" | "measured" | "estimated";
   depth_available: boolean | null;
   depth_attempted: boolean | null;
   depth_skipped_reason: string | null;
-  analysis_stage?: "yolo_no_distress_found" | "yolo_sam2" | string | null;
+  analysis_stage?: "fallback" | "yolo_only" | "yolo_sam2" | "yolo_sam2_depthpro" | string | null;
   degraded_reasons?: string[];
   sam2_attempted: boolean | null;
   yolo_detection_count: number | null;
@@ -133,43 +118,11 @@ export interface DetectionAnnotation {
 }
 
 export interface JobResultsSummary {
-  pci_complete: null;
-  pci_bounds: PciBounds | null;
-  measured_weight_fraction: number;
-  unmeasured_weight_fraction: number;
+  average_pci: number;
+  worst_pci: number;
+  best_pci: number;
   crack_type_counts: Record<string, number>;
   frame_count: number;
-  segment_count: number;
-  assessment_scope: string;
-}
-
-export interface PartialPciSection {
-  segment_index: number;
-  section_id: string;
-  start_distance_m: number;
-  end_distance_m: number;
-  section_length_m: number;
-  section_area_m2: number;
-  start_lat: number;
-  start_lon: number;
-  end_lat: number;
-  end_lon: number;
-  frame_count: number;
-  is_relative: boolean;
-  raw_detection_count: number;
-  unique_detection_count: number;
-  pci_complete: null;
-  pci_bounds: PciBounds;
-  assessment?: {
-    road_class?: string;
-    surface_type?: string | null;
-    measured?: {
-      cracking?: { area_m2?: number; extent_pct?: number; sub_index?: number };
-      pothole?: { area_m2?: number; number?: number; sub_index?: number };
-    };
-    unmeasured?: Record<string, null>;
-    provenance?: Record<string, unknown>;
-  };
 }
 
 export interface JobResults {
@@ -177,7 +130,6 @@ export interface JobResults {
   mode: JobMode;
   summary: JobResultsSummary;
   frames: FrameResult[];
-  sections: PartialPciSection[];
 }
 
 // ─── Survey types (legacy — do not extend) ───────────────────────────────────
@@ -210,7 +162,6 @@ export interface RoadSectionProperties {
   id?: string;
   section_index: number | null;
   pci_score: number | null;
-  pci_bounds?: PciBounds | null;
   condition_category: ConditionCategory | string | null;
   recommended_intervention: string | null;
   priority_rank: number | null;
@@ -259,21 +210,15 @@ export type PCIBand = {
 }
 
 export const PCI_BANDS: PCIBand[] = [
-  { label: "Excellent",    range: ">90–100", min: 90, max: 100, color: "#22c55e", textColor: "#ffffff" },
-  { label: "Good",         range: ">80–90",  min: 80, max: 90,  color: "#84cc16", textColor: "#000000" },
-  { label: "Satisfactory", range: ">60–80",  min: 60, max: 80,  color: "#eab308", textColor: "#000000" },
-  { label: "Fair",         range: ">40–60",  min: 40, max: 60,  color: "#f97316", textColor: "#ffffff" },
-  { label: "Poor",         range: ">20–40",  min: 20, max: 40,  color: "#ef4444", textColor: "#ffffff" },
-  { label: "Fail",         range: "0–20",    min: 0, max: 20, color: "#7f1d1d", textColor: "#ffffff" },
+  { label: "Good",         range: "85–100", min: 85, max: 100, color: "#22c55e", textColor: "#ffffff" },
+  { label: "Satisfactory", range: "70–84",  min: 70, max: 84,  color: "#eab308", textColor: "#000000" },
+  { label: "Fair",         range: "55–69",  min: 55, max: 69,  color: "#f97316", textColor: "#ffffff" },
+  { label: "Poor",         range: "40–54",  min: 40, max: 54,  color: "#ef4444", textColor: "#ffffff" },
+  { label: "Very Poor",    range: "0–39",   min: 0,  max: 39,  color: "#7f1d1d", textColor: "#ffffff" },
 ]
 
 export function getPciBand(score: number): PCIBand {
-  if (score > 90) return PCI_BANDS[0];
-  if (score > 80) return PCI_BANDS[1];
-  if (score > 60) return PCI_BANDS[2];
-  if (score > 40) return PCI_BANDS[3];
-  if (score > 20) return PCI_BANDS[4];
-  return PCI_BANDS[5];
+  return PCI_BANDS.find((band) => score >= band.min && score <= band.max) ?? PCI_BANDS[PCI_BANDS.length - 1];
 }
 
 // ─── Project types ───────────────────────────────────────────────────────────

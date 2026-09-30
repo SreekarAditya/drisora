@@ -8,6 +8,8 @@ function isWebhookOnlyFailure(job: ProcessingJobRecord) {
     job.status === "failed" &&
     typeof job.error_message === "string" &&
     job.error_message.includes("/api/webhooks/job-complete") &&
+    typeof job.average_pci === "number" &&
+    Number.isFinite(job.average_pci) &&
     job.frame_count > 0 &&
     job.processed_count >= job.frame_count
   );
@@ -29,29 +31,24 @@ async function syncTerminalJobToSupabase(
 ) {
   if (job.status !== "complete" && job.status !== "failed") return;
 
-  const baseUpdate: Record<string, unknown> = {
+  const update: Record<string, unknown> = {
     status: job.status,
     frame_count: job.frame_count,
     processed_count: job.processed_count,
     error_message: job.status === "complete" ? null : job.error_message ?? null,
     completed_at: job.completed_at ?? new Date().toISOString(),
-    average_pci: null,
   };
 
-  if (job.output_r2_prefix) {
-    baseUpdate.r2_prefix = job.output_r2_prefix;
+  if (typeof job.average_pci === "number" && Number.isFinite(job.average_pci)) {
+    update.average_pci = job.average_pci;
   }
-  const intervalUpdate = {
-    ...baseUpdate,
-    pci_complete: null,
-    pci_lower: job.pci_bounds?.lower ?? null,
-    pci_upper: job.pci_bounds?.upper ?? null,
-    partial_pci_sections_key: job.partial_pci_sections_key ?? null,
-  };
+  if (job.output_r2_prefix) {
+    update.r2_prefix = job.output_r2_prefix;
+  }
 
   const { error } = await supabase
     .from("jobs")
-    .update(intervalUpdate)
+    .update(update)
     .eq("id", job.job_id)
     .eq("user_id", job.user_id);
 
@@ -97,9 +94,7 @@ export async function GET(
     frame_count: job.frame_count,
     mode: job.mode,
     gps_available: job.gps_available,
-    pci_complete: null,
-    pci_bounds: job.pci_bounds ?? null,
-    partial_pci: job.partial_pci ?? null,
+    average_pci: job.average_pci ?? null,
     error_message: job.error_message ?? null,
   });
 }

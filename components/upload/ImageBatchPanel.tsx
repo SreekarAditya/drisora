@@ -12,6 +12,7 @@ interface FilePreview {
 
 export function ImageBatchPanel({ projectId }: { projectId?: string | null }) {
   const [files, setFiles] = useState<FilePreview[]>([]);
+  const [enableMetricAnalysis, setEnableMetricAnalysis] = useState(false);
   const [dragOver, setDragOver] = useState(false);
   const [fileErrors, setFileErrors] = useState<Record<string, string>>({});
   const { phase, progress, failedFiles, fileLabels, uploadError, startUpload, retryFile } =
@@ -76,7 +77,10 @@ export function ImageBatchPanel({ projectId }: { projectId?: string | null }) {
         project_id: projectId ?? null,
         file_names: files.map((f) => f.file.name),
         total_bytes: files.reduce((sum, f) => sum + f.file.size, 0),
-        options: {},
+        options: {
+          enable_metric_analysis: enableMetricAnalysis,
+          enable_depthpro: enableMetricAnalysis,
+        },
       },
     );
   }
@@ -203,6 +207,21 @@ export function ImageBatchPanel({ projectId }: { projectId?: string | null }) {
           </div>
         </>
       )}
+
+      <label className="mt-5 flex items-center justify-between gap-4 rounded-[10px] border border-[rgba(255,255,255,0.07)] bg-[#0D0D11] px-4 py-3">
+        <span>
+          <span className="block text-sm font-medium text-[#F0F0F4]">Metric Analysis</span>
+          <span className="mt-0.5 block text-xs text-[#4A4A5A]">
+            Camera-to-surface distance and width from pixels. Adds processing time.
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          checked={enableMetricAnalysis}
+          onChange={(e) => setEnableMetricAnalysis(e.target.checked)}
+          className="h-4 w-4 shrink-0 accent-amber-500"
+        />
+      </label>
 
       {isUploading && progress.size > 0 && (
         <ProgressList progress={progress} failedFiles={failedFiles} fileLabels={fileLabels} onRetry={retryFile} />

@@ -5,11 +5,7 @@ Repository: `SreekarAditya/drisora`
 Main baseline before this document: `4c86e6e` (`origin/main`)
 Scope: This document summarizes the Drisora product, engineering, UI, reporting, worker, data-model, and deployment work visible in the repo history and Codex memory notes through PR #17.
 
-> **Archived history:** this snapshot predates the PCI engine remediation in
-> `REMEDIATION.md`. Its Depth Pro, point-PCI, crack-width, compliance, and report
-> descriptions document former behavior and must not be read as current claims.
-
-## Historical Product State at 2026-05-04
+## Current Product State
 
 Drisora is now a Next.js / Supabase / R2 / RunPod pavement condition assessment SaaS for road survey media. It supports:
 

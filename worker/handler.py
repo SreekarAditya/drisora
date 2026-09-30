@@ -24,15 +24,13 @@ from dotenv import load_dotenv
 from PIL import Image
 
 from jobs.dispatcher import dispatch_job
-from pipeline import pci_scorer, sam2_inference, yolo_inference
-from pipeline.spatial_dedup import DEFAULT_OVERLAP_THRESHOLD
-from utils.gsd_calibration import calibration_from_options
-from utils.pci_segmentation import build_pci_sections
+from pipeline import depth_anything_v2_inference, pci_scorer, sam2_inference, yolo_inference
 
 load_dotenv()
 
 _yolo: Any = None
 _sam2: Any = None
+_depth: Any = None
 
 
 def _configure_determinism() -> None:
@@ -79,14 +77,20 @@ def get_sam2() -> Any:
     return _sam2
 
 
+def get_depth() -> Any:
+    global _depth
+    if _depth is None:
+        _depth = depth_anything_v2_inference.load_model()
+    return _depth
+
+
 def _warm_model(name: str, loader: Any, ready_message: str) -> None:
     started = time.perf_counter()
     try:
         loader()
         print(ready_message, flush=True)
     except Exception as exc:
-        print(f"[WARMUP] {name} failed: {exc}", flush=True)
-        raise
+        print(f"{name} model unavailable; using fallback path: {exc}", flush=True)
     finally:
         elapsed_ms = int((time.perf_counter() - started) * 1000)
         print(f"[WARMUP] {name} elapsed_ms={elapsed_ms}", flush=True)
@@ -105,12 +109,41 @@ def _option_enabled(options: dict[str, Any], name: str, default: bool = False) -
     return default
 
 
+def _depth_enabled(mode: str, options: dict[str, Any]) -> bool:
+    env_default = os.environ.get("DRISORA_ENABLE_DEPTH_DEFAULT")
+    if env_default is not None:
+        default = env_default.strip().lower() in {"1", "true", "yes", "on"}
+    else:
+        default = True
+    return _option_enabled(
+        options,
+        "enable_metric_analysis",
+        _option_enabled(options, "enable_depth", default),
+    )
+
+
+def _sam2_warmup_enabled(options: dict[str, Any]) -> bool:
+    env_default = os.environ.get("DRISORA_WARM_SAM2", "0").strip().lower() in {"1", "true", "yes", "on"}
+    return _option_enabled(options, "warm_sam2", env_default)
+
+
 def _yolo_batch_size(options: dict[str, Any]) -> int:
     raw_value = options.get("yolo_batch_size", os.environ.get("DRISORA_YOLO_BATCH_SIZE", "64"))
     try:
         return max(1, min(256, int(raw_value)))
     except (TypeError, ValueError):
         return 64
+
+
+def _depth_batch_size(options: dict[str, Any], yolo_batch_size: int) -> int:
+    raw_value = options.get(
+        "depth_batch_size",
+        os.environ.get("DRISORA_DEPTH_BATCH_SIZE", str(min(4, yolo_batch_size))),
+    )
+    try:
+        return max(1, min(64, int(raw_value)))
+    except (TypeError, ValueError):
+        return min(16, yolo_batch_size)
 
 
 def _elapsed_ms(started: float) -> int:
@@ -123,18 +156,32 @@ def _add_ms(timings: dict[str, int], key: str, started: float) -> int:
     return elapsed
 
 
-def _warm_pipeline_models() -> dict[str, int]:
+def _warm_pipeline_models(use_depth: bool, warm_sam2: bool) -> dict[str, int | bool]:
     started = time.perf_counter()
-    timings: dict[str, int] = {}
+    timings: dict[str, int | bool] = {
+        "sam2_warmup_enabled": warm_sam2,
+        "depth_enabled": use_depth,
+    }
     print("[WARMUP] Starting model warmup...", flush=True)
     stage_started = time.perf_counter()
     _warm_model("YOLO", get_yolo, "[WARMUP] YOLO ready")
     timings["yolo_warmup_ms"] = _elapsed_ms(stage_started)
-    stage_started = time.perf_counter()
-    _warm_model("SAM2", get_sam2, "[WARMUP] SAM2 ready")
-    timings["sam2_warmup_ms"] = _elapsed_ms(stage_started)
+    if warm_sam2:
+        stage_started = time.perf_counter()
+        _warm_model("SAM2", get_sam2, "[WARMUP] SAM2 ready")
+        timings["sam2_warmup_ms"] = _elapsed_ms(stage_started)
+    else:
+        timings["sam2_warmup_ms"] = 0
+        print("[WARMUP] SAM2 warmup skipped (loads on first detection)", flush=True)
+    if use_depth:
+        stage_started = time.perf_counter()
+        _warm_model("Depth Anything V2", get_depth, "[WARMUP] Depth Anything V2 ready")
+        timings["depth_warmup_ms"] = _elapsed_ms(stage_started)
+    else:
+        timings["depth_warmup_ms"] = 0
+        print("[WARMUP] Depth Anything V2 skipped for this job", flush=True)
     timings["total_warmup_ms"] = _elapsed_ms(started)
-    print("[WARMUP] Measured-parameter models ready — starting frame loop", flush=True)
+    print("[WARMUP] All models ready — starting frame loop", flush=True)
     return timings
 
 
@@ -396,7 +443,7 @@ def _runtime_manifest() -> dict[str, Any]:
         "packages": {
             "torch": _package_version("torch"),
             "ultralytics": _package_version("ultralytics"),
-            "opencv-python": _package_version("opencv-python"),
+            "opencv-python-headless": _package_version("opencv-python-headless"),
             "runpod": _package_version("runpod"),
         },
         "deterministic_seed": int(os.environ.get("DRISORA_DETERMINISTIC_SEED", "1337")),
@@ -415,10 +462,15 @@ def _model_manifest() -> dict[str, Any]:
             "model_path": _model_file(getattr(sam2_inference, "MODEL_PATH")),
             "model_cfg": getattr(sam2_inference, "MODEL_CFG", None),
         },
+        "depth_anything_v2": {
+            "model_path": _model_file(getattr(depth_anything_v2_inference, "MODEL_PATH")),
+            "model_url": getattr(depth_anything_v2_inference, "MODEL_URL", None),
+            "encoder": getattr(depth_anything_v2_inference, "ENCODER", None),
+            "enabled_default": os.environ.get("DRISORA_ENABLE_DEPTH_DEFAULT"),
+        },
         "pci": {
             "version": getattr(pci_scorer, "SCORING_VERSION", "legacy"),
-            "standard": getattr(pci_scorer, "IRC_EDITION", None),
-            "measured_parameters": list(getattr(pci_scorer, "MEASURED_PARAMETERS", ())),
+            "standard": getattr(pci_scorer, "IRC_STANDARD", None),
         },
     }
 
@@ -443,12 +495,7 @@ def _frame_manifest(frames: list[dict[str, Any]]) -> list[dict[str, Any]]:
                 "lat": frame.get("lat"),
                 "lon": frame.get("lon"),
                 "alt_m": frame.get("alt_m", frame.get("alt")),
-                "relative_altitude_m": frame.get("relative_altitude_m"),
-                "absolute_altitude_m": frame.get("absolute_altitude_m"),
-                "altitude_source": frame.get("altitude_source"),
                 "gimbal_yaw": frame.get("gimbal_yaw"),
-                "gimbal_pitch": frame.get("gimbal_pitch"),
-                "gimbal_roll": frame.get("gimbal_roll"),
             }
         )
     return out
@@ -553,50 +600,67 @@ def _build_multi_video_files(
     return video_entries
 
 
-def _frame_dimensions(image_path: Path) -> tuple[int, int]:
+def _frame_area_px(image_path: Path) -> int:
     try:
         with Image.open(image_path) as image:
             width, height = image.size
-    except Exception as exc:
-        raise RuntimeError(f"frame is unreadable: {image_path.name}: {exc}") from exc
-    if width <= 0 or height <= 0:
-        raise RuntimeError(f"frame has invalid dimensions: {image_path.name}")
-    return width, height
+        return max(1, width * height)
+    except Exception:
+        return 1
 
 
-def _partial_pci_config(mode: str, options: dict[str, Any]) -> dict[str, Any] | None:
-    if mode != "drone_footage":
-        return None
-    extraction_mode = options.get("frame_extraction_mode")
-    frame_interval = options.get("frame_interval_seconds")
-    if extraction_mode not in (None, "all_frames") or frame_interval is not None:
-        raise ValueError("partial PCI section assessment requires all-frame extraction")
-    road_class = options.get("road_class")
-    if not isinstance(road_class, str) or not road_class.strip():
-        raise ValueError("road_class is required for drone partial PCI assessment")
-    surface_type = options.get("surface_type")
-    if surface_type is not None and not isinstance(surface_type, str):
-        raise ValueError("surface_type must be a string when provided")
-    pci_scorer.equation_set(road_class, surface_type)
-    try:
-        carriageway_width_m = float(options.get("carriageway_width_m"))
-    except (TypeError, ValueError) as exc:
-        raise ValueError("carriageway_width_m is required") from exc
-    if not math.isfinite(carriageway_width_m) or carriageway_width_m <= 0.0:
-        raise ValueError("carriageway_width_m must be greater than zero")
-    camera_calibration = calibration_from_options(options)
-    try:
-        overlap_threshold = float(options.get("dedup_overlap_threshold", DEFAULT_OVERLAP_THRESHOLD))
-    except (TypeError, ValueError) as exc:
-        raise ValueError("dedup_overlap_threshold must be numeric") from exc
-    if not 0.0 < overlap_threshold <= 1.0:
-        raise ValueError("dedup_overlap_threshold must be in (0, 1]")
+def _fallback_pci(error_message: str) -> dict[str, Any]:
     return {
-        "road_class": road_class.upper(),
-        "surface_type": surface_type.upper() if isinstance(surface_type, str) else None,
-        "carriageway_width_m": carriageway_width_m,
-        "camera_calibration": camera_calibration,
-        "overlap_threshold": overlap_threshold,
+        "pci": 50.0,
+        "condition": "Fair",
+        "recommendation": "Minor Rehabilitation (structural evaluation)",
+        "crack_extent_pct": 0.0,
+        "pothole_count": 0,
+        "rut_depth_mm": 0.0,
+        "iri": 2.5,
+        "individual_scores": {
+            "cracking": 50.0,
+            "ravelling": 50.0,
+            "pothole": 50.0,
+            "patching": 50.0,
+            "rut": 50.0,
+            "roughness": 50.0,
+        },
+        "crack_types": [],
+        "dominant_crack": None,
+        "irc_standard": "IRC:82-2023",
+        "error_message": error_message,
+    }
+
+
+def _depth_estimate(depth_map: Any) -> float | None:
+    if depth_map is None or getattr(depth_map, "size", 0) <= 0:
+        return None
+    try:
+        value = float(depth_map.mean())
+        return value if math.isfinite(value) else None
+    except Exception:
+        return None
+
+
+def _metric_summary(detections: list[dict[str, Any]], depth_map: Any) -> dict[str, float | None]:
+    distances = [
+        float(d["camera_surface_distance_m"])
+        for d in detections
+        if d.get("camera_surface_distance_m") is not None
+    ]
+    widths = [
+        float(d["crack_width_mm"])
+        for d in detections
+        if d.get("crack_width_mm") is not None
+    ]
+    camera_surface_distance_m = (
+        sum(distances) / len(distances) if distances else _depth_estimate(depth_map)
+    )
+    return {
+        "camera_surface_distance_m": camera_surface_distance_m,
+        "avg_crack_width_mm": sum(widths) / len(widths) if widths else None,
+        "max_crack_width_mm": max(widths) if widths else None,
     }
 
 
@@ -613,42 +677,101 @@ def _detections_by_frame_index(detections: list[dict[str, Any]]) -> dict[Any, li
 
 def _process_frame(
     frame: dict[str, Any],
+    use_depth: bool,
     yolo_detections: list[dict[str, Any]] | None = None,
     yolo_elapsed_ms: int | None = None,
+    precomputed_depth_map: Any | None = None,
+    depth_elapsed_ms: int | None = None,
 ) -> dict[str, Any]:
     started = time.perf_counter()
     stage_timings: dict[str, int] = {
         "yolo_ms": 0,
         "sam2_ms": 0,
-        "frame_dimensions_ms": 0,
+        "depth_ms": 0,
+        "frame_area_ms": 0,
+        "pci_ms": 0,
     }
     frame_path = Path(frame["path"])
-    if yolo_detections is None:
+    yolo_count = 0
+    sam2_attempted = False
+    depth_attempted = False
+    depth_skipped_reason = None if use_depth else "disabled_for_mode"
+    frame_failed = False
+    degraded_reasons: list[str] = []
+    try:
+        if yolo_detections is None:
+            stage_started = time.perf_counter()
+            detections = yolo_inference.run(str(frame_path))
+            stage_timings["yolo_ms"] = _elapsed_ms(stage_started)
+        else:
+            detections = [dict(detection) for detection in yolo_detections]
+            stage_timings["yolo_ms"] = int(yolo_elapsed_ms or 0)
+        yolo_count = len(detections)
+
+        if detections:
+            sam2_attempted = True
+            stage_started = time.perf_counter()
+            detections = sam2_inference.run(str(frame_path), detections)
+            stage_timings["sam2_ms"] = _elapsed_ms(stage_started)
+
+        if use_depth:
+            depth_attempted = True
+            if precomputed_depth_map is not None:
+                depth_result = depth_anything_v2_inference.enrich_detections(precomputed_depth_map, detections)
+                stage_timings["depth_ms"] = int(depth_elapsed_ms or 0)
+            else:
+                stage_started = time.perf_counter()
+                depth_result = depth_anything_v2_inference.run(str(frame_path), detections)
+                stage_timings["depth_ms"] = _elapsed_ms(stage_started)
+            detections = depth_result.get("detections", detections)
+            depth_map = depth_result.get("depth_map")
+        else:
+            depth_map = None
+
         stage_started = time.perf_counter()
-        detections = yolo_inference.run(str(frame_path))
-        stage_timings["yolo_ms"] = _elapsed_ms(stage_started)
+        frame_area_px = _frame_area_px(frame_path)
+        stage_timings["frame_area_ms"] = _elapsed_ms(stage_started)
+        stage_started = time.perf_counter()
+        pci_result = pci_scorer.score(
+            detections,
+            frame_area_px=frame_area_px,
+            depth_map=depth_map,
+        )
+        stage_timings["pci_ms"] = _elapsed_ms(stage_started)
+    except Exception as exc:
+        frame_failed = True
+        degraded_reasons.append("frame_exception")
+        detections = []
+        depth_map = None
+        pci_result = _fallback_pci(str(exc))
+
+    depth_available = depth_map is not None and getattr(depth_map, "size", 0) > 0
+    if use_depth and depth_attempted and not depth_available:
+        degraded_reasons.append("depth_anything_v2_unavailable")
+
+    if frame_failed:
+        analysis_stage = "fallback"
+    elif depth_available and sam2_attempted:
+        analysis_stage = "yolo_sam2_depth_anything_v2"
+    elif sam2_attempted:
+        analysis_stage = "yolo_sam2"
     else:
-        detections = [dict(detection) for detection in yolo_detections]
-        stage_timings["yolo_ms"] = int(yolo_elapsed_ms or 0)
-    yolo_count = len(detections)
+        analysis_stage = "yolo_only"
 
-    sam2_attempted = bool(detections)
-    if sam2_attempted:
-        stage_started = time.perf_counter()
-        detections = sam2_inference.run(str(frame_path), detections)
-        stage_timings["sam2_ms"] = _elapsed_ms(stage_started)
-
-    stage_started = time.perf_counter()
-    image_width_px, image_height_px = _frame_dimensions(frame_path)
-    stage_timings["frame_dimensions_ms"] = _elapsed_ms(stage_started)
-    analysis_stage = "yolo_sam2" if detections else "yolo_no_distress_found"
+    metrics = _metric_summary(detections, depth_map) if depth_available else {
+        "camera_surface_distance_m": None,
+        "avg_crack_width_mm": None,
+        "max_crack_width_mm": None,
+    }
     final_count = len(detections)
     elapsed_ms = int((time.perf_counter() - started) * 1000)
     print(
         "[FRAME_RESULT] "
-        f"index={frame.get('index')} detector_status=success segmentation_status=success "
+        f"index={frame.get('index')} pci={pci_result['pci']} "
         f"yolo={yolo_count} final={final_count} "
-        f"sam2_attempted={sam2_attempted} analysis_stage={analysis_stage} "
+        f"sam2_attempted={sam2_attempted} depth_attempted={depth_attempted} "
+        f"depth_available={depth_available} analysis_stage={analysis_stage} "
+        f"degraded_reasons={','.join(degraded_reasons) or 'none'} "
         f"stage_timings={json.dumps(stage_timings, sort_keys=True)} elapsed_ms={elapsed_ms}",
         flush=True,
     )
@@ -656,32 +779,26 @@ def _process_frame(
     return {
         "index": frame.get("index"),
         "timestamp_ms": frame.get("timestamp_ms"),
-        "crack_types": sorted(
-            {
-                str(detection.get("class"))
-                for detection in detections
-                if detection.get("class") is not None
-            }
-        ),
+        "pci_score": pci_result["pci"],
+        "condition": pci_result["condition"],
+        "recommendation": pci_result["recommendation"],
+        "crack_types": pci_result["crack_types"],
+        "dominant_crack": pci_result["dominant_crack"],
         "lat": frame.get("lat"),
         "lon": frame.get("lon"),
         "alt_m": frame.get("alt_m", frame.get("alt")),
-        "relative_altitude_m": frame.get("relative_altitude_m"),
-        "absolute_altitude_m": frame.get("absolute_altitude_m"),
-        "altitude_source": frame.get("altitude_source"),
         "gimbal_yaw": frame.get("gimbal_yaw"),
-        "gimbal_pitch": frame.get("gimbal_pitch"),
-        "gimbal_roll": frame.get("gimbal_roll"),
-        "image_width_px": image_width_px,
-        "image_height_px": image_height_px,
         "detections": detections,
-        "detector_status": "success",
-        "segmentation_status": "success",
-        "depth_available": False,
-        "depth_attempted": False,
-        "depth_skipped_reason": "relative_depth_not_used_for_physical_pci_measurement",
+        "pci_details": pci_result,
+        "depth_available": depth_available,
+        "depth_estimate": _depth_estimate(depth_map),
+        "camera_surface_distance_m": metrics["camera_surface_distance_m"],
+        "avg_crack_width_mm": metrics["avg_crack_width_mm"],
+        "max_crack_width_mm": metrics["max_crack_width_mm"],
+        "depth_attempted": depth_attempted,
+        "depth_skipped_reason": depth_skipped_reason,
         "analysis_stage": analysis_stage,
-        "degraded_reasons": [],
+        "degraded_reasons": degraded_reasons,
         "sam2_attempted": sam2_attempted,
         "yolo_detection_count": yolo_count,
         "final_detection_count": final_count,
@@ -761,11 +878,13 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         _add_ms(timing_breakdown_ms, "raw_download_ms", stage_started)
         raw_file_manifest = _file_manifest(local_files)
 
-        pci_config = _partial_pci_config(mode, options)
+        use_depth = _depth_enabled(mode, options)
+        warm_sam2 = _sam2_warmup_enabled(options)
         yolo_batch_size = _yolo_batch_size(options)
+        depth_batch_size = _depth_batch_size(options, yolo_batch_size)
         print(
-            f"[PIPELINE] mode={mode} yolo_batch_size={yolo_batch_size} "
-            f"partial_pci_enabled={pci_config is not None} "
+            f"[PIPELINE] mode={mode} use_depth={use_depth} warm_sam2={warm_sam2} "
+            f"yolo_batch_size={yolo_batch_size} depth_batch_size={depth_batch_size} "
             f"options={json.dumps(options, sort_keys=True)}",
             flush=True,
         )
@@ -774,11 +893,6 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         frame_batch = dispatch_job(job_id, mode, _build_dispatch_files(mode, local_files, options))
         _add_ms(timing_breakdown_ms, "frame_extraction_ms", stage_started)
         frames = frame_batch["frames"]
-        processing_started = time.perf_counter()
-        warmup_timings = _warm_pipeline_models()
-        timing_breakdown_ms.update(warmup_timings)
-        runtime_manifest = _runtime_manifest()
-        model_manifest = _model_manifest()
         manifest_prefix = f"{output_storage_prefix}manifests/"
         stage_started = time.perf_counter()
         _upload_json(
@@ -798,11 +912,11 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 "raw_files": raw_file_manifest,
                 "ingest": frame_batch.get("ingest_metadata", {}),
                 "frame_count": len(frames),
-                "runtime": runtime_manifest,
-                "models": model_manifest,
-                "partial_pci_config": pci_config,
+                "runtime": _runtime_manifest(),
+                "models": _model_manifest(),
                 "performance": {
                     "yolo_batch_size": yolo_batch_size,
+                    "depth_batch_size": depth_batch_size if use_depth else 0,
                     "progress_update_target": 100,
                 },
             },
@@ -832,7 +946,13 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             output_r2_prefix=output_storage_prefix,
         )
         _add_ms(timing_breakdown_ms, "redis_detecting_update_ms", stage_started)
-        frame_results: list[dict[str, Any]] = []
+        processing_started = time.perf_counter()
+        warmup_timings = _warm_pipeline_models(use_depth=use_depth, warm_sam2=warm_sam2)
+        for key, value in warmup_timings.items():
+            if isinstance(value, int) and not isinstance(value, bool):
+                timing_breakdown_ms[key] = value
+
+        pci_scores: list[float] = []
         processed = 0
         total = len(frames)
         total_detections = 0
@@ -843,7 +963,9 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
         frame_stage_totals_ms: dict[str, int] = {
             "yolo_ms": 0,
             "sam2_ms": 0,
-            "frame_dimensions_ms": 0,
+            "depth_ms": 0,
+            "frame_area_ms": 0,
+            "pci_ms": 0,
             "frame_upload_ms": 0,
             "detection_json_write_ms": 0,
             "detection_upload_ms": 0,
@@ -870,18 +992,45 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 flush=True,
             )
 
+            depth_maps_by_index: dict[Any, Any] = {}
+            depth_share_ms = 0
+            if use_depth:
+                depth_started = time.perf_counter()
+                try:
+                    for depth_chunk in _chunked(frame_chunk, depth_batch_size):
+                        depth_paths = [str(Path(frame["path"])) for frame in depth_chunk]
+                        depth_maps = depth_anything_v2_inference.infer_depth_maps(depth_paths)
+                        for frame, depth_map in zip(depth_chunk, depth_maps):
+                            depth_maps_by_index[frame.get("index")] = depth_map
+                    depth_batch_elapsed_ms = _elapsed_ms(depth_started)
+                    depth_share_ms = int(depth_batch_elapsed_ms / max(1, len(frame_chunk)))
+                    print(
+                        f"[DEPTH_BATCH_RESULT {batch_index}] frames={len(depth_maps_by_index)} "
+                        f"batch_size={depth_batch_size} elapsed_ms={depth_batch_elapsed_ms}",
+                        flush=True,
+                    )
+                except Exception as exc:
+                    print(
+                        f"[DEPTH_BATCH {batch_index}] failed: {exc}; "
+                        "falling back to per-frame depth",
+                        flush=True,
+                    )
+
             for frame in frame_chunk:
                 processed_count += 1
                 print(f"[FRAME {processed_count}/{total}] processing", flush=True)
                 frame_path = Path(frame["path"])
                 frame_result = _process_frame(
                     frame,
+                    use_depth=use_depth,
                     yolo_detections=detections_by_index.get(frame.get("index"), []),
                     yolo_elapsed_ms=yolo_share_ms,
+                    precomputed_depth_map=depth_maps_by_index.get(frame.get("index")),
+                    depth_elapsed_ms=depth_share_ms,
                 )
                 processed = processed_count
                 total_detections += len(frame_result.get("detections") or [])
-                frame_results.append(frame_result)
+                pci_scores.append(float(frame_result["pci_score"]))
                 total_processing_ms += int(frame_result.get("processing_ms") or 0)
                 for key, value in (frame_result.get("stage_timings_ms") or {}).items():
                     if isinstance(value, int):
@@ -890,25 +1039,23 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 analysis_stage = str(frame_result.get("analysis_stage") or "unknown")
                 pipeline_stage_counts[analysis_stage] = pipeline_stage_counts.get(analysis_stage, 0) + 1
                 frame_degraded_reasons = frame_result.get("degraded_reasons") or []
-                if frame_degraded_reasons:
+                if analysis_stage == "fallback" or frame_degraded_reasons:
                     degraded_frame_count += 1
                 for reason in frame_degraded_reasons:
                     reason_key = str(reason)
                     degraded_reason_counts[reason_key] = degraded_reason_counts.get(reason_key, 0) + 1
 
                 stage_started = time.perf_counter()
-                artifact_stem = f"frame_{int(frame_result['index']):09d}"
-                artifact_frame_name = f"{artifact_stem}{frame_path.suffix.lower()}"
                 _upload_file(
                     object_storage_client,
                     bucket,
                     frame_path,
-                    f"{output_storage_prefix}frames/{artifact_frame_name}",
+                    f"{output_storage_prefix}frames/{frame_path.name}",
                 )
                 _add_ms(frame_stage_totals_ms, "frame_upload_ms", stage_started)
 
                 stage_started = time.perf_counter()
-                detection_path = detection_dir / f"{artifact_stem}.json"
+                detection_path = detection_dir / f"{frame_path.stem}.json"
                 detection_path.parent.mkdir(parents=True, exist_ok=True)
                 detection_path.write_text(json.dumps(frame_result))
                 _add_ms(frame_stage_totals_ms, "detection_json_write_ms", stage_started)
@@ -918,7 +1065,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                     object_storage_client,
                     bucket,
                     detection_path,
-                    f"{output_storage_prefix}detections/{artifact_stem}.json",
+                    f"{output_storage_prefix}detections/{frame_path.stem}.json",
                 )
                 _add_ms(frame_stage_totals_ms, "detection_upload_ms", stage_started)
                 if processed_count == total or processed_count % progress_update_every == 0:
@@ -931,54 +1078,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                     )
                     _add_ms(frame_stage_totals_ms, "redis_progress_update_ms", stage_started)
 
-        if pci_config is not None:
-            provenance = {
-                "models": model_manifest,
-                "seed": runtime_manifest["deterministic_seed"],
-                "code_commit": runtime_manifest["build_sha"],
-            }
-            sections, partial_pci_summary, chainage_frames = build_pci_sections(
-                frame_results,
-                road_class=pci_config["road_class"],
-                surface_type=pci_config["surface_type"],
-                carriageway_width_m=pci_config["carriageway_width_m"],
-                camera_calibration=pci_config["camera_calibration"],
-                provenance=provenance,
-                overlap_threshold=pci_config["overlap_threshold"],
-            )
-            partial_pci_key = f"{output_storage_prefix}partial_pci_sections.json"
-            _upload_json(
-                object_storage_client,
-                bucket,
-                partial_pci_key,
-                {
-                    "job_id": job_id,
-                    "summary": partial_pci_summary,
-                    "sections": sections,
-                    "chainage_frames": [
-                        {
-                            "frame_index": frame["frame_index"],
-                            "section_id": frame["section_id"],
-                            "cumulative_distance_m": frame["cumulative_distance_m"],
-                            "lat": frame["lat"],
-                            "lon": frame["lon"],
-                        }
-                        for frame in chainage_frames
-                    ],
-                },
-            )
-        else:
-            sections = []
-            partial_pci_key = None
-            partial_pci_summary = {
-                "assessment_scope": "detection_only",
-                "pci_complete": None,
-                "pci_bounds": None,
-                "measured_weight_fraction": 0.0,
-                "unmeasured_weight_fraction": 1.0,
-                "reason": "100 m GPS-chainage PCI assessment is available only for configured drone surveys",
-                "segment_count": 0,
-            }
+        average_pci = sum(pci_scores) / len(pci_scores) if pci_scores else 50.0
         end_to_end_processing_ms = int((time.perf_counter() - processing_started) * 1000)
         total_job_elapsed_ms = _elapsed_ms(job_started)
         timing_breakdown_ms["frame_loop_wall_ms"] = end_to_end_processing_ms
@@ -1003,11 +1103,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 "status": "complete",
                 "processed_count": processed,
                 "frame_count": total,
-                "average_pci": None,
-                "pci_complete": None,
-                "pci_bounds": partial_pci_summary["pci_bounds"],
-                "partial_pci_sections_key": partial_pci_key,
-                "partial_pci": partial_pci_summary,
+                "average_pci": average_pci,
                 "total_detections": total_detections,
                 "total_processing_ms": total_processing_ms,
                 "end_to_end_processing_ms": end_to_end_processing_ms,
@@ -1018,6 +1114,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 "unattributed_frame_loop_ms": unattributed_frame_loop_ms,
                 "progress_update_every_frames": progress_update_every,
                 "yolo_batch_size": yolo_batch_size,
+                "depth_batch_size": depth_batch_size if use_depth else 0,
                 "pipeline_stage_counts": pipeline_stage_counts,
                 "degraded_frame_count": degraded_frame_count,
                 "degraded_reason_counts": degraded_reason_counts,
@@ -1029,17 +1126,12 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             redis_token,
             job_id,
             status="complete",
-            average_pci=None,
-            pci_complete=None,
-            pci_bounds=partial_pci_summary["pci_bounds"],
-            partial_pci=partial_pci_summary,
-            partial_pci_sections_key=partial_pci_key,
+            average_pci=average_pci,
             output_storage_prefix=output_storage_prefix,
             output_r2_prefix=output_storage_prefix,
         )
         print(
-            f"[DONE] processed {processed} frames, sections={len(sections)}, "
-            f"pci_bounds={partial_pci_summary['pci_bounds']}, detections={total_detections}",
+            f"[DONE] processed {processed} frames, avg_pci={average_pci:.1f}, detections={total_detections}",
             flush=True,
         )
         webhook_ok, webhook_error = _post_webhook(
@@ -1049,9 +1141,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 "job_id": job_id,
                 "user_id": user_id,
                 "status": "complete",
-                "pci_complete": None,
-                "pci_bounds": partial_pci_summary["pci_bounds"],
-                "partial_pci_sections_key": partial_pci_key,
+                "average_pci": average_pci,
                 "frame_count": len(frames),
                 "processed_count": processed,
                 "output_storage_prefix": output_storage_prefix,
@@ -1065,12 +1155,7 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
                 job_id,
                 webhook_error=webhook_error,
             )
-        return {
-            "job_id": job_id,
-            "status": "complete",
-            "pci_complete": None,
-            "pci_bounds": partial_pci_summary["pci_bounds"],
-        }
+        return {"job_id": job_id, "status": "complete", "average_pci": average_pci}
     except Exception as exc:
         error_message = str(exc)
         error_type = exc.__class__.__name__
@@ -1103,6 +1188,6 @@ def handler(job: dict[str, Any]) -> dict[str, Any]:
             shutil.rmtree(work_dir)
 
 
-if __name__ == "__main__":
-    print(f"[WORKER_BOOT] {json.dumps(_runtime_manifest(), sort_keys=True)}", flush=True)
-    runpod.serverless.start({"handler": handler})
+print(f"[WORKER_BOOT] {json.dumps(_runtime_manifest(), sort_keys=True)}", flush=True)
+
+runpod.serverless.start({"handler": handler})

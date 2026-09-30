@@ -19,7 +19,7 @@ export default async function SurveyReportPage({ params }: { params: Promise<{ i
 
   const { data: survey, error } = await supabase
     .from("surveys")
-    .select("id, user_id, name, location, engineer_name, surveyed_at, created_at, status")
+    .select("id, user_id, name, location, engineer_name, surveyed_at, created_at, status, average_pci")
     .eq("id", id)
     .eq("user_id", user.id)
     .single();

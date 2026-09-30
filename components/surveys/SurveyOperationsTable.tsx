@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { JOB_MODE_LABELS, type JobRecord, type JobStatus } from "@/types";
+import { getPciBand, JOB_MODE_LABELS, type JobRecord, type JobStatus } from "@/types";
 
 interface Props {
   jobs: JobRecord[];
@@ -106,7 +106,7 @@ export function SurveyOperationsTable({ jobs }: Props) {
           <table className="w-full min-w-[820px]">
             <thead className="bg-[#111116]">
               <tr>
-                {["Date", "Mode", "Progress", "Assessment", "Status", "Actions"].map((heading) => (
+                {["Date", "Mode", "Progress", "PCI", "Status", "Actions"].map((heading) => (
                   <th key={heading} className="px-5 py-3 text-left font-mono text-[11px] font-medium uppercase tracking-[0.15em] text-[#4A4A5A]">
                     {heading}
                   </th>
@@ -116,6 +116,7 @@ export function SurveyOperationsTable({ jobs }: Props) {
             <tbody>
               {jobs.map((job) => {
                 const pct = job.frame_count > 0 ? Math.round((job.processed_count / job.frame_count) * 100) : 0;
+                const band = job.average_pci == null ? null : getPciBand(job.average_pci);
                 const s = STATUS_STYLES[job.status];
                 const isProcessing = !["complete", "failed", "queued"].includes(job.status);
                 return (
@@ -138,12 +139,12 @@ export function SurveyOperationsTable({ jobs }: Props) {
                       </div>
                     </td>
                     <td className="px-5 py-4">
-                      {job.pci_lower != null && job.pci_upper != null ? (
-                        <span className="font-mono text-sm font-medium text-[#F5A623]">
-                          {job.pci_lower.toFixed(1)}–{job.pci_upper.toFixed(1)}
+                      {band ? (
+                        <span className="font-mono text-sm font-medium" style={{ color: band.color }}>
+                          {job.average_pci?.toFixed(1)}
                         </span>
                       ) : (
-                        <span className="font-mono text-xs text-[#4A4A5A]">Detection only</span>
+                        <span className="font-mono text-sm text-[#4A4A5A]">N/A</span>
                       )}
                     </td>
                     <td className="px-5 py-4">

@@ -28,12 +28,7 @@ class Frame(TypedDict):
     lat: Optional[float]
     lon: Optional[float]
     alt_m: Optional[float]
-    relative_altitude_m: Optional[float]
-    absolute_altitude_m: Optional[float]
-    altitude_source: Optional[str]
     gimbal_yaw: Optional[float]
-    gimbal_pitch: Optional[float]
-    gimbal_roll: Optional[float]
 
 
 _LAST_EXTRACTION_METADATA: dict[str, Any] = {}
@@ -113,12 +108,7 @@ def _frame_record(index: int, timestamp_ms: int, path: Path) -> Frame:
         "lat": None,
         "lon": None,
         "alt_m": None,
-        "relative_altitude_m": None,
-        "absolute_altitude_m": None,
-        "altitude_source": None,
         "gimbal_yaw": None,
-        "gimbal_pitch": None,
-        "gimbal_roll": None,
     }
 
 
@@ -383,12 +373,7 @@ def attach_gps_to_frames(
             "lat": nearest["lat"],
             "lon": nearest["lon"],
             "alt_m": nearest.get("alt_m"),
-            "relative_altitude_m": nearest.get("relative_altitude_m"),
-            "absolute_altitude_m": nearest.get("absolute_altitude_m"),
-            "altitude_source": nearest.get("altitude_source"),
             "gimbal_yaw": nearest.get("gimbal_yaw"),
-            "gimbal_pitch": nearest.get("gimbal_pitch"),
-            "gimbal_roll": nearest.get("gimbal_roll"),
             "gps_signal_quality": nearest.get("gps_signal_quality"),
         }
         out.append(merged)

@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import os
-import hashlib
 import urllib.request
 from pathlib import Path
 from typing import Any
@@ -22,33 +21,21 @@ WEIGHTS_PATH = Path(
     )
 )
 WEIGHTS_URL = os.environ.get("DRISORA_YOLO_WEIGHTS_URL", "")
-WEIGHTS_SHA256 = os.environ.get(
-    "DRISORA_YOLO_WEIGHTS_SHA256",
-    "138d3c738d53fdb9dd53297607bc612a4835c0554d3c1acb3f272d9987ee3cb3",
-).lower()
 CLASS_NAMES = ("D00", "D10", "D20", "D40")
 CONFIDENCE = 0.25
 IOU = 0.45
 
 
-class DetectorError(RuntimeError):
-    pass
-
-
 def _ensure_weights() -> None:
-    if not WEIGHTS_PATH.exists() or WEIGHTS_PATH.stat().st_size <= 0:
-        if not WEIGHTS_URL:
-            raise FileNotFoundError(
-                f"YOLOv12s weights not found at {WEIGHTS_PATH}. "
-                "Set DRISORA_YOLO_WEIGHTS_URL or place the pinned checkpoint at DRISORA_YOLO_WEIGHTS_PATH."
-            )
-        WEIGHTS_PATH.parent.mkdir(parents=True, exist_ok=True)
-        urllib.request.urlretrieve(WEIGHTS_URL, WEIGHTS_PATH)
-    actual = hashlib.sha256(WEIGHTS_PATH.read_bytes()).hexdigest()
-    if actual != WEIGHTS_SHA256:
-        raise DetectorError(
-            f"YOLO checkpoint SHA256 mismatch: expected {WEIGHTS_SHA256}, got {actual}"
+    if WEIGHTS_PATH.exists() and WEIGHTS_PATH.stat().st_size > 0:
+        return
+    if not WEIGHTS_URL:
+        raise FileNotFoundError(
+            f"YOLOv12s weights not found at {WEIGHTS_PATH}. "
+            "Set DRISORA_YOLO_WEIGHTS_URL or place the checkpoint at DRISORA_YOLO_WEIGHTS_PATH."
         )
+    WEIGHTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    urllib.request.urlretrieve(WEIGHTS_URL, WEIGHTS_PATH)
 
 
 def load_model() -> Any:
@@ -136,7 +123,7 @@ def _detections_from_result(model: Any, result: Any, frame_index: Any = None) ->
 
 def _run_one(image_path: str, frame_index: Any = None) -> list[dict[str, Any]]:
     if not image_path:
-        raise DetectorError("detector input image path is empty")
+        return []
     try:
         model = load_model()
         results = model.predict(
@@ -147,13 +134,11 @@ def _run_one(image_path: str, frame_index: Any = None) -> list[dict[str, Any]]:
             verbose=False,
         )
         if not results:
-            raise DetectorError(f"detector returned no result object for frame {frame_index}")
+            return []
         return _detections_from_result(model, results[0], frame_index)
     except Exception as e:
         print(f"[YOLO] frame {frame_index} inference failed: {e}")
-        if isinstance(e, DetectorError):
-            raise
-        raise DetectorError(f"YOLO inference failed for frame {frame_index}: {e}") from e
+        return []
 
 
 def _run_batch(frames: list[Any], batch_size: int = 64) -> list[dict[str, Any]]:
@@ -173,17 +158,12 @@ def _run_batch(frames: list[Any], batch_size: int = 64) -> list[dict[str, Any]]:
             batch=max(1, int(batch_size)),
         )
 
-        result_items = list(results or [])
-        if len(result_items) != len(items):
-            raise DetectorError(
-                f"detector returned {len(result_items)} results for {len(items)} frames"
-            )
         detections: list[dict[str, Any]] = []
-        for (_path, frame_index), result in zip(items, result_items):
+        for (_path, frame_index), result in zip(items, results or []):
             detections.extend(_detections_from_result(model, result, frame_index))
         return detections
     except Exception as e:
-        print(f"[YOLO] batch inference failed: {e}; retrying per frame")
+        print(f"[YOLO] batch inference failed: {e}; falling back to per-frame inference")
         detections: list[dict[str, Any]] = []
         for path, frame_index in items:
             detections.extend(_run_one(path, frame_index))

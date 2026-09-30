@@ -1,90 +1,122 @@
-# Drisora
+# Drisora Backend
 
-Drisora is a Next.js control plane and RunPod worker for georeferenced pavement-distress evidence. Its current scientific output is deliberately partial:
+Drisora Backend is a pavement condition intelligence pipeline for drone road-survey media. It converts an MP4/MOV video plus DJI SRT telemetry into defect detections, segmentation masks, metric crack features, 100 m GPS-chainage PCI sections, and an IRC:82-2023 PDF report.
 
-> Partial IRC:82-2023 PCI assessment: 2 of 6 functional parameters instrumented (cracking extent, pothole number; 28% of composite weight). Roughness, ravelling, patching, and rut depth require instrumented survey (ARSS/NSV or manual per IRC:82-2023 Appendix-1) and are not measured. PCI reported as bounds, not a point estimate.
+This open-source package is backend-only. It does not include the Next.js frontend, Supabase routes or migrations, auth configuration, billing, signed URL logic, tenant logic, private bucket names, secrets, or model weights.
 
-No-detection evidence is not interpreted as PCI 100. Image batches and handheld video are detection-only. A drone job receives PCI bounds only when its GPS-chainage, relative AGL, camera calibration, carriageway width, detector, SAM2 masks, and spatial deduplication all pass validation.
-
-## Active pipeline
+## Pipeline Architecture
 
 ```text
-direct R2 upload
-  -> deterministic frame extraction
-  -> DJI SRT telemetry (relative AGL kept distinct from absolute MSL)
-  -> YOLOv12s RDD2022 detection
-  -> SAM2 mask segmentation
-  -> explicit GSD calibration and area uncertainty
-  -> georeferenced cross-frame deduplication
-  -> fixed 100 m GPS-chainage sections
-  -> road-class-specific IRC:82-2023 Appendix-2 equations
-  -> partial PCI bounds + provenance JSON + evidence PDF
+Frame Extraction
+  -> DJI SRT telemetry parsing
+  -> GSD calibration from altitude
+  -> YOLOv12s crack detection
+  -> SAM2 segmentation
+  -> Depth Anything V2 metric depth estimation
+  -> crack width estimation in mm
+  -> Haversine GPS sectioning at fixed 100 m chainage
+  -> IRC:82-2023 PCI scoring
+  -> JSON + PDF report output
 ```
 
-Monocular depth is excluded from physical PCI inputs. It is not converted into rut depth, IRI, crack width, or metric scale.
+## Requirements
 
-## Output contract
+- Python 3.10+
+- CUDA 12+ recommended
+- NVIDIA GPU strongly recommended for YOLO, SAM2, and Depth Anything V2 Large
+- `ffmpeg` and `ffprobe` on `PATH`
+- Model checkpoints downloaded separately
 
-Each calibrated section includes:
-
-- explicit road class (`HIGHWAY`, `MDR_RURAL`, or `URBAN`), with mandatory surface type for MDR/rural roads;
-- section length, explicit carriageway width, and section area;
-- spatially unique cracking and pothole mask areas with uncertainty;
-- pothole number as total pothole area divided by 0.1 m² (IRC:82-2023 Clause 7.5.3.4);
-- `null` for ravelling, patching, rut depth, roughness, and complete point PCI;
-- a 72-point interval from the 28% measured contribution and the full admissible range of the 72% unmeasured contribution;
-- model hashes, deterministic seed, GSD source/error, dedup method, and code commit.
-
-The platform persists interval columns (`pci_lower`, `pci_upper`) and retains the old `average_pci` database column only to keep historical migrations readable. Current jobs write it as `NULL`.
-
-## Standard-source note
-
-The checked IRC:82-2023 copy contains two internal source defects:
-
-1. The printed MDR/rural pothole polynomial increases above 100 and contradicts its adjacent decreasing curve. Drisora uses the curve-consistent polynomial in the official preceding IRC H-6 draft and emits this as an erratum in provenance.
-2. Several Appendix-2 worked-example totals do not reproduce from the printed equations and Table 5.4 weights. Tests preserve the printed input rows but assert independently recomputed equation outputs. See `REMEDIATION.md` for the nine-row table.
-
-## Local verification
+## Installation
 
 ```bash
-npm install
-npm run lint
-npm run typecheck
-npm run test:worker
-npm run build
+cd worker
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+pip install git+https://github.com/facebookresearch/sam2.git
+git clone https://github.com/DepthAnything/Depth-Anything-V2.git /tmp/depth-anything-v2
+export DEPTH_ANYTHING_V2_REPO=/tmp/depth-anything-v2
 ```
 
-The full gate is:
+Install a CUDA-compatible PyTorch build from the official PyTorch selector for your machine before running GPU inference.
+
+## Model Weights
+
+Model weights are intentionally not committed. Use the helper script to fetch the public Depth Anything V2 metric checkpoint and, when available, the project YOLO checkpoint from a URL you provide:
 
 ```bash
-npm run verify
+DRISORA_YOLO_WEIGHTS_URL="https://your-model-host/yolov12s_rdd2022.pt" \
+  ./scripts/download_models.sh
 ```
 
-## Model and environment pinning
+The default Depth Anything V2 model is the outdoor metric Large checkpoint for highest-accuracy Drisora runs:
 
-The deployed path uses exactly:
+```text
+depth-anything/Depth-Anything-V2-Metric-VKITTI-Large
+```
 
-- YOLO checkpoint SHA-256: `138d3c738d53fdb9dd53297607bc612a4835c0554d3c1acb3f272d9987ee3cb3`
-- SAM2.1 Hiera Small SHA-256: `6d1aa6f30de5c92224f8172114de081d104bbd23dd9dc5c58996f0cad5dc4d38`
-- SAM2 source commit: `c2ec8e14a185632b0a5d8b161928ceb50197eddc`
-- deterministic seed: `1337`
+This uses the `vitl` encoder and a 1.34 GB checkpoint. Use `vitb` or `vits` only when you intentionally want lower VRAM or faster smoke tests.
 
-`worker/Dockerfile` verifies both checkpoint hashes during the build. `worker/requirements.txt` pins direct dependencies and `worker/constraints.txt` locks the resolved transitive set. The Docker base is `pytorch/pytorch:2.4.1-cuda12.1-cudnn9-runtime` pinned by digest and installs `libgl1` plus `libglib2.0-0`.
+## Environment
 
-Copy `.env.local.example` for the web app and `worker/.env.example` for deployment credentials. Never commit populated env files.
-
-## RunPod deployment
-
-The deployment command builds `linux/amd64`, pushes by digest, updates the existing RunPod Serverless template, and preserves service secrets while overriding checkpoint paths and hashes with the verified image contract:
+Copy `.env.example` or `worker/.env.example` and fill in local values. Required worker variables:
 
 ```bash
-npm run deploy:runpod -- --image sreekaraditya/drisora-worker:<tag>
+OBJECT_STORAGE_ENDPOINT_URL=
+OBJECT_STORAGE_ACCESS_KEY_ID=
+OBJECT_STORAGE_SECRET_ACCESS_KEY=
+OBJECT_STORAGE_BUCKET=
+UPSTASH_REDIS_REST_URL=
+UPSTASH_REDIS_REST_TOKEN=
+APP_CALLBACK_URL=
+WORKER_WEBHOOK_SECRET=
+RUNPOD_API_KEY=
+RUNPOD_ENDPOINT_ID=
+DRISORA_YOLO_WEIGHTS_PATH=worker/weights/yolov12s_rdd2022.pt
+DRISORA_YOLO_WEIGHTS_URL=
+DEPTH_ANYTHING_V2_REPO=/tmp/depth-anything-v2
+DEPTH_ANYTHING_V2_MODEL_PATH=/tmp/models/depth_anything_v2_metric_vkitti_vitl.pth
+DEPTH_ANYTHING_V2_ENCODER=vitl
+DRISORA_ENABLE_DEPTH_DEFAULT=1
 ```
 
-## Research status
+## Usage: Single Video Inference
 
-This repository supplies a corrected, reproducible measurement pipeline—not a validated results paper. Real-survey labels, manual six-parameter comparison data, engineer review, uncertainty analysis, and external validation are still required before claiming agreement, compliance, accuracy, or generalization.
+```bash
+cd worker
+python run_single_video.py \
+  --video /path/to/drone_flight.mp4 \
+  --srt /path/to/drone_flight.srt \
+  --out ../outputs/drone_flight
+```
+
+The local CLI decodes all frames and enables Depth Anything V2 Large by default. Add `--sample-frames --frame-interval-seconds 1` only for faster exploratory runs.
+
+Outputs:
+
+- `outputs/drone_flight/results.json`
+- `outputs/drone_flight/report.pdf`
+- extracted frames in a temporary directory
+
+For RunPod serverless, use `worker/handler.py` with a job payload that includes `job_id`, `user_id`, `mode`, `storage_prefix`, `file_names`, and optional pipeline settings.
+
+## Citation
+
+If you use Drisora Backend in research, cite the Drisora systems paper:
+
+```bibtex
+@misc{reddy2026drisora,
+  title = {Drisora: A Drone-Based Pavement Condition Intelligence Pipeline for IRC:82-2023 Road Surveys},
+  author = {Reddy, Sreekar Aditya},
+  year = {2026},
+  note = {Preprint in preparation}
+}
+```
+
+Also cite the upstream models and datasets listed in `NOTICE.md`.
 
 ## License
 
-GNU Affero General Public License v3.0. Third-party notices are in `NOTICE.md`.
+Drisora Backend is released under the GNU Affero General Public License v3.0. See `LICENSE` for the full text.

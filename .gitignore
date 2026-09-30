@@ -47,7 +47,6 @@ __pycache__/
 worker/models/
 worker/weights/*
 !worker/weights/.gitkeep
-!worker/weights/yolov12s_rdd2022.pt
 
 # generated outputs
 reports/

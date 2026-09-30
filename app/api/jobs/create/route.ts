@@ -16,51 +16,6 @@ interface CreateJobBody {
 
 const VALID_MODES: JobMode[] = ["image_batch", "handheld_video", "drone_footage"];
 const SAFE_FILE_NAME = /^[A-Za-z0-9._-]+$/;
-const ROAD_CLASSES = new Set(["HIGHWAY", "MDR_RURAL", "URBAN"]);
-const SURFACE_TYPES = new Set(["SD", "OGPC", "MSS", "SDBC", "BC"]);
-const CALIBRATION_SOURCES = new Set([
-  "field_calibrated",
-  "laboratory_calibrated",
-  "manufacturer_spec",
-  "operator_estimate",
-]);
-
-function dronePartialPciValidationError(options: Record<string, unknown>) {
-  const roadClass = typeof options.road_class === "string" ? options.road_class.toUpperCase() : "";
-  if (!ROAD_CLASSES.has(roadClass)) {
-    return "Drone surveys require an explicit road_class: HIGHWAY, MDR_RURAL, or URBAN";
-  }
-  const surfaceType = typeof options.surface_type === "string" ? options.surface_type.toUpperCase() : "";
-  if (roadClass === "MDR_RURAL" && !SURFACE_TYPES.has(surfaceType)) {
-    return "MDR_RURAL surveys require surface_type: SD, OGPC, MSS, SDBC, or BC";
-  }
-  if (roadClass !== "MDR_RURAL" && options.surface_type != null) {
-    return "surface_type is valid only for MDR_RURAL surveys";
-  }
-
-  const carriagewayWidth = Number(options.carriageway_width_m);
-  if (!Number.isFinite(carriagewayWidth) || carriagewayWidth <= 0) {
-    return "Drone surveys require carriageway_width_m greater than zero";
-  }
-  const horizontalFov = Number(options.camera_horizontal_fov_deg);
-  if (!Number.isFinite(horizontalFov) || horizontalFov <= 0 || horizontalFov >= 180) {
-    return "Drone surveys require camera_horizontal_fov_deg between 0 and 180";
-  }
-  const gsdError = Number(options.gsd_relative_error_pct);
-  if (!Number.isFinite(gsdError) || gsdError <= 0 || gsdError >= 100) {
-    return "Drone surveys require gsd_relative_error_pct between 0 and 100";
-  }
-  if (
-    typeof options.camera_calibration_source !== "string" ||
-    !CALIBRATION_SOURCES.has(options.camera_calibration_source)
-  ) {
-    return "Drone surveys require a valid camera_calibration_source";
-  }
-  if (options.frame_extraction_mode !== "all_frames" || options.frame_interval_seconds != null) {
-    return "Partial PCI section assessment requires all-frame extraction";
-  }
-  return null;
-}
 
 function normalizedFrameOptions(options: Record<string, unknown>) {
   const rawMode = options.frame_extraction_mode;
@@ -233,11 +188,6 @@ export async function POST(request: NextRequest) {
         { error: "Drone footage requires one video file; .SRT telemetry is optional when embedded GPS is present" },
         { status: 400 },
       );
-    }
-
-    const partialPciError = dronePartialPciValidationError(rawOptions);
-    if (partialPciError) {
-      return NextResponse.json({ error: partialPciError }, { status: 400 });
     }
   }
 

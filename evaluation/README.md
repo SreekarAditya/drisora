@@ -1,31 +1,16 @@
 # Drisora Evaluation Module
 
-This module evaluates the current **bounded section contract**. It does not turn a synthetic fixture into research evidence and does not compute point-PCI MAE from imagery-only output.
+This folder is the research-paper evaluation path for Drisora as a systems artifact. It is separate from any detector benchmark paper.
 
-## Fixture gate
+## Commands
+
+Validate a label file:
 
 ```bash
-node evaluation/drisora_eval.mjs validate \
-  --labels evaluation/fixtures/sample_labels.json
-
-node evaluation/drisora_eval.mjs compute \
-  --export evaluation/fixtures/sample_export.json \
-  --labels evaluation/fixtures/sample_labels.json \
-  --out evaluation/output/fixture
+node evaluation/drisora_eval.mjs validate --labels evaluation/fixtures/sample_labels.json
 ```
 
-The checked-in fixture is explicitly marked `synthetic_fixture`. Its generated metrics carry:
-
-```json
-{
-  "evidence_status": "synthetic_fixture_only_not_research_evidence",
-  "research_claim_permitted": false
-}
-```
-
-Its only purpose is to verify schema validation, 72-point interval handling, reference-coverage arithmetic, and defect-class comparison.
-
-## Export a real job
+Normalize a saved `JobResults` JSON into a paper export bundle:
 
 ```bash
 node evaluation/drisora_eval.mjs export \
@@ -36,20 +21,50 @@ node evaluation/drisora_eval.mjs export \
   --out evaluation/output/<survey_id>
 ```
 
-The exporter consumes real `jobResults.sections`; it never relabels frames as sections or assigns fixed lengths to frames.
+Compute metrics and paper tables from a frozen export plus labels:
 
-## Label protocol
+```bash
+node evaluation/drisora_eval.mjs compute \
+  --export evaluation/fixtures/sample_export.json \
+  --labels evaluation/fixtures/sample_labels.json \
+  --out evaluation/output/sample
+```
 
-Lock reference data at the same section IDs before metric computation. Each label records:
+The command writes:
 
-- `source_kind`: `real_survey` or `synthetic_fixture`;
-- `section_id`;
-- independently observed defect classes;
-- reviewer identity and review status;
-- optional `reference_complete_pci`, only when all six physical parameters were measured independently.
+- `metrics.json`
+- `metrics.csv`
+- `paper_tables.md`
 
-For a real reference PCI, the evaluator reports whether that value lies inside the imagery-derived interval and its distance outside the interval. It does not collapse the 72-point interval into a point prediction or condition band.
+## Label Protocol
 
-## Research boundary
+Lock labels at segment level before metric computation.
 
-Real raw media may remain access-controlled, but a publication claim still requires archived manifests, anonymized survey metadata, locked labels, the measurement protocol, reviewer provenance, and generated diagnostics. The evaluator always emits `research_claim_permitted: false`; scientific sufficiency is a human review gate, not a software flag.
+Required segment fields:
+
+- `segment_id`
+- `manual_condition_band`: `good`, `satisfactory`, `fair`, `poor`, or `very_poor`
+- `defect_classes`: visible defect classes for that segment
+- `reviewer_id`
+- `review_status`: `self_labeled`, `engineer_reviewed`, or `adjudicated`
+
+Recommended segment fields:
+
+- `manual_pci`
+- `start_distance_m`
+- `end_distance_m`
+- `major_false_positive_notes`
+- `major_false_negative_notes`
+- `notes` covering lighting, blur, GPS quality, occlusion, and road context
+
+## Private Data Boundary
+
+Raw survey media can stay outside git. Commit only:
+
+- locked manifests
+- anonymized survey metadata
+- labels
+- aggregate metrics
+- generated paper tables and figures
+
+Use `evaluation/private/` or external storage for raw videos, images, and GPS logs.

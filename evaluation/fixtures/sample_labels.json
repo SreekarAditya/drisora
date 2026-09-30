@@ -1,34 +1,52 @@
 {
-  "schema_version": "drisora-labels-v2",
-  "source_kind": "synthetic_fixture",
-  "survey_id": "synthetic-fixture-only",
-  "locked_at": "1970-01-01T00:00:00.000Z",
+  "schema_version": "drisora-labels-v1",
+  "survey_id": "sample-survey-001",
+  "locked_at": "2026-05-15T00:00:00.000Z",
   "reviewers": [
     {
-      "reviewer_id": "fixture-generator",
-      "reviewer_type": "synthetic_fixture"
+      "reviewer_id": "eng-01",
+      "reviewer_type": "civil_engineer"
     }
   ],
   "segments": [
     {
-      "section_id": "S-001",
+      "segment_id": "seg-000",
       "start_distance_m": 0,
-      "end_distance_m": 100,
-      "reference_complete_pci": 60,
-      "defect_classes": ["D00"],
-      "reviewer_id": "fixture-generator",
-      "review_status": "synthetic_fixture",
-      "notes": "Schema and interval-coverage fixture only; not a survey or engineer label."
+      "end_distance_m": 10,
+      "manual_pci": 82,
+      "manual_condition_band": "satisfactory",
+      "defect_classes": ["longitudinal_crack"],
+      "major_false_positive_notes": [],
+      "major_false_negative_notes": [],
+      "reviewer_id": "eng-01",
+      "review_status": "engineer_reviewed",
+      "notes": "Clear daylight segment with one visible longitudinal crack."
     },
     {
-      "section_id": "S-002",
-      "start_distance_m": 100,
-      "end_distance_m": 200,
-      "reference_complete_pci": 45,
-      "defect_classes": ["D40"],
-      "reviewer_id": "fixture-generator",
-      "review_status": "synthetic_fixture",
-      "notes": "Schema and interval-coverage fixture only; not a survey or engineer label."
+      "segment_id": "seg-001",
+      "start_distance_m": 10,
+      "end_distance_m": 20,
+      "manual_pci": 65,
+      "manual_condition_band": "fair",
+      "defect_classes": ["longitudinal_crack", "transverse_crack"],
+      "major_false_positive_notes": [],
+      "major_false_negative_notes": [],
+      "reviewer_id": "eng-01",
+      "review_status": "engineer_reviewed",
+      "notes": "Depth unavailable, but defect class labels are visually credible."
+    },
+    {
+      "segment_id": "seg-002",
+      "start_distance_m": 20,
+      "end_distance_m": 30,
+      "manual_pci": 45,
+      "manual_condition_band": "poor",
+      "defect_classes": ["pothole"],
+      "major_false_positive_notes": [],
+      "major_false_negative_notes": [],
+      "reviewer_id": "eng-01",
+      "review_status": "engineer_reviewed",
+      "notes": "Pothole is visible near lane edge."
     }
   ]
 }

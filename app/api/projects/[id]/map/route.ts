@@ -34,14 +34,14 @@ export async function GET(
   const [{ data: linkedJobs }, { data: linkedSurveys }] = await Promise.all([
     supabase
       .from("jobs")
-      .select("*")
+      .select("id, user_id, project_id, mode, status, frame_count, processed_count, gps_available, average_pci, r2_prefix, created_at, completed_at, error_message, deleted_at")
       .eq("user_id", user.id)
       .eq("project_id", id)
       .is("deleted_at", null)
       .order("created_at", { ascending: false }),
     supabase
       .from("surveys")
-      .select("id, user_id, project_id, name, location, engineer_name, surveyed_at, created_at, status, deleted_at")
+      .select("id, user_id, project_id, name, location, engineer_name, surveyed_at, created_at, status, average_pci, deleted_at")
       .eq("user_id", user.id)
       .eq("project_id", id)
       .is("deleted_at", null)
@@ -62,7 +62,7 @@ export async function GET(
     surveyIds.length > 0
       ? await supabase
           .from("road_sections")
-          .select("id, survey_id, geom, section_index, length_m, avg_crack_width_mm, max_crack_width_mm, crack_length_m_by_type")
+          .select("id, survey_id, geom, section_index, pci_score, condition_category, recommended_intervention, priority_rank, length_m, avg_crack_width_mm, max_crack_width_mm, crack_length_m_by_type, possible_causes, recommended_mitigation, maintenance_priority, civil_severity")
           .in("survey_id", surveyIds)
       : { data: [] };
 
